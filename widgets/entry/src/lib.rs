@@ -7,7 +7,9 @@ use jellyfin::{
 };
 use jellyhaj_image::{JellyfinImage, JellyfinImageState};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageProtocolCache};
-use jellyhaj_widgets_core::{Config, FontSize, ItemWidget, JellyhajWidget, Wrapper};
+use jellyhaj_widgets_core::{
+    Config, FontSize, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
+};
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
     layout::{Rect, Size},
@@ -160,7 +162,7 @@ impl ItemWidget for Entry {
     }
 
     #[instrument(skip_all, name = "render_entry")]
-    fn render_item(
+    fn render_item_inner(
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
@@ -201,6 +203,18 @@ impl ItemWidget for Entry {
     }
     fn set_active(&mut self, active: bool) {
         self.active = active
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        false
+    }
+
+    fn accept_char(&mut self, _: char) {
+        unimplemented!()
+    }
+
+    fn accept_text(&mut self, _: String) {
+        unimplemented!()
     }
 }
 

@@ -99,7 +99,7 @@ members = [
   "widgets/item-grid",
   "widgets/item-list",
   "widgets/item-screen"
-]
+, "widgets/loading"]
 
 [workspace.dependencies]
 aws-lc-rs = {default-features = false, version = "1.13.3"}

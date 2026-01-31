@@ -1,7 +1,11 @@
-use std::cmp::min;
+use std::{
+    cmp::min,
+    ops::{Index, IndexMut},
+};
 
 use jellyhaj_widgets_core::{
-    DimensionsParameter, ItemWidget, JellyhajWidget, Wrapper, async_task::TaskSubmitter,
+    DimensionsParameter, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -27,6 +31,26 @@ impl<T: ItemWidget> ItemGrid<T> {
             item_size: <T as ItemWidget>::dimensions_static(dim),
             skip_rows: 0,
         }
+    }
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.items.get(index)
+    }
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.items.get_mut(index)
+    }
+}
+
+impl<T: ItemWidget> Index<usize> for ItemGrid<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.items[index]
+    }
+}
+
+impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.items[index]
     }
 }
 
@@ -189,7 +213,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
             .skip(self.skip_rows * self.width)
             .zip(position)
         {
-            item.render_item(
+            item.render_fallible(
                 Rect::from((position, self.item_size)),
                 buf,
                 TaskSubmitter::clone(&task).wrap_with(GridWrapper { index }),
@@ -221,5 +245,27 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
         Some(<T as ItemWidget>::dimensions_static(par).height + 4)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.get(self.current)
+            .map(|i| i.accepts_text_input())
+            .unwrap_or(false)
+    }
+
+    fn accept_char(&mut self, text: char) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_char(text);
+        }
+    }
+
+    fn accept_text(&mut self, text: String) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_text(text);
+        }
     }
 }

@@ -1,8 +1,12 @@
-use std::cmp::min;
+use std::{
+    cmp::min,
+    ops::{Index, IndexMut},
+};
 
 use jellyhaj_item_list::{ItemList, ItemListAction, ItemListData};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, Result, Wrapper, async_task::TaskSubmitter,
+    DimensionsParameter, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -18,6 +22,43 @@ pub struct ItemScreen<T: ItemWidget> {
     title: String,
     item_size: Size,
     offset: usize,
+}
+
+impl<T: ItemWidget> ItemScreen<T> {
+    pub fn new(
+        lists: Vec<ItemList<T>>,
+        current: usize,
+        title: String,
+        dim: DimensionsParameter<'_>,
+    ) -> Self {
+        Self {
+            lists,
+            current,
+            title,
+            item_size: <T as ItemWidget>::dimensions_static(dim),
+            offset: 0,
+        }
+    }
+    pub fn get(&self, index: usize) -> Option<&ItemList<T>> {
+        self.lists.get(index)
+    }
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemList<T>> {
+        self.lists.get_mut(index)
+    }
+}
+
+impl<T: ItemWidget> Index<usize> for ItemScreen<T> {
+    type Output = ItemList<T>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.lists[index]
+    }
+}
+
+impl<T: ItemWidget> IndexMut<usize> for ItemScreen<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.lists[index]
+    }
 }
 
 pub enum ItemScreenAction<T> {
@@ -204,5 +245,43 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
         }
         outer.render(area, buf);
         Ok(())
+    }
+
+    fn min_width(&self) -> Option<u16> {
+        Some(self.item_size.width + 8)
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        Some(self.item_size.height + 8)
+    }
+
+    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16> {
+        Some(<T as ItemWidget>::dimensions_static(par).width + 8)
+    }
+
+    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
+        Some(<T as ItemWidget>::dimensions_static(par).height + 8)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.get(self.current)
+            .map(|i| i.accepts_text_input())
+            .unwrap_or(false)
+    }
+
+    fn accept_char(&mut self, text: char) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_char(text);
+        }
+    }
+
+    fn accept_text(&mut self, text: String) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_text(text);
+        }
     }
 }

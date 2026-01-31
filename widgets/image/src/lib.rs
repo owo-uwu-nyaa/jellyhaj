@@ -223,4 +223,17 @@ impl JellyhajWidget for JellyfinImage {
     fn min_height_static(_par: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
         Some(1)
     }
+    #[inline(always)]
+    fn accepts_text_input(&self) -> bool {
+        false
+    }
+
+    fn accept_char(&mut self, _: char) {
+        unimplemented!()
+    }
+
+    fn accept_text(&mut self, _: String) {
+        unimplemented!()
+    }
+    
 }
