@@ -31,7 +31,7 @@ use tokio_rustls::{
     client::TlsStream,
     rustls::{ClientConfig, RootCertStore, pki_types::ServerName},
 };
-use tracing::{Instrument, error, error_span, instrument, warn};
+use tracing::{Instrument, error, error_span, info_span, warn};
 
 use crate::Result;
 
@@ -145,27 +145,37 @@ impl Connection {
         }
     }
 
-    #[instrument(skip_all)]
     pub async fn send_request(&self, req: Request<String>) -> Result<(BytesMut, Parts)> {
-        loop {
-            let mut state = self.inner.lock().await;
-            let resp = loop {
-                let inner = match state.deref_mut() {
-                    ConnectionInner::Disconnected => {
-                        let stream = get_stream(&self.host, self.port).await?;
-                        if self.tls {
-                            let stream = self
-                                .general_config
-                                .connect(self.host.clone(), stream)
-                                .await?;
-                            if let Some(b"h2") = stream.get_ref().1.alpn_protocol() {
-                                let (send, con) = hyper::client::conn::http2::handshake(
-                                    hyper_util::rt::TokioExecutor::new(),
-                                    hyper_util::rt::TokioIo::new(stream),
-                                )
-                                .await?;
-                                spawn_con(con);
-                                ConnectionInner::H2(send)
+        let uri = req.uri().to_string();
+        let span = info_span!("send_request", uri);
+        async move {
+            loop {
+                let mut state = self.inner.lock().await;
+                let resp = loop {
+                    let inner = match state.deref_mut() {
+                        ConnectionInner::Disconnected => {
+                            let stream = get_stream(&self.host, self.port).await?;
+                            if self.tls {
+                                let stream = self
+                                    .general_config
+                                    .connect(self.host.clone(), stream)
+                                    .await?;
+                                if let Some(b"h2") = stream.get_ref().1.alpn_protocol() {
+                                    let (send, con) = hyper::client::conn::http2::handshake(
+                                        hyper_util::rt::TokioExecutor::new(),
+                                        hyper_util::rt::TokioIo::new(stream),
+                                    )
+                                    .await?;
+                                    spawn_con(con);
+                                    ConnectionInner::H2(send)
+                                } else {
+                                    let (send, con) = hyper::client::conn::http1::handshake(
+                                        hyper_util::rt::TokioIo::new(stream),
+                                    )
+                                    .await?;
+                                    spawn_con(con);
+                                    ConnectionInner::H1(send)
+                                }
                             } else {
                                 let (send, con) = hyper::client::conn::http1::handshake(
                                     hyper_util::rt::TokioIo::new(stream),
@@ -174,45 +184,38 @@ impl Connection {
                                 spawn_con(con);
                                 ConnectionInner::H1(send)
                             }
-                        } else {
-                            let (send, con) = hyper::client::conn::http1::handshake(
-                                hyper_util::rt::TokioIo::new(stream),
-                            )
-                            .await?;
-                            spawn_con(con);
-                            ConnectionInner::H1(send)
                         }
-                    }
-                    ConnectionInner::H2(send_request) => {
-                        if let Err(e) = send_request.ready().await {
-                            let uri =req.uri().to_string();
-                            error!(uri,"error sending request: {e:?}");
-                            ConnectionInner::Disconnected
-                        } else {
-                            break send_request.send_request(req.clone()).left_future();
+                        ConnectionInner::H2(send_request) => {
+                            if let Err(e) = send_request.ready().await {
+                                error!("error sending request: {e:?}");
+                                ConnectionInner::Disconnected
+                            } else {
+                                break send_request.send_request(req.clone()).left_future();
+                            }
                         }
-                    }
-                    ConnectionInner::H1(send_request) => {
-                        if let Err(e) = send_request.ready().await {
-                            let uri =req.uri().to_string();
-                            error!(uri,"error sending request: {e:?}");
-                            ConnectionInner::Disconnected
-                        } else {
-                            break send_request.send_request(req.clone()).right_future();
+                        ConnectionInner::H1(send_request) => {
+                            if let Err(e) = send_request.ready().await {
+                                error!("error sending request: {e:?}");
+                                ConnectionInner::Disconnected
+                            } else {
+                                break send_request.send_request(req.clone()).right_future();
+                            }
                         }
-                    }
+                    };
+                    *state = inner;
                 };
-                *state = inner;
-            };
-            drop(state);
-            match resp.await {
-                Ok(resp) => return recv_response(check_status(resp)?).await,
-                Err(e) => {
-                    warn!("received connection error: {e:?}");
-                    warn!("retrying request");
+                drop(state);
+                match resp.await {
+                    Ok(resp) => return recv_response(check_status(resp)?).await,
+                    Err(e) => {
+                        warn!("received connection error: {e:?}");
+                        warn!("retrying request");
+                    }
                 }
             }
         }
+        .instrument(span)
+        .await
     }
 }
 
