@@ -1,4 +1,8 @@
-use std::{ops::{Deref, DerefMut}, pin::pin, task::Poll};
+use std::{
+    ops::{Deref, DerefMut},
+    pin::pin,
+    task::Poll,
+};
 
 use crate::Wrapper;
 use color_eyre::Result;
@@ -8,7 +12,7 @@ pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use pin_project_lite::pin_project;
 use spawn::Spawner;
 use std::result::Result as StdResult;
-use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned, DropGuard};
+use tokio_util::sync::{CancellationToken, DropGuard, WaitForCancellationFutureOwned};
 use tracing::Span;
 
 pin_project! {
@@ -83,12 +87,12 @@ impl<T: Send + 'static> Wrapper<T> for IdWrapper {
     }
 }
 
-pub struct EventReceiver<T>{
+pub struct EventReceiver<T> {
     receiver: Receiver<Result<T>>,
-    _cancel: DropGuard
+    _cancel: DropGuard,
 }
 
-impl<T> Deref for EventReceiver<T>{
+impl<T> Deref for EventReceiver<T> {
     type Target = Receiver<Result<T>>;
 
     fn deref(&self) -> &Self::Target {
@@ -96,33 +100,33 @@ impl<T> Deref for EventReceiver<T>{
     }
 }
 
-impl<T> DerefMut for EventReceiver<T>{
+impl<T> DerefMut for EventReceiver<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.receiver
     }
 }
 
-impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
-    pub fn new_pair<T: Send + 'static>(
-        spawner: Spawner,
-    ) -> (TaskSubmitter<T, IdWrapper>, EventReceiver<T>) {
-        let (sender, receiver) = channel(16);
-        let cancel = CancellationToken::new();
-        let receiver = EventReceiver{
-            receiver,
-            _cancel: cancel.clone().drop_guard(),
-        };
-        (
-            TaskSubmitter {
-                wrapper: IdWrapper,
-                sender,
-                spawner,
-                cancel,
-            },
-            receiver,
-        )
-    }
+pub fn new_task_pair<T: Send + 'static>(
+    spawner: Spawner,
+) -> (TaskSubmitter<T, IdWrapper>, EventReceiver<T>) {
+    let (sender, receiver) = channel(16);
+    let cancel = CancellationToken::new();
+    let receiver = EventReceiver {
+        receiver,
+        _cancel: cancel.clone().drop_guard(),
+    };
+    (
+        TaskSubmitter {
+            wrapper: IdWrapper,
+            sender,
+            spawner,
+            cancel,
+        },
+        receiver,
+    )
+}
 
+impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
     pub fn wrap_with<AN, WN: Wrapper<AN, F = A>>(
         self,
         wrapper: WN,

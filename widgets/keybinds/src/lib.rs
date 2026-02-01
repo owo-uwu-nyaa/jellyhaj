@@ -47,6 +47,28 @@ pub struct KeybindWidget<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, 
     current_view: usize,
 }
 
+impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
+    KeybindWidget<'e, T, W, M>
+{
+    pub fn new(
+        inner: W,
+        help_prefixes: &'e [String],
+        top: BindingMap<T>,
+        minor: Vec<BindingMap<T>>,
+        mapper: M,
+    ) -> Self {
+        Self {
+            inner,
+            help_prefixes,
+            top,
+            next_maps: Vec::new(),
+            minor,
+            mapper,
+            current_view: 0,
+        }
+    }
+}
+
 impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget
     for KeybindWidget<'e, T, W, M>
 {

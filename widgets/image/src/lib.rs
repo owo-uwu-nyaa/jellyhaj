@@ -235,5 +235,4 @@ impl JellyhajWidget for JellyfinImage {
     fn accept_text(&mut self, _: String) {
         unimplemented!()
     }
-    
 }

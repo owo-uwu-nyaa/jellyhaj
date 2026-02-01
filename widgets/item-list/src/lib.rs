@@ -244,8 +244,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
     }
 
     fn accepts_text_input(&self) -> bool {
-        self
-            .get(self.current)
+        self.get(self.current)
             .map(|i| i.accepts_text_input())
             .unwrap_or(false)
     }

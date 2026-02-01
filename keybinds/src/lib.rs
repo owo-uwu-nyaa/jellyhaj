@@ -1,16 +1,15 @@
 pub mod parse_config;
-pub mod stream;
-pub mod widget;
 
 use color_eyre::Result;
 use crossterm::event::{EventStream, KeyCode};
-use ratatui_fallible_widget::FallibleWidget;
+use futures_util::Stream;
 use std::{
     collections::BTreeMap,
     fmt::{Debug, Display},
+    pin::Pin,
     sync::Arc,
+    task::Poll,
 };
-use tracing::{Span, debug, info_span};
 
 pub use futures_util::StreamExt;
 
@@ -112,75 +111,26 @@ impl KeybindEvents {
     }
 }
 
-pub struct KeybindEventStream<'e, T: Command, W: FallibleWidget> {
-    keybind_events: &'e mut KeybindEvents,
-    inner_widget: &'e mut W,
-    help_prefixes: &'e [String],
-    top: BindingMap<T>,
-    next_maps: Vec<BindingMap<T>>,
-    text_input: bool,
-    current_view: usize,
-    minor: Vec<BindingMap<T>>,
-    span: Span,
-}
+impl Stream for KeybindEvents {
+    type Item = std::result::Result<crossterm::event::Event, std::io::Error>;
 
-impl<'e, T: Command, W: FallibleWidget> KeybindEventStream<'e, T, W> {
-    pub fn new(
-        events: &'e mut KeybindEvents,
-        inner_widget: &'e mut W,
-        map: BindingMap<T>,
-        help_prefixes: &'e [String],
-    ) -> Self {
-        let span = info_span!("KeybindEventStream");
-        span.in_scope(|| debug!(?map, "new keybind stream with map"));
-        Self {
-            keybind_events: events,
-            inner_widget,
-            top: map,
-            next_maps: Vec::with_capacity(0),
-            text_input: false,
-            current_view: 0,
-            minor: Vec::with_capacity(0),
-            span,
-            help_prefixes,
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        if this.finished {
+            Poll::Ready(None)
+        } else {
+            match Pin::new(&mut this.events).poll_next(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(None) => {
+                    this.finished = true;
+                    Poll::Ready(None)
+                }
+                Poll::Ready(Some(v)) => Poll::Ready(Some(v)),
+            }
         }
-    }
-
-    pub fn new_with_minor(
-        events: &'e mut KeybindEvents,
-        inner_widget: &'e mut W,
-        map: BindingMap<T>,
-        minor: Vec<BindingMap<T>>,
-        help_prefixes: &'e [String],
-    ) -> Self {
-        let span = info_span!("KeybindEventStream");
-        span.in_scope(|| debug!(?map, ?minor, "new keybind stream with map"));
-        Self {
-            keybind_events: events,
-            inner_widget,
-            top: map,
-            next_maps: Vec::with_capacity(0),
-            text_input: false,
-            current_view: 0,
-            minor,
-            span,
-            help_prefixes,
-        }
-    }
-
-    pub fn set_text_input(&mut self, text_input: bool) {
-        self.text_input = text_input;
-    }
-
-    pub fn get_minor(&self) -> &Vec<BindingMap<T>> {
-        &self.minor
-    }
-
-    pub fn get_minor_mut(&mut self) -> &mut Vec<BindingMap<T>> {
-        &mut self.minor
-    }
-    pub fn get_inner(&mut self) -> &mut W {
-        self.inner_widget
     }
 }
 

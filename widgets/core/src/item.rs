@@ -1,9 +1,11 @@
-use ratatui::{buffer::Buffer, crossterm::event::{KeyModifiers, MouseEventKind}, layout::{Position, Rect, Size}};
+use ratatui::{
+    buffer::Buffer,
+    crossterm::event::{KeyModifiers, MouseEventKind},
+    layout::{Position, Rect, Size},
+};
 
 use crate::{DimensionsParameter, JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use color_eyre::{Result, eyre::ensure};
-
-
 
 pub trait ItemWidget {
     type State;
@@ -113,5 +115,4 @@ impl<I: ItemWidget> JellyhajWidget for I {
     fn accept_text(&mut self, text: String) {
         ItemWidget::accept_text(self, text);
     }
-
 }

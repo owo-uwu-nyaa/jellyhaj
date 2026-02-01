@@ -1,14 +1,9 @@
 [dependencies]
 color-eyre = {workspace = true}
 crossterm = {workspace = true}
-either = {workspace = true}
 futures-util = {workspace = true}
-itertools = {workspace = true}
 keybinds-derive = {path = "../keybinds-derive"}
-ratatui = {workspace = true}
-ratatui-fallible-widget = {path = "../ratatui-fallible-widget"}
 serde = {workspace = true}
-tracing = {workspace = true}
 
 [package]
 edition = "2024"
