@@ -22,6 +22,13 @@ pub trait Wrapper<C>: Clone + Copy + Send + Sync + 'static {
     fn wrap(&self, val: C) -> Self::F;
 }
 
+impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R> Wrapper<A> for F {
+    type F = R;
+    fn wrap(&self, val: A) -> Self::F {
+        self(val)
+    }
+}
+
 pub trait JellyhajWidget {
     type State;
     type Action: Send + 'static;

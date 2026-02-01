@@ -1,0 +1,12 @@
+[package]
+name = "jellyhaj-keybinds-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+itertools.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+keybinds = { version = "0.1.0", path = "../../keybinds" }
+ratatui.workspace = true
+tracing.workspace = true

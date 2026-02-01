@@ -1858,6 +1858,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-keybinds-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "itertools 0.14.0",
+ "jellyhaj-widgets-core",
+ "keybinds",
+ "ratatui",
+ "tracing",
+]
+
+[[package]]
 name = "jellyhaj-loading"
 version = "0.1.0"
 dependencies = [
@@ -1867,6 +1879,17 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jellyhaj-login-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-widgets-core",
+ "ratatui",
+ "serde",
 ]
 
 [[package]]
