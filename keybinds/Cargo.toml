@@ -1,7 +1,7 @@
 [dependencies]
 color-eyre = {workspace = true}
 crossterm = {workspace = true}
-futures-util = {workspace = true}
+futures-core.workspace = true
 keybinds-derive = {path = "../keybinds-derive"}
 serde = {workspace = true}
 

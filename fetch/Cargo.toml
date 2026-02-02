@@ -1,11 +1,13 @@
 [dependencies]
 color-eyre = {workspace = true}
-futures-util = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
 jellyhaj-core = {path = "../jellyhaj-core"}
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../widgets/keybinds" }
+jellyhaj-loading-widget = { version = "0.1.0", path = "../widgets/loading" }
+jellyhaj-render-widgets = { version = "0.1.0", path = "../widgets/render" }
 keybinds = {path = "../keybinds"}
-ratatui = {workspace = true}
-ratatui-fallible-widget = {path = "../ratatui-fallible-widget"}
+ratatui.workspace = true
+spawn = { version = "0.1.0", path = "../spawn" }
 tokio = {features = ["macros"], workspace = true}
 tracing = {workspace = true}
 

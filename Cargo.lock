@@ -891,19 +891,6 @@ name = "entries"
 version = "0.1.0"
 
 [[package]]
-name = "entry"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "jellyfin",
- "jellyhaj-image",
- "jellyhaj-widgets-core",
- "ratatui",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "enumflags2"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1037,12 +1024,14 @@ name = "fetch"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "futures-util",
  "jellyfin",
  "jellyhaj-core",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-loading-widget",
+ "jellyhaj-render-widgets",
  "keybinds",
  "ratatui",
- "ratatui-fallible-widget",
+ "spawn",
  "tokio",
  "tracing",
 ]
@@ -1797,6 +1786,12 @@ dependencies = [
  "either",
  "image",
  "jellyfin",
+ "jellyhaj-entry-widget",
+ "jellyhaj-image",
+ "jellyhaj-item-list",
+ "jellyhaj-item-screen",
+ "jellyhaj-render-widgets",
+ "jellyhaj-widgets-core",
  "keybinds",
  "libmpv",
  "parking_lot",
@@ -1805,6 +1800,19 @@ dependencies = [
  "ratatui-image",
  "sqlx",
  "stats-data",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "jellyhaj-entry-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-image",
+ "jellyhaj-widgets-core",
+ "ratatui",
  "tokio",
  "tracing",
 ]
@@ -1870,7 +1878,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jellyhaj-loading"
+name = "jellyhaj-loading-widget"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
@@ -1890,6 +1898,21 @@ dependencies = [
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",
+]
+
+[[package]]
+name = "jellyhaj-render-widgets"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "either",
+ "futures-util",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
+ "keybinds",
+ "pin-project-lite",
+ "ratatui",
+ "spawn",
 ]
 
 [[package]]
@@ -1946,7 +1969,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "crossterm",
- "futures-util",
+ "futures-core",
  "keybinds-derive",
  "serde",
 ]
@@ -3127,21 +3150,6 @@ name = "regex-syntax"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
-
-[[package]]
-name = "render"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "either",
- "futures-util",
- "jellyhaj-keybinds-widget",
- "jellyhaj-widgets-core",
- "keybinds",
- "pin-project-lite",
- "ratatui",
- "spawn",
-]
 
 [[package]]
 name = "ring"

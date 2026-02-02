@@ -19,6 +19,7 @@ pub enum KeybindAction<A: Send + 'static> {
 pub enum CommandAction<U: Send + 'static, A> {
     Action(A),
     Up(U),
+    Exit
 }
 
 pub trait CommandMapper<T: Command> {
@@ -54,6 +55,22 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
         inner: W,
         help_prefixes: &'e [String],
         top: BindingMap<T>,
+        mapper: M,
+    ) -> Self {
+        Self {
+            inner,
+            help_prefixes,
+            top,
+            next_maps: Vec::new(),
+            minor: Vec::new(),
+            mapper,
+            current_view: 0,
+        }
+    }
+    pub fn new_with_minor(
+        inner: W,
+        help_prefixes: &'e [String],
+        top: BindingMap<T>,
         minor: Vec<BindingMap<T>>,
         mapper: M,
     ) -> Self {
@@ -67,6 +84,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
             current_view: 0,
         }
     }
+
 }
 
 impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget

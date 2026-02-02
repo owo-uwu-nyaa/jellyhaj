@@ -2,7 +2,7 @@ pub mod parse_config;
 
 use color_eyre::Result;
 use crossterm::event::{EventStream, KeyCode};
-use futures_util::Stream;
+use futures_core::Stream;
 use std::{
     collections::BTreeMap,
     fmt::{Debug, Display},
@@ -11,7 +11,6 @@ use std::{
     task::Poll,
 };
 
-pub use futures_util::StreamExt;
 
 ///reexport for proc macro
 #[doc(hidden)]
@@ -88,13 +87,6 @@ pub enum KeyBinding<T: Command> {
 pub enum Text {
     Char(char),
     Str(String),
-}
-
-#[derive(Debug, Clone)]
-pub enum KeybindEvent<T: Command> {
-    Render,
-    Command(T),
-    Text(Text),
 }
 
 pub struct KeybindEvents {

@@ -1,22 +1,22 @@
-use std::pin::pin;
-
 use color_eyre::{
     Result,
     eyre::{Context, OptionExt},
 };
-use futures_util::StreamExt;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
 };
 use jellyhaj_core::{keybinds::LoadingCommand, state::Navigation};
-use keybinds::{BindingMap, KeybindEvent, KeybindEventStream, KeybindEvents};
-use ratatui::{
-    DefaultTerminal,
-    widgets::{Block, Paragraph},
-};
-use ratatui_fallible_widget::TermExt;
+use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
+use jellyhaj_loading_widget::Loading;
+use jellyhaj_render_widgets::TermExt;
+use keybinds::{BindingMap, KeybindEvents};
+use ratatui::DefaultTerminal;
+use spawn::Spawner;
+use tokio::select;
 use tracing::instrument;
+
+struct QuitAction;
 
 pub async fn fetch_screen(
     title: &str,
@@ -25,26 +25,30 @@ pub async fn fetch_screen(
     keybinds: BindingMap<LoadingCommand>,
     term: &mut DefaultTerminal,
     help_prefixes: &[String],
+    spawner: Spawner,
 ) -> Result<Navigation> {
-    let mut msg = Paragraph::new(title).centered().block(Block::bordered());
-    let mut fetch = pin!(fetch);
-    let mut events = KeybindEventStream::new(events, &mut msg, keybinds, help_prefixes);
-    loop {
-        term.draw_fallible(&mut events)?;
-        tokio::select! {
-            data = &mut fetch => {
-                break data
-            }
-            term = events.next() => {
-                match term {
-                    Some(Ok(KeybindEvent::Command(LoadingCommand::Quit))) => break Ok(Navigation::PopContext),
-                    Some(Ok(KeybindEvent::Render)) => continue,
-                    Some(Ok(KeybindEvent::Text(_))) => unimplemented!(),
-                    Some(Err(e)) => break Err(e).context("Error getting key events from terminal"),
-                    None => break Ok(Navigation::Exit),
-                }
-            }
-        }
+    async fn render(
+        title: &str,
+        events: &mut KeybindEvents,
+        keybinds: BindingMap<LoadingCommand>,
+        term: &mut DefaultTerminal,
+        help_prefixes: &[String],
+        spawner: Spawner,
+    ) -> Result<Navigation> {
+        let mut widget = KeybindWidget::new(
+            Loading::new(title),
+            help_prefixes,
+            keybinds,
+            |LoadingCommand::Quit| MappedCommand::Up(QuitAction),
+        );
+        Ok(match term.render(&mut widget, events, spawner).await? {
+            CommandAction::Up(QuitAction) => Navigation::PopContext,
+            CommandAction::Exit => Navigation::Exit,
+        })
+    }
+    select! {
+        v = fetch => v,
+        v = render(title, events, keybinds, term, help_prefixes, spawner) => v
     }
 }
 

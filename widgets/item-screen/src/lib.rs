@@ -70,6 +70,7 @@ pub enum ItemScreenAction<T> {
     Down,
 }
 
+#[derive(Debug)]
 pub struct ItemScreenData<T> {
     pub lists: Vec<ItemListData<T>>,
     pub title: String,

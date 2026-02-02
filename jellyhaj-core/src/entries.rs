@@ -1,447 +1,170 @@
-use entries::entry::{Entry, EntryInner};
 use jellyfin::items::{ItemType, MediaItem};
+use jellyhaj_entry_widget::{EntryData, EntryResult};
 
 use crate::state::{LoadPlay, NextScreen};
 
 pub trait EntryExt {
     fn item_id(&self) -> Option<&str>;
-    fn play(&self) -> Option<NextScreen>;
-    fn open(&self) -> NextScreen;
-    fn play_open(&self) -> NextScreen;
-    fn episode(&self) -> Option<NextScreen>;
-    fn season(&self) -> Option<NextScreen>;
-    fn series(&self) -> Option<NextScreen>;
 }
 
-impl EntryExt for Entry {
-    fn item_id(&self) -> Option<&str> {
-        match self.inner() {
-            EntryInner::Item(media_item) => Some(media_item.id.as_str()),
-            EntryInner::View(_) => None,
-        }
-    }
-    fn play(&self) -> Option<NextScreen> {
-        match self.inner() {
-            EntryInner::View(_) => None,
-            EntryInner::Item(item) => Some(play(item)),
-        }
-    }
-    fn open(&self) -> NextScreen {
-        match self.inner() {
-            EntryInner::View(view) => NextScreen::LoadUserView(view.clone()),
-            EntryInner::Item(item) => open(item),
-        }
-    }
-    fn play_open(&self) -> NextScreen {
-        match self.inner() {
-            EntryInner::View(view) => NextScreen::LoadUserView(view.clone()),
-            EntryInner::Item(item) => play(item),
-        }
-    }
-    fn episode(&self) -> Option<NextScreen> {
-        match self.inner() {
-            EntryInner::Item(i) => Some(episode(i)),
-            _ => None,
-        }
-    }
-    fn season(&self) -> Option<NextScreen> {
-        match self.inner() {
-            EntryInner::Item(i) => season(i),
-            _ => None,
-        }
-    }
-    fn series(&self) -> Option<NextScreen> {
-        match self.inner() {
-            EntryInner::Item(i) => series(i),
-            _ => None,
+pub trait EntryResultExt {
+    fn to_next_screen(self) -> Option<NextScreen>;
+}
+
+impl EntryResultExt for EntryResult {
+    fn to_next_screen(self) -> Option<NextScreen> {
+        match self {
+            EntryResult::Activate(EntryData::Item(item)) => Some(play_item(item)),
+            EntryResult::Activate(EntryData::View(view)) => Some(NextScreen::LoadUserView(view)),
+            EntryResult::Play(EntryData::Item(item)) => Some(play_item(item)),
+            EntryResult::Open(EntryData::Item(item)) => Some(open_item(item)),
+            EntryResult::Open(EntryData::View(view)) => Some(NextScreen::LoadUserView(view)),
+            EntryResult::OpenSeries(EntryData::Item(item)) => item_series(item),
+            EntryResult::OpenSeason(EntryData::Item(item)) => item_season(item),
+            EntryResult::OpenEpisode(EntryData::Item(item)) => Some(item_episode(item)),
+            EntryResult::Play(EntryData::View(_))
+            | EntryResult::OpenSeries(EntryData::View(_))
+            | EntryResult::OpenSeason(EntryData::View(_))
+            | EntryResult::OpenEpisode(EntryData::View(_)) => None,
         }
     }
 }
-pub fn play(item: &MediaItem) -> NextScreen {
+
+impl EntryExt for EntryData {
+    fn item_id(&self) -> Option<&str> {
+        match self {
+            EntryData::Item(media_item) => Some(media_item.id.as_str()),
+            EntryData::View(_) => None,
+        }
+    }
+}
+pub fn play_item(item: MediaItem) -> NextScreen {
     NextScreen::LoadPlayItem(match item {
         v @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Movie,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Movie(v.clone()),
+            ..
+        } => LoadPlay::Movie(v),
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Playlist | ItemType::Folder,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Playlist { id: id.clone() },
+            ..
+        } => LoadPlay::Playlist { id },
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Series,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Series { id: id.clone() },
+            ..
+        } => LoadPlay::Series { id },
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Season {
-                    series_id,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Season {
-            series_id: series_id.clone(),
-            id: id.clone(),
-        },
+            item_type: ItemType::Season { series_id, .. },
+            ..
+        } => LoadPlay::Season { series_id, id },
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Episode {
-                    season_id: _,
-                    season_name: _,
-                    series_id,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Episode {
-            series_id: series_id.clone(),
-            id: id.clone(),
-        },
+            item_type: ItemType::Episode { series_id, .. },
+            ..
+        } => LoadPlay::Episode { series_id, id },
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type: ItemType::Music { album_id, album: _ },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::Music {
-            id: id.clone(),
-            album_id: album_id.clone(),
-        },
+            item_type: ItemType::Music { album_id, .. },
+            ..
+        } => LoadPlay::Music { id, album_id },
         MediaItem {
             id,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::MusicAlbum,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => LoadPlay::MusicAlbum { id: id.clone() },
+            ..
+        } => LoadPlay::MusicAlbum { id },
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Unknown | ItemType::CollectionFolder,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
+            ..
         } => return NextScreen::UnsupportedItem,
     })
 }
 
-fn open(item: &MediaItem) -> NextScreen {
+fn open_item(item: MediaItem) -> NextScreen {
     match item {
         v @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Movie
-                | ItemType::Music {
-                    album_id: _,
-                    album: _,
-                }
-                | ItemType::Episode {
-                    season_id: _,
-                    season_name: _,
-                    series_id: _,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => NextScreen::ItemDetails(v.clone()),
+            item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
+            ..
+        } => NextScreen::ItemDetails(v),
         v @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type:
                 ItemType::Playlist
                 | ItemType::Folder
                 | ItemType::Series
                 | ItemType::MusicAlbum
                 | ItemType::CollectionFolder
-                | ItemType::Season {
-                    series_id: _,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => NextScreen::FetchItemListDetails(v.clone()),
+                | ItemType::Season { .. },
+            ..
+        } => NextScreen::FetchItemListDetails(v),
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Unknown,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
+            ..
         } => NextScreen::UnsupportedItem,
     }
 }
-fn episode(item: &MediaItem) -> NextScreen {
+fn item_episode(item: MediaItem) -> NextScreen {
     match item {
         v @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Movie
-                | ItemType::Music {
-                    album_id: _,
-                    album: _,
-                }
-                | ItemType::Episode {
-                    season_id: _,
-                    season_name: _,
-                    series_id: _,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => NextScreen::ItemDetails(v.clone()),
+            item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
+            ..
+        } => NextScreen::ItemDetails(v),
         i @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type:
-                ItemType::Playlist
-                | ItemType::MusicAlbum
-                | ItemType::Series
-                | ItemType::Season {
-                    series_id: _,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => NextScreen::ItemDetails(i.clone()),
+                ItemType::Playlist | ItemType::MusicAlbum | ItemType::Series | ItemType::Season { .. },
+            ..
+        } => NextScreen::ItemDetails(i),
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Unknown | ItemType::Folder | ItemType::CollectionFolder,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
+            ..
         } => NextScreen::UnsupportedItem,
     }
 }
 
-pub fn season(item: &MediaItem) -> Option<NextScreen> {
+pub fn item_season(item: MediaItem) -> Option<NextScreen> {
     match item {
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type:
                 ItemType::Episode {
                     season_id: Some(id),
-                    season_name: _,
-                    series_id: _,
-                    series_name: _,
+                    ..
                 },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetailsRef(id.clone())),
+            ..
+        } => Some(NextScreen::FetchItemListDetailsRef(id)),
         i @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Season {
-                    series_id: _,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetails(i.clone())),
+            item_type: ItemType::Season { .. },
+            ..
+        } => Some(NextScreen::FetchItemListDetails(i)),
         i @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Series,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetails(i.clone())),
+            ..
+        } => Some(NextScreen::FetchItemListDetails(i)),
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type: ItemType::Music { album_id, album: _ },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetailsRef(album_id.clone())),
+            item_type: ItemType::Music { album_id, .. },
+            ..
+        } => Some(NextScreen::FetchItemListDetailsRef(album_id)),
         i @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::MusicAlbum,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetails(i.clone())),
+            ..
+        } => Some(NextScreen::FetchItemListDetails(i)),
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Unknown | ItemType::CollectionFolder,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
+            ..
         } => Some(NextScreen::UnsupportedItem),
         _ => None,
     }
 }
 
-fn series(item: &MediaItem) -> Option<NextScreen> {
+fn item_series(item: MediaItem) -> Option<NextScreen> {
     match item {
         MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
-            item_type:
-                ItemType::Episode {
-                    season_id: _,
-                    season_name: _,
-                    series_id,
-                    series_name: _,
-                }
-                | ItemType::Season {
-                    series_id,
-                    series_name: _,
-                },
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
+            item_type: ItemType::Episode { series_id, .. } | ItemType::Season { series_id, .. },
+            ..
         } => Some(NextScreen::FetchItemListDetailsRef(series_id.clone())),
         i @ MediaItem {
-            id: _,
-            image_tags: _,
-            media_type: _,
-            name: _,
-            sort_name: _,
-            overview: _,
             item_type: ItemType::Series,
-            user_data: _,
-            episode_index: _,
-            season_index: _,
-            run_time_ticks: _,
-        } => Some(NextScreen::FetchItemListDetails(i.clone())),
+            ..
+        } => Some(NextScreen::FetchItemListDetails(i)),
         _ => None,
     }
 }

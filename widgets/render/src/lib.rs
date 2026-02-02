@@ -7,7 +7,7 @@ use color_eyre::{Report, Result};
 use either::Either;
 use futures_util::Stream;
 use futures_util::StreamExt;
-use jellyhaj_keybinds_widget::KeybindAction;
+use jellyhaj_keybinds_widget::{CommandAction, KeybindAction};
 use jellyhaj_widgets_core::{
     JellyhajWidget, JellyhajWidgetExt,
     async_task::{EventReceiver, IdWrapper, TaskSubmitter, new_task_pair},
@@ -23,12 +23,17 @@ use spawn::Spawner;
 use std::ops::DerefMut;
 
 pub trait TermExt {
-    fn render<A: Send + 'static, W: Send + JellyhajWidget<Action = KeybindAction<A>>>(
+    fn render<
+        A: Send + 'static,
+        R: Send + 'static,
+        M,
+        W: Send + JellyhajWidget<Action = KeybindAction<A>, ActionResult = CommandAction<R, M>>,
+    >(
         &mut self,
         widget: &mut W,
         events: &mut KeybindEvents,
         spawner: Spawner,
-    ) -> impl Future<Output = Result<Option<W::ActionResult>>> + Send;
+    ) -> impl Future<Output = Result<CommandAction<R, M>>> + Send;
 }
 
 pin_project! {
@@ -75,12 +80,17 @@ impl<'e, A: Send> Stream for SelectStream<'e, A> {
 }
 
 impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
-    async fn render<A: Send + 'static, W: Send + JellyhajWidget<Action = KeybindAction<A>>>(
+    async fn render<
+        A: Send + 'static,
+        R: Send + 'static,
+        M,
+        W: Send + JellyhajWidget<Action = KeybindAction<A>, ActionResult = CommandAction<R, M>>,
+    >(
         &mut self,
         widget: &mut W,
         events: &mut KeybindEvents,
         spawner: Spawner,
-    ) -> Result<Option<W::ActionResult>> {
+    ) -> Result<CommandAction<R, M>> {
         let (task, receiver) = new_task_pair::<KeybindAction<A>>(spawner);
         draw(self, widget, task.clone())?;
         let mut stream = pin!(SelectStream {
@@ -98,11 +108,12 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                     modifiers: KeyModifiers::CONTROL,
                     kind: KeyEventKind::Press | KeyEventKind::Repeat,
                     state: _,
-                }))) => return Ok(None),
+                }))) => return Ok(CommandAction::Exit),
                 Either::Left(Ok(Event::Key(key))) => {
                     match widget.apply_action(KeybindAction::Key(key)) {
                         Ok(None) => {}
-                        r => return r,
+                        Ok(Some(v)) => return Ok(v),
+                        Err(e) => return Err(e),
                     }
                 }
                 Either::Left(Ok(Event::Mouse(MouseEvent {
@@ -114,7 +125,8 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                     let size = self.current_buffer_mut().area.as_size();
                     match widget.click((column, row).into(), size, kind, modifiers) {
                         Ok(None) => {}
-                        r => return r,
+                        Ok(Some(v)) => return Ok(v),
+                        Err(e) => return Err(e),
                     }
                 }
                 Either::Left(Ok(Event::Paste(v))) => {
@@ -126,7 +138,8 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                 Either::Right(Err(e)) => return Err(e),
                 Either::Right(Ok(action)) => match widget.apply_action(action) {
                     Ok(None) => {}
-                    r => return r,
+                    Ok(Some(v)) => return Ok(v),
+                    Err(e) => return Err(e),
                 },
             }
             draw(self, widget, task.clone())?

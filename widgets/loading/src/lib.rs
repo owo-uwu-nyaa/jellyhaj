@@ -10,17 +10,17 @@ use ratatui::widgets::{Block, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
 
-pub struct Loading {
-    title: String,
+pub struct Loading<'s> {
+    title: &'s str,
     timeout: u8,
     lines: Vec<u16>,
     max: u16,
     spawned: bool,
 }
 
-impl Loading {
-    pub fn new(title: String) -> Self {
-        Self {
+impl Loading<'_> {
+    pub fn new<'s>(title: &'s str) -> Loading<'s> {
+        Loading {
             title,
             timeout: 0,
             lines: Vec::new(),
@@ -46,8 +46,8 @@ fn draw_line_right(y: u16, x_start: u16, x_end: u16, buf: &mut ratatui::prelude:
     }
 }
 
-impl JellyhajWidget for Loading {
-    type State = String;
+impl<'s> JellyhajWidget for Loading<'s> {
+    type State = &'s str;
     type Action = AdvanceLoadingScreen;
     type ActionResult = Infallible;
 
@@ -111,7 +111,7 @@ impl JellyhajWidget for Loading {
             });
             task.spawn_stream(timer, info_span!("update"))
         }
-        let outer = Block::bordered().title(self.title.as_str());
+        let outer = Block::bordered().title(self.title);
         let main = outer.inner(area);
         self.max = max(main.width, main.height).div_ceil(2) - 1;
         let center_x = main.x + main.width / 2;

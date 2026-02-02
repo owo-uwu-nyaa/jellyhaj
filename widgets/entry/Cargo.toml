@@ -9,5 +9,5 @@ tracing.workspace = true
 
 [package]
 edition = "2024"
-name = "entry"
+name = "jellyhaj-entry-widget"
 version = "0.1.0"

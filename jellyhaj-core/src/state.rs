@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use color_eyre::{Result, eyre::Report};
-use entries::{image::available::ImagesAvailable, list::EntryList, screen::EntryScreen};
 use jellyfin::{
     items::{MediaItem, RefreshItemQuery},
     user_views::UserView,
 };
+use jellyhaj_entry_widget::EntryData;
+use jellyhaj_item_list::ItemListData;
+use jellyhaj_item_screen::ItemScreenData;
 use tracing::{debug, instrument};
 
 #[allow(clippy::large_enum_variant)]
@@ -29,7 +31,7 @@ pub enum NextScreen {
         views: Vec<UserView>,
         latest: HashMap<String, Vec<MediaItem>>,
     },
-    HomeScreen(EntryScreen, ImagesAvailable),
+    HomeScreen(ItemScreenData<EntryData>),
     LoadUserView(UserView),
     UserView {
         view: UserView,
@@ -43,7 +45,7 @@ pub enum NextScreen {
     Error(Report),
     ItemDetails(MediaItem),
     ItemListDetailsData(MediaItem, Vec<MediaItem>),
-    ItemListDetails(MediaItem, EntryList, ImagesAvailable),
+    ItemListDetails(MediaItem, ItemListData<EntryData>),
     FetchItemListDetails(MediaItem),
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),

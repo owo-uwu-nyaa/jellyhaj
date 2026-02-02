@@ -66,6 +66,7 @@ pub enum ItemListAction<T> {
     Right,
 }
 
+#[derive(Debug)]
 pub struct ItemListData<T> {
     pub items: Vec<T>,
     pub title: String,
