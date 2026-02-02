@@ -16,6 +16,7 @@ parking_lot = {workspace = true}
 player-core = {path = "../player-core"}
 ratatui = {workspace = true}
 ratatui-image = {workspace = true}
+spawn = { version = "0.1.0", path = "../spawn" }
 sqlx = {workspace = true}
 stats-data = {path = "../stats-data", version = "0.1.0"}
 tokio = {workspace = true}

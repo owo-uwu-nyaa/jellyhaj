@@ -6,51 +6,7 @@ use jellyfin::{
     JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
 };
-use jellyhaj_core::{keybinds::LoadingCommand, state::Navigation};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_loading_widget::Loading;
-use jellyhaj_render_widgets::TermExt;
-use keybinds::{BindingMap, KeybindEvents};
-use ratatui::DefaultTerminal;
-use spawn::Spawner;
-use tokio::select;
 use tracing::instrument;
-
-struct QuitAction;
-
-pub async fn fetch_screen(
-    title: &str,
-    fetch: impl Future<Output = Result<Navigation>>,
-    events: &mut KeybindEvents,
-    keybinds: BindingMap<LoadingCommand>,
-    term: &mut DefaultTerminal,
-    help_prefixes: &[String],
-    spawner: Spawner,
-) -> Result<Navigation> {
-    async fn render(
-        title: &str,
-        events: &mut KeybindEvents,
-        keybinds: BindingMap<LoadingCommand>,
-        term: &mut DefaultTerminal,
-        help_prefixes: &[String],
-        spawner: Spawner,
-    ) -> Result<Navigation> {
-        let mut widget = KeybindWidget::new(
-            Loading::new(title),
-            help_prefixes,
-            keybinds,
-            |LoadingCommand::Quit| MappedCommand::Up(QuitAction),
-        );
-        Ok(match term.render(&mut widget, events, spawner).await? {
-            CommandAction::Up(QuitAction) => Navigation::PopContext,
-            CommandAction::Exit => Navigation::Exit,
-        })
-    }
-    select! {
-        v = fetch => v,
-        v = render(title, events, keybinds, term, help_prefixes, spawner) => v
-    }
-}
 
 async fn single_item(jellyfin: &JellyfinClient, query: &GetItemsQuery<'_>) -> Result<MediaItem> {
     jellyfin

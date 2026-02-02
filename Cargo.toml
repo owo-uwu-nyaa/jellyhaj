@@ -6,7 +6,6 @@ path = "src/main.rs"
 ansi-to-tui = "8.0.0"
 bytes = {workspace = true}
 clap = {features = ["derive"], version = "4.5.23"}
-color-eyre = {workspace = true}
 config = {path = "config"}
 crossterm = {workspace = true}
 dirs = {workspace = true}
@@ -18,6 +17,9 @@ image = {workspace = true}
 item-view = {path = "item-view"}
 jellyfin = {path = "jellyfin-rs"}
 jellyhaj-core = {path = "jellyhaj-core"}
+jellyhaj-keybinds-widget = {path = "widgets/keybinds", version = "0.1.0"}
+jellyhaj-loading-widget = {path = "widgets/loading", version = "0.1.0"}
+jellyhaj-render-widgets = {path = "widgets/render", version = "0.1.0"}
 keybinds = {path = "keybinds"}
 log-screen = {path = "log-screen", version = "0.1.0"}
 login = {path = "login"}
@@ -27,7 +29,6 @@ player = {path = "player"}
 player-core = {path = "player-core"}
 player-jellyfin = {path = "player-jellyfin"}
 player-mpris = {optional = true, path = "player-mpris"}
-ratatui = {workspace = true}
 ratatui-fallible-widget = {path = "ratatui-fallible-widget"}
 ratatui-image = {workspace = true}
 rayon = {workspace = true}
@@ -36,7 +37,6 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 spawn = {path = "spawn"}
 sqlx = {workspace = true}
-stats-view = {path = "stats-view", version = "0.1.0"}
 tokio = {features = ["macros", "parking_lot", "rt", "signal", "time"], workspace = true}
 tokio-util = {workspace = true}
 toml = {workspace = true}
@@ -44,6 +44,8 @@ tracing = {workspace = true}
 tracing-error = "0.2.0"
 tracing-subscriber = {features = ["env-filter"], version = "=0.3.19"}
 user-view = {path = "user-view"}
+color-eyre.workspace = true
+ratatui.workspace = true
 tui-logger.workspace = true
 
 [features]
@@ -70,7 +72,6 @@ members = [
   "entries",
   "fetch",
   "home-screen",
-  "image-widget",
   "item-view",
   "jellyfin-rs",
   "jellyhaj-core",
@@ -91,15 +92,21 @@ members = [
   "serde-json-ratatui",
   "spawn",
   "stats-data",
-  "stats-view",
   "user-view",
+  "views/fetch", "views/home-screen", "views/login",
+  "views/stats",
   "widgets/core",
   "widgets/entry",
   "widgets/image",
   "widgets/item-grid",
   "widgets/item-list",
-  "widgets/item-screen"
-, "widgets/keybinds", "widgets/loading", "widgets/login", "widgets/render"]
+  "widgets/item-screen",
+  "widgets/keybinds",
+  "widgets/loading",
+  "widgets/login",
+  "widgets/render",
+  "widgets/stats"
+]
 
 [workspace.dependencies]
 aws-lc-rs = {default-features = false, version = "1.13.3"}

@@ -3,10 +3,9 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use jellyhaj_item_list::{ItemList, ItemListAction, ItemListData};
+pub use jellyhaj_item_list::{ItemList, ItemListAction, ItemListData, DimensionsParameter};
 use jellyhaj_widgets_core::{
-    DimensionsParameter, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, Wrapper,
-    async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -15,6 +14,7 @@ use ratatui::{
         StatefulWidget, Widget,
     },
 };
+
 
 pub struct ItemScreen<T: ItemWidget> {
     lists: Vec<ItemList<T>>,
@@ -26,13 +26,13 @@ pub struct ItemScreen<T: ItemWidget> {
 
 impl<T: ItemWidget> ItemScreen<T> {
     pub fn new(
-        lists: Vec<ItemList<T>>,
+        lists: impl IntoIterator<Item = ItemList<T>>,
         current: usize,
         title: String,
         dim: DimensionsParameter<'_>,
     ) -> Self {
         Self {
-            lists,
+            lists: lists.into_iter().collect(),
             current,
             title,
             item_size: <T as ItemWidget>::dimensions_static(dim),

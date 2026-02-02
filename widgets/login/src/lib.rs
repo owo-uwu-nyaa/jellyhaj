@@ -6,14 +6,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LoginInfo {
-    server_url: String,
-    username: String,
-    password: String,
-    password_cmd: Option<Vec<String>>,
+    pub server_url: String,
+    pub username: String,
+    pub password: String,
+    pub password_cmd: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LoginSelection {
+pub enum LoginSelection {
     Server,
     Username,
     Password,
@@ -25,6 +25,21 @@ pub struct LoginWidget<'s> {
     selection: LoginSelection,
     error: String,
     changed: bool,
+}
+
+impl<'s> LoginWidget<'s> {
+    pub fn new<'v>(
+        info: &'v mut LoginInfo,
+        selection: LoginSelection,
+        error: String,
+    ) -> LoginWidget<'v> {
+        LoginWidget {
+            info,
+            selection,
+            error,
+            changed: false
+        }
+    }
 }
 
 pub struct LoginEdit {

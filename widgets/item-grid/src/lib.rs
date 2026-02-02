@@ -4,14 +4,14 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    DimensionsParameter, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
-    async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
     widgets::{Block, Padding, Scrollbar, ScrollbarState, StatefulWidget, Widget},
 };
 
+pub use jellyhaj_widgets_core::DimensionsParameter;
 pub struct ItemGrid<T: ItemWidget> {
     items: Vec<T>,
     current: usize,

@@ -4,8 +4,7 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    DimensionsParameter, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
-    async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -15,6 +14,8 @@ use ratatui::{
     },
 };
 use tracing::instrument;
+
+pub use jellyhaj_widgets_core::DimensionsParameter;
 
 #[derive(Debug)]
 pub struct ItemList<T: ItemWidget> {
@@ -27,9 +28,14 @@ pub struct ItemList<T: ItemWidget> {
 }
 
 impl<T: ItemWidget> ItemList<T> {
-    pub fn new(items: Vec<T>, current: usize, title: String, dim: DimensionsParameter<'_>) -> Self {
+    pub fn new(
+        items: impl IntoIterator<Item = T>,
+        current: usize,
+        title: String,
+        dim: DimensionsParameter<'_>,
+    ) -> Self {
         Self {
-            items,
+            items: items.into_iter().collect(),
             current,
             title,
             active: false,

@@ -1593,22 +1593,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-widget"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "image",
- "jellyfin",
- "parking_lot",
- "ratatui-core",
- "ratatui-image",
- "sqlx",
- "stats-data",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "indenter"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1747,6 +1731,9 @@ dependencies = [
  "item-view",
  "jellyfin",
  "jellyhaj-core",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-loading-widget",
+ "jellyhaj-render-widgets",
  "keybinds",
  "libc",
  "log-screen",
@@ -1766,7 +1753,6 @@ dependencies = [
  "serde_json",
  "spawn",
  "sqlx",
- "stats-view",
  "tokio",
  "tokio-util",
  "toml",
@@ -1798,6 +1784,7 @@ dependencies = [
  "player-core",
  "ratatui",
  "ratatui-image",
+ "spawn",
  "sqlx",
  "stats-data",
  "tokio",
@@ -1815,6 +1802,37 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jellyhaj-fetch-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-core",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-loading-widget",
+ "jellyhaj-render-widgets",
+ "keybinds",
+ "ratatui",
+ "spawn",
+ "tokio",
+]
+
+[[package]]
+name = "jellyhaj-home-screen-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "futures-util",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-entry-widget",
+ "jellyhaj-fetch-view",
+ "jellyhaj-item-screen",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-render-widgets",
+ "tokio",
 ]
 
 [[package]]
@@ -1890,6 +1908,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-login-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-login-widget",
+ "jellyhaj-render-widgets",
+ "keybinds",
+ "ratatui",
+ "spawn",
+ "tokio",
+ "toml",
+ "tracing",
+ "whoami 2.0.2",
+]
+
+[[package]]
 name = "jellyhaj-login-widget"
 version = "0.1.0"
 dependencies = [
@@ -1913,6 +1951,29 @@ dependencies = [
  "pin-project-lite",
  "ratatui",
  "spawn",
+]
+
+[[package]]
+name = "jellyhaj-stats-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-core",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-render-widgets",
+ "jellyhaj-stats-widget",
+]
+
+[[package]]
+name = "jellyhaj-stats-widget"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "jellyhaj-widgets-core",
+ "ratatui",
+ "stats-data",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3787,19 +3848,6 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stats-data"
 version = "0.1.0"
-
-[[package]]
-name = "stats-view"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "jellyhaj-core",
- "keybinds",
- "ratatui",
- "ratatui-fallible-widget",
- "stats-data",
- "tokio",
-]
 
 [[package]]
 name = "stringprep"

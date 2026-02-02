@@ -8,8 +8,9 @@ use either::Either;
 use futures_util::Stream;
 use futures_util::StreamExt;
 use jellyhaj_keybinds_widget::{CommandAction, KeybindAction};
+pub use jellyhaj_widgets_core::JellyhajWidget;
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetExt,
+    JellyhajWidgetExt,
     async_task::{EventReceiver, IdWrapper, TaskSubmitter, new_task_pair},
 };
 use keybinds::KeybindEvents;

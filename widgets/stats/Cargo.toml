@@ -1,0 +1,12 @@
+[package]
+name = "jellyhaj-stats-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+futures-util.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+ratatui.workspace = true
+stats-data = { version = "0.1.0", path = "../../stats-data" }
+tokio = { workspace = true, features = ["time"] }
+tracing.workspace = true

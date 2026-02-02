@@ -22,6 +22,8 @@ impl EntryResultExt for EntryResult {
             EntryResult::OpenSeries(EntryData::Item(item)) => item_series(item),
             EntryResult::OpenSeason(EntryData::Item(item)) => item_season(item),
             EntryResult::OpenEpisode(EntryData::Item(item)) => Some(item_episode(item)),
+            EntryResult::Refresh(EntryData::Item(item)) => Some(NextScreen::RefreshItem(item.id)),
+            EntryResult::Refresh(EntryData::View(view)) => Some(NextScreen::RefreshItem(view.id)),
             EntryResult::Play(EntryData::View(_))
             | EntryResult::OpenSeries(EntryData::View(_))
             | EntryResult::OpenSeason(EntryData::View(_))

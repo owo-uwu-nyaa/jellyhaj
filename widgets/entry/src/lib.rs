@@ -95,6 +95,7 @@ pub enum EntryAction {
     OpenSeries,
     OpenSeason,
     OpenEpisode,
+    Refresh,
 }
 
 pub enum EntryResult {
@@ -104,6 +105,7 @@ pub enum EntryResult {
     OpenSeries(EntryData),
     OpenSeason(EntryData),
     OpenEpisode(EntryData),
+    Refresh(EntryData),
 }
 
 #[derive(Clone, Copy)]
@@ -145,6 +147,7 @@ impl ItemWidget for Entry {
             EntryAction::OpenSeries => EntryResult::OpenSeries(self.inner.clone()),
             EntryAction::OpenSeason => EntryResult::OpenSeason(self.inner.clone()),
             EntryAction::OpenEpisode => EntryResult::OpenEpisode(self.inner.clone()),
+            EntryAction::Refresh => EntryResult::Refresh(self.inner.clone()),
         }))
     }
     fn click(

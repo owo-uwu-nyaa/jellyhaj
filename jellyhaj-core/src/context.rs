@@ -7,6 +7,7 @@ use jellyhaj_entry_widget::ImageProtocolCache;
 use player_core::{OwnedPlayerHandle, PlayerHandle};
 use ratatui::DefaultTerminal;
 use ratatui_image::picker::Picker;
+use spawn::Spawner;
 use sqlx::SqliteConnection;
 use tokio::sync::Mutex;
 
@@ -25,6 +26,7 @@ pub struct TuiContext {
     pub image_cache: ImageProtocolCache,
     pub mpv_handle: OwnedPlayerHandle,
     pub stats: Stats,
+    pub spawn: Spawner,
 }
 
 pub struct TuiContextProj<'p> {
@@ -38,6 +40,7 @@ pub struct TuiContextProj<'p> {
     pub image_cache: &'p mut ImageProtocolCache,
     pub mpv_handle: &'p PlayerHandle,
     pub stats: &'p Stats,
+    pub spawn: &'p Spawner,
 }
 
 impl TuiContext {
@@ -56,6 +59,7 @@ impl TuiContext {
                 image_cache,
                 mpv_handle,
                 stats,
+                spawn
             } = self.get_unchecked_mut();
             TuiContextProj {
                 jellyfin,
@@ -68,6 +72,7 @@ impl TuiContext {
                 image_cache,
                 mpv_handle,
                 stats,
+                spawn
             }
         }
     }
