@@ -2,7 +2,7 @@ mod action;
 mod click;
 mod render;
 
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{BindingMap, Command};
 use ratatui::crossterm::event::KeyEvent;
 
@@ -19,7 +19,7 @@ pub enum KeybindAction<A: Send + 'static> {
 pub enum CommandAction<U: Send + 'static, A> {
     Action(A),
     Up(U),
-    Exit
+    Exit,
 }
 
 pub trait CommandMapper<T: Command> {
@@ -51,12 +51,7 @@ pub struct KeybindWidget<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, 
 impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
     KeybindWidget<'e, T, W, M>
 {
-    pub fn new(
-        inner: W,
-        help_prefixes: &'e [String],
-        top: BindingMap<T>,
-        mapper: M,
-    ) -> Self {
+    pub fn new(inner: W, help_prefixes: &'e [String], top: BindingMap<T>, mapper: M) -> Self {
         Self {
             inner,
             help_prefixes,
@@ -84,7 +79,6 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
             current_view: 0,
         }
     }
-
 }
 
 impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget
@@ -101,14 +95,6 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
     }
 
     fn min_height(&self) -> Option<u16> {
-        Some(7)
-    }
-
-    fn min_width_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(24)
-    }
-
-    fn min_height_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
         Some(7)
     }
 
@@ -130,30 +116,40 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
 
     fn apply_action(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        action::apply_key_event(self, action)
+        action::apply_key_event(self,task , action)
     }
 
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        click::apply_click(self, position, size, kind, modifier)
+        click::apply_click(self,task ,position, size, kind, modifier)
     }
 
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         render::render_keybinds(self, area, buf, task)
+    }
+}
+
+#[derive(Clone, Copy)]
+struct KeybindWrapper;
+
+impl<T: Send + 'static> Wrapper<T> for KeybindWrapper {
+    type F = KeybindAction<T>;
+
+    fn wrap(&self, val: T) -> Self::F {
+        KeybindAction::Inner(val)
     }
 }

@@ -36,18 +36,20 @@ pub trait JellyhajWidget {
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
 
-    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16>;
-    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16>;
-
     fn into_state(self) -> Self::State;
 
     fn accepts_text_input(&self) -> bool;
     fn accept_char(&mut self, text: char);
     fn accept_text(&mut self, text: String);
 
-    fn apply_action(&mut self, action: Self::Action) -> Result<Option<Self::ActionResult>>;
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>>;
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         position: Position,
         size: Size,
         kind: MouseEventKind,

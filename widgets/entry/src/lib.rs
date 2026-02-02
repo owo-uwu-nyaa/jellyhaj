@@ -9,6 +9,7 @@ use jellyhaj_image::{JellyfinImage, JellyfinImageState};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageProtocolCache};
 use jellyhaj_widgets_core::{
     Config, FontSize, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
@@ -133,11 +134,15 @@ impl ItemWidget for Entry {
     fn into_state(self) -> Self::State {
         self.inner
     }
-    fn apply_action(&mut self, action: Self::Action) -> Result<Option<Self::ActionResult>> {
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
         Ok(Some(match action {
             EntryAction::Inner(action) => {
                 if let Some(image) = self.image.as_mut() {
-                    let None = image.apply_action(action)?;
+                    let None = image.apply_action(task.wrap_with(EntryWrapper),action)?;
                 }
                 return Ok(None);
             }
@@ -152,6 +157,7 @@ impl ItemWidget for Entry {
     }
     fn click(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -169,10 +175,7 @@ impl ItemWidget for Entry {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let mut outer = Block::bordered()
             .border_type(if self.active {

@@ -1939,6 +1939,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-player-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-player-widget",
+ "jellyhaj-render-widgets",
+ "player-core",
+ "tracing",
+]
+
+[[package]]
+name = "jellyhaj-player-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "futures-util",
+ "jellyfin",
+ "jellyhaj-widgets-core",
+ "player-core",
+ "ratatui",
+ "tracing",
+]
+
+[[package]]
 name = "jellyhaj-render-widgets"
 version = "0.1.0"
 dependencies = [

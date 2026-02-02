@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use ratatui::widgets::{Block, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
@@ -57,12 +57,6 @@ impl<'s> JellyhajWidget for Loading<'s> {
     fn min_height(&self) -> Option<u16> {
         Some(5)
     }
-    fn min_width_static(_par: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(5)
-    }
-    fn min_height_static(_par: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(5)
-    }
 
     fn into_state(self) -> Self::State {
         self.title
@@ -70,6 +64,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
 
     fn apply_action(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         self.lines.retain_mut(|line| {
@@ -85,6 +80,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
 
     fn click(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _position: ratatui::prelude::Position,
         _size: ratatui::prelude::Size,
         _kind: ratatui::crossterm::event::MouseEventKind,
@@ -98,10 +94,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;

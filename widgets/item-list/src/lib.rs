@@ -109,18 +109,33 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
 
     fn apply_action(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             ItemListAction::SpecificInner(index, action) => self
                 .items
                 .get_mut(index)
-                .and_then(|v| v.apply_action(action).transpose())
+                .and_then(|v| {
+                    v.apply_action(
+                        TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
+                        action,
+                    )
+                    .transpose()
+                })
                 .transpose(),
             ItemListAction::CurrentInner(action) => self
                 .items
                 .get_mut(self.current)
-                .and_then(|v| v.apply_action(action).transpose())
+                .and_then(|v| {
+                    v.apply_action(
+                        TaskSubmitter::clone(&task).wrap_with(ListWrapper {
+                            index: self.current,
+                        }),
+                        action,
+                    )
+                    .transpose()
+                })
                 .transpose(),
             ItemListAction::Left => {
                 self.current = min(self.items.len(), self.current + 1);
@@ -135,6 +150,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
 
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -157,6 +173,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
             {
                 ItemWidget::click(
                     item,
+                    TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
                     Position {
                         x: x_position,
                         y: position.y,
@@ -176,10 +193,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -240,14 +254,6 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
 
     fn min_height(&self) -> Option<u16> {
         Some(self.item_size.height + 4)
-    }
-
-    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).width + 4)
-    }
-
-    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).height + 4)
     }
 
     fn accepts_text_input(&self) -> bool {

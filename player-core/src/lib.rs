@@ -153,10 +153,10 @@ impl PlayerHandle {
             self.closed.store(true, Ordering::Relaxed);
         };
     }
-    pub async fn get_state(&self) -> Result<EventReceiver, oneshot::error::RecvError> {
+    pub fn get_state(&self) -> oneshot::Receiver<EventReceiver> {
         let (send, receive) = oneshot::channel();
         self.send(Command::GetEventReceiver(send));
-        receive.await
+        receive
     }
 }
 

@@ -23,9 +23,14 @@ pub trait ItemWidget {
 
     fn set_active(&mut self, active: bool);
 
-    fn apply_action(&mut self, action: Self::Action) -> Result<Option<Self::ActionResult>>;
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>>;
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
@@ -49,16 +54,6 @@ impl<I: ItemWidget> JellyhajWidget for I {
     #[inline(always)]
     fn min_height(&self) -> Option<u16> {
         Some(self.dimensions().height)
-    }
-
-    #[inline(always)]
-    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(Self::dimensions_static(par).width)
-    }
-
-    #[inline(always)]
-    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(Self::dimensions_static(par).height)
     }
 
     type State = <I as ItemWidget>::State;
@@ -86,19 +81,24 @@ impl<I: ItemWidget> JellyhajWidget for I {
     }
 
     #[inline(always)]
-    fn apply_action(&mut self, action: Self::Action) -> Result<Option<Self::ActionResult>> {
-        ItemWidget::apply_action(self, action)
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        ItemWidget::apply_action(self, task, action)
     }
 
     #[inline(always)]
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        ItemWidget::click(self, position, size, kind, modifier)
+        ItemWidget::click(self, task, position, size, kind, modifier)
     }
 
     #[inline(always)]

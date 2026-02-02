@@ -93,7 +93,7 @@ members = [
   "spawn",
   "stats-data",
   "user-view",
-  "views/fetch", "views/home-screen", "views/login",
+  "views/fetch", "views/home-screen", "views/login", "views/player",
   "views/stats",
   "widgets/core",
   "widgets/entry",
@@ -103,7 +103,7 @@ members = [
   "widgets/item-screen",
   "widgets/keybinds",
   "widgets/loading",
-  "widgets/login",
+  "widgets/login", "widgets/player",
   "widgets/render",
   "widgets/stats"
 ]

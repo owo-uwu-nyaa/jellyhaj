@@ -150,7 +150,7 @@ impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
         &self.cancel
     }
 
-    pub fn spawn_task(self, fut: impl Future<Output = Result<A>> + Send + 'static, span: Span) {
+    pub fn spawn_task(&self, fut: impl Future<Output = Result<A>> + Send + 'static, span: Span) {
         let wrapper = self.wrapper;
         let mut sender = self.sender.clone();
         let cancel = self.cancel.clone().cancelled_owned();
@@ -167,7 +167,7 @@ impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
 }
 
 impl<A: Send, W: Wrapper<A>> TaskSubmitter<A, W> {
-    pub fn spawn_stream(self, stream: impl Stream<Item = Result<A>> + Send + 'static, span: Span) {
+    pub fn spawn_stream(&self, stream: impl Stream<Item = Result<A>> + Send + 'static, span: Span) {
         let wrapper = self.wrapper;
         let mut sender = self.sender.clone();
         let cancel = self.cancel.clone().cancelled_owned();

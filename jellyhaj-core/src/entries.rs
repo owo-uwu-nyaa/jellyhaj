@@ -41,7 +41,7 @@ impl EntryExt for EntryData {
     }
 }
 pub fn play_item(item: MediaItem) -> NextScreen {
-    NextScreen::LoadPlayItem(match item {
+    NextScreen::FetchPlay(match item {
         v @ MediaItem {
             item_type: ItemType::Movie,
             ..

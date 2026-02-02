@@ -2,12 +2,14 @@ use std::{iter, mem};
 
 use color_eyre::Result;
 use itertools::Either;
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{Command, Key, KeyBinding};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tracing::{debug, warn};
 
-use crate::{CommandAction, CommandMapper, KeybindAction, KeybindWidget, MappedCommand};
+use crate::{
+    CommandAction, CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MappedCommand,
+};
 
 fn if_non_empty<T>(v: &Vec<T>) -> Option<&Vec<T>> {
     if v.is_empty() { None } else { Some(v) }
@@ -15,10 +17,14 @@ fn if_non_empty<T>(v: &Vec<T>) -> Option<&Vec<T>> {
 
 pub fn apply_key_event<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
     this: &mut KeybindWidget<'e, T, W, M>,
+    task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     action: KeybindAction<W::Action>,
 ) -> Result<Option<CommandAction<M::U, W::ActionResult>>> {
     match action {
-        KeybindAction::Inner(a) => match this.inner.apply_action(a) {
+        KeybindAction::Inner(a) => match this
+            .inner
+            .apply_action(task.wrap_with(KeybindWrapper), a)
+        {
             Ok(None) => Ok(None),
             Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
             Err(e) => Err(e),
@@ -79,7 +85,10 @@ pub fn apply_key_event<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D 
                                 this.next_maps = Vec::new();
                                 return match this.mapper.map(*c) {
                                     MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
-                                    MappedCommand::Down(a) => match this.inner.apply_action(a) {
+                                    MappedCommand::Down(a) => match this
+                                        .inner
+                                        .apply_action(task.wrap_with(KeybindWrapper), a)
+                                    {
                                         Ok(None) => Ok(None),
                                         Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
                                         Err(e) => Err(e),

@@ -3,16 +3,19 @@ use std::{
     mem,
 };
 
-use crate::{CommandAction, CommandMapper, KeybindWidget, MappedCommand};
+use crate::{
+    CommandAction, CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MappedCommand,
+};
 use color_eyre::Result;
 use itertools::Itertools;
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{Command, KeyBinding};
 use ratatui::layout::{Position, Size};
 use tracing::{debug, warn};
 
 pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
     this: &mut KeybindWidget<'e, T, W, M>,
+    task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     mut position: ratatui::prelude::Position,
     size: ratatui::prelude::Size,
     kind: ratatui::crossterm::event::MouseEventKind,
@@ -29,6 +32,7 @@ pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
         this.current_view = min(this.current_view, num_views - 1);
         if position.y < size.height - height as u16 {
             return match this.inner.click(
+                task.wrap_with(KeybindWrapper),
                 position,
                 Size {
                     width: size.width,
@@ -70,7 +74,10 @@ pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
                         this.next_maps = Vec::new();
                         return match this.mapper.map(c) {
                             MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
-                            MappedCommand::Down(a) => match this.inner.apply_action(a) {
+                            MappedCommand::Down(a) => match this
+                                .inner
+                                .apply_action(task.wrap_with(KeybindWrapper), a)
+                            {
                                 Ok(None) => Ok(None),
                                 Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
                                 Err(e) => Err(e),
@@ -91,7 +98,13 @@ pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
             }
         }
     } else {
-        return match this.inner.click(position, size, kind, modifier) {
+        return match this.inner.click(
+            task.wrap_with(KeybindWrapper),
+            position,
+            size,
+            kind,
+            modifier,
+        ) {
             Ok(None) => Ok(None),
             Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
             Err(e) => Err(e),

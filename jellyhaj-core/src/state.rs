@@ -37,7 +37,7 @@ pub enum NextScreen {
         view: UserView,
         items: Vec<MediaItem>,
     },
-    LoadPlayItem(LoadPlay),
+    FetchPlay(LoadPlay),
     Play {
         items: Vec<MediaItem>,
         index: usize,

@@ -239,14 +239,6 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
         Some(self.item_size.width + 4)
     }
 
-    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).width + 4)
-    }
-
-    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).height + 4)
-    }
-
     fn accepts_text_input(&self) -> bool {
         self.get(self.current)
             .map(|i| i.accepts_text_input())

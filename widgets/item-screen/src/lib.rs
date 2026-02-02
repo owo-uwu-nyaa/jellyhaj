@@ -3,7 +3,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-pub use jellyhaj_item_list::{ItemList, ItemListAction, ItemListData, DimensionsParameter};
+pub use jellyhaj_item_list::{DimensionsParameter, ItemList, ItemListAction, ItemListData};
 use jellyhaj_widgets_core::{
     ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, Wrapper, async_task::TaskSubmitter,
 };
@@ -14,7 +14,6 @@ use ratatui::{
         StatefulWidget, Widget,
     },
 };
-
 
 pub struct ItemScreen<T: ItemWidget> {
     lists: Vec<ItemList<T>>,
@@ -114,26 +113,40 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
         }
     }
 
-    fn apply_action(&mut self, action: Self::Action) -> Result<Option<Self::ActionResult>> {
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
         fn apply<T: ItemWidget>(
             this: &mut ItemScreen<T>,
+            task: TaskSubmitter<
+                ItemScreenAction<T::Action>,
+                impl Wrapper<ItemScreenAction<T::Action>>,
+            >,
             index: usize,
             action: ItemListAction<<T as ItemWidget>::Action>,
         ) -> Result<Option<<T as ItemWidget>::ActionResult>> {
             this.lists
                 .get_mut(index)
-                .and_then(|r| r.apply_action(action).transpose())
+                .and_then(|r| {
+                    r.apply_action(task.wrap_with(ScreenWrapper { index }), action)
+                        .transpose()
+                })
                 .transpose()
         }
         match action {
             ItemScreenAction::SpecificInner { row, item, action } => {
-                apply(self, row, ItemListAction::SpecificInner(item, action))
+                apply(self, task, row, ItemListAction::SpecificInner(item, action))
             }
-            ItemScreenAction::CurrentInner(action) => {
-                apply(self, self.current, ItemListAction::CurrentInner(action))
-            }
-            ItemScreenAction::Left => apply(self, self.current, ItemListAction::Left),
-            ItemScreenAction::Right => apply(self, self.current, ItemListAction::Right),
+            ItemScreenAction::CurrentInner(action) => apply(
+                self,
+                task,
+                self.current,
+                ItemListAction::CurrentInner(action),
+            ),
+            ItemScreenAction::Left => apply(self, task, self.current, ItemListAction::Left),
+            ItemScreenAction::Right => apply(self, task, self.current, ItemListAction::Right),
             ItemScreenAction::Up => {
                 self.current = self.current.saturating_sub(1);
                 Ok(None)
@@ -147,6 +160,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -169,6 +183,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
             {
                 JellyhajWidget::click(
                     list,
+                    task.wrap_with(ScreenWrapper { index }),
                     Position {
                         x: position.x,
                         y: y_position,
@@ -190,10 +205,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -254,14 +266,6 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn min_height(&self) -> Option<u16> {
         Some(self.item_size.height + 8)
-    }
-
-    fn min_width_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).width + 8)
-    }
-
-    fn min_height_static(par: DimensionsParameter<'_>) -> Option<u16> {
-        Some(<T as ItemWidget>::dimensions_static(par).height + 8)
     }
 
     fn accepts_text_input(&self) -> bool {
