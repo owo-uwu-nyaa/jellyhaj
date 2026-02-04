@@ -1,7 +1,7 @@
 use std::{cmp::max, convert::Infallible, sync::atomic::Ordering::Relaxed, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use ratatui::{
     layout::Constraint,
     symbols::merge::MergeStrategy,
@@ -118,18 +118,6 @@ impl JellyhajWidget for StatsWidget {
         Some(11)
     }
 
-    fn min_width_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(
-            u16::try_from(LABEL_MAX_LEN)
-                .expect("label to large")
-                .strict_add(12),
-        )
-    }
-
-    fn min_height_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(11)
-    }
-
     fn into_state(self) -> Self::State {
         self.stats
     }
@@ -148,6 +136,7 @@ impl JellyhajWidget for StatsWidget {
 
     fn apply_action(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         self.image_fetches = self.stats.image_fetches.load(Relaxed).to_string();
@@ -158,6 +147,7 @@ impl JellyhajWidget for StatsWidget {
 
     fn click(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
@@ -171,10 +161,7 @@ impl JellyhajWidget for StatsWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;

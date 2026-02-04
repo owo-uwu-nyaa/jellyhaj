@@ -1,0 +1,208 @@
+#![feature(prelude_import)]
+extern crate std;
+#[prelude_import]
+use std::prelude::rust_2024::*;
+use jellyhaj_form_widget::{Selection, form};
+struct Test {
+    v1: bool,
+    v2: bool,
+}
+impl Test {
+    pub fn _show_if_v2(&self) -> bool {
+        self.v1
+    }
+}
+pub enum TestSelection {
+    V1(<bool as ::jellyhaj_form_widget::FormItem<()>>::SelectionInner),
+    V2(<bool as ::jellyhaj_form_widget::FormItem<()>>::SelectionInner),
+}
+#[automatically_derived]
+#[doc(hidden)]
+unsafe impl ::core::clone::TrivialClone for TestSelection {}
+#[automatically_derived]
+impl ::core::clone::Clone for TestSelection {
+    #[inline]
+    fn clone(&self) -> TestSelection {
+        let _: ::core::clone::AssertParamIsClone<
+            <bool as ::jellyhaj_form_widget::FormItem<()>>::SelectionInner,
+        >;
+        let _: ::core::clone::AssertParamIsClone<
+            <bool as ::jellyhaj_form_widget::FormItem<()>>::SelectionInner,
+        >;
+        *self
+    }
+}
+#[automatically_derived]
+impl ::core::marker::Copy for TestSelection {}
+impl ::jellyhaj_form_widget::macro_impl::exports::Default for TestSelection {
+    fn default() -> Self {
+        Self::V1(::jellyhaj_form_widget::macro_impl::exports::Default::default())
+    }
+}
+struct _TestHeightStore {
+    v1: ::jellyhaj_form_widget::macro_impl::exports::Option<u16>,
+    v2: ::jellyhaj_form_widget::macro_impl::exports::Option<u16>,
+}
+pub fn _widget_helper_Test_height(state: &Test, store: &mut _TestHeightStore) -> u16 {
+    let mut first = true;
+    let mut height = 0;
+    let mut height_buf = 0;
+    if first {
+        first = false;
+        height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+        height_buf = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT_BUF;
+    } else {
+        height = ::jellyhaj_form_widget::macro_impl::size::add_form_item::<
+            (),
+            bool,
+        >(height);
+        height_buf = ::jellyhaj_form_widget::macro_impl::size::add_form_item_buf::<
+            (),
+            bool,
+        >(height_buf);
+    }
+    store.v1 = ::jellyhaj_form_widget::macro_impl::exports::Some(height);
+    if state._show_if_v2() {
+        if first {
+            first = false;
+            height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+            height_buf = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT_BUF;
+        } else {
+            height = ::jellyhaj_form_widget::macro_impl::size::add_form_item::<
+                (),
+                bool,
+            >(height);
+            height_buf = ::jellyhaj_form_widget::macro_impl::size::add_form_item_buf::<
+                (),
+                bool,
+            >(height_buf);
+        }
+        store.v2 = ::jellyhaj_form_widget::macro_impl::exports::Some(height);
+    } else {
+        store.v2 = ::jellyhaj_form_widget::macro_impl::exports::None;
+    }
+    ::jellyhaj_form_widget::macro_impl::size::add(height, height_buf)
+}
+pub fn _widget_helper_Test_item_start(state: &Test, sel: &TestSelection) -> u16 {
+    let mut first = true;
+    let mut height = 0;
+    if let TestSelection::V1(_) = sel {
+        return height;
+    }
+    if first {
+        first = false;
+        height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+    } else {
+        height = ::jellyhaj_form_widget::macro_impl::size::add_form_item::<
+            (),
+            bool,
+        >(height);
+    }
+    if let TestSelection::V2(_) = sel {
+        return height;
+    }
+    if state._show_if_v2() {
+        if first {
+            first = false;
+            height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+        } else {
+            height = ::jellyhaj_form_widget::macro_impl::size::add_form_item::<
+                (),
+                bool,
+            >(height);
+        }
+    }
+    ::core::panicking::panic("internal error: entered unreachable code")
+}
+pub fn _widget_helper_Test_pass1(
+    state: &Test,
+    sel: &TestSelection,
+    buf: &mut ::jellyhaj_form_widget::macro_impl::exports::Buffer,
+    area: ::jellyhaj_form_widget::macro_impl::exports::Rect,
+    store: &mut _TestHeightStore,
+) {
+    {
+        if let Some(y) = store.v1 {
+            let height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+            let mut this_area = area;
+            this_area.height = height;
+            this_area.y = y;
+            <bool as ::jellyhaj_form_widget::FormItem<
+                (),
+            >>::render_pass_main(
+                &state.v1,
+                this_area,
+                buf,
+                #[allow(non_exhaustive_omitted_patterns)]
+                match sel {
+                    TestSelection::V1(_) => true,
+                    _ => false,
+                },
+                "v1",
+            );
+        }
+    }
+    {
+        if let Some(y) = store.v2 {
+            let height = <bool as ::jellyhaj_form_widget::FormItem<()>>::HEIGHT;
+            let mut this_area = area;
+            this_area.height = height;
+            this_area.y = y;
+            <bool as ::jellyhaj_form_widget::FormItem<
+                (),
+            >>::render_pass_main(
+                &state.v2,
+                this_area,
+                buf,
+                #[allow(non_exhaustive_omitted_patterns)]
+                match sel {
+                    TestSelection::V2(_) => true,
+                    _ => false,
+                },
+                "v2",
+            );
+        }
+    }
+}
+pub fn _widget_helper_Test_pass2(
+    state: &Test,
+    sel: &TestSelection,
+    buf: &mut ::jellyhaj_form_widget::macro_impl::exports::Buffer,
+    mut area: ::jellyhaj_form_widget::macro_impl::exports::Rect,
+    max_height: u16,
+) {
+    let mut first = true;
+    if state._show_if_v2() {}
+}
+fn _widget_helper_Test_with_current<
+    W: ::jellyhaj_form_widget::macro_impl::with_current::WithCurrent<()>,
+>(state: &Test, sel: TestSelection, f: W) -> W::R {
+    match sel {
+        TestSelection::V1(sel) => {
+            ::jellyhaj_form_widget::macro_impl::with_current::WithCurrent::process::<
+                bool,
+            >(f, &state.v1, sel)
+        }
+        TestSelection::V2(sel) => {
+            ::jellyhaj_form_widget::macro_impl::with_current::WithCurrent::process::<
+                bool,
+            >(f, &state.v2, sel)
+        }
+    }
+}
+fn _widget_helper_Test_with_current_mut<
+    W: ::jellyhaj_form_widget::macro_impl::with_current::WithCurrentMut<()>,
+>(state: &mut Test, sel: &mut TestSelection, f: W) -> W::R {
+    match sel {
+        TestSelection::V1(sel) => {
+            ::jellyhaj_form_widget::macro_impl::with_current::WithCurrentMut::process::<
+                bool,
+            >(f, &mut state.v1, sel)
+        }
+        TestSelection::V2(sel) => {
+            ::jellyhaj_form_widget::macro_impl::with_current::WithCurrentMut::process::<
+                bool,
+            >(f, &mut state.v2, sel)
+        }
+    }
+}

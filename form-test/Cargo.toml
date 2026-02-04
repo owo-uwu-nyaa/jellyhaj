@@ -1,0 +1,7 @@
+[package]
+name = "form-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jellyhaj-form-widget = { version = "0.1.0", path = "../widgets/form" }

@@ -1105,6 +1105,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "form-test"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-form-widget",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1817,6 +1824,35 @@ dependencies = [
  "ratatui",
  "spawn",
  "tokio",
+]
+
+[[package]]
+name = "jellyhaj-form-derive"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-form-derive-impl",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "jellyhaj-form-derive-impl"
+version = "0.1.0"
+dependencies = [
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "jellyhaj-form-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-form-derive",
+ "jellyhaj-widgets-core",
+ "ratatui",
+ "tui-scrollview",
 ]
 
 [[package]]
@@ -4367,6 +4403,17 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "tui-scrollview"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8ada5290cf63e5e718a13111020398979975d4df556a55ae88014aa8850f171"
+dependencies = [
+ "indoc",
+ "ratatui-core",
+ "ratatui-widgets",
 ]
 
 [[package]]
