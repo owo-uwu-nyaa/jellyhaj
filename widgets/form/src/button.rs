@@ -1,5 +1,8 @@
 use jellyhaj_widgets_core::{MouseEventKind, Rect};
-use ratatui::{crossterm::event::MouseButton, widgets::{Block, BorderType, Widget}};
+use ratatui::{
+    crossterm::event::MouseButton,
+    widgets::{Block, BorderType, Widget},
+};
 
 use crate::{FormAction, FormItem, QuitForm};
 
@@ -8,6 +11,7 @@ pub trait ActionCreator {
     fn make_action(&self) -> Self::T;
 }
 
+#[derive(Default)]
 pub struct Button<Creator: ActionCreator> {
     creator: Creator,
     width: u16,
@@ -120,12 +124,12 @@ impl<C: ActionCreator> FormItem<C::T> for Button<C> {
         active: bool,
         name: &'static str,
     ) -> jellyhaj_widgets_core::Result<()> {
-        self.width = name.chars().map(|_|1u16).sum::<u16>()+2;
+        self.width = name.chars().map(|_| 1u16).sum::<u16>() + 2;
         let centered = center(area.width, self.width);
         area.x += centered.offset;
         area.width = centered.size;
         let mut block = Block::bordered();
-        if active{
+        if active {
             block = block.border_type(BorderType::Double);
         }
         let main = block.inner(area);

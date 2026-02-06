@@ -36,8 +36,8 @@ pub fn detect_loop_fn(
     selection_ty: &Ident,
     name: &Ident,
     exports: &Path,
-) -> TokenStream{
-    let same = items.iter().map(|i|{
+) -> TokenStream {
+    let same = items.iter().map(|i| {
         let pat = &i.selection;
         quote! {
             (#pat(_), #pat(_))

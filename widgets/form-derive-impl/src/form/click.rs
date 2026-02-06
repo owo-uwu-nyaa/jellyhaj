@@ -4,7 +4,6 @@ use syn::{Ident, Path, Type};
 
 use crate::form::FormItem;
 
-
 pub fn click_fn(
     items: &[FormItem],
     state_ty: &Ident,
@@ -16,8 +15,8 @@ pub fn click_fn(
     action_result_ty: &Type,
     assert_current_shown_fn: &Ident,
     size_helpers: &Path,
-) -> TokenStream{
-    let current = items.iter().enumerate().map(|(i,item)|{
+) -> TokenStream {
+    let current = items.iter().enumerate().map(|(i, item)| {
         let pat = &item.selection;
         let name = &item.name;
         let index = Literal::usize_suffixed(i);
@@ -54,7 +53,7 @@ pub fn click_fn(
         }
     });
 
-    let next = items.iter().enumerate().map(|(i,item)|{
+    let next = items.iter().enumerate().map(|(i, item)| {
         let index = Literal::usize_suffixed(i);
         let ty = &item.ty;
         let name = &item.name;
@@ -85,7 +84,6 @@ pub fn click_fn(
             }
         }
     });
-    
 
     quote! {
         #[allow(clippy::too_many_arguments)]
@@ -106,7 +104,7 @@ pub fn click_fn(
                 #(#next),*
                 _ => unreachable!()
             }
-            
+
             todo!()
         }
     }

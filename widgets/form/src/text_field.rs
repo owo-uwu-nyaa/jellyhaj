@@ -3,9 +3,8 @@ use ratatui::widgets::{Block, BorderType, Widget};
 
 use crate::{FormAction, FormItem};
 
-
-pub struct TextField{
-    pub text: String
+pub struct TextField {
+    pub text: String,
 }
 #[cfg(feature = "serde")]
 mod s {
@@ -13,7 +12,7 @@ mod s {
 
     use crate::text_field::TextField;
 
-    impl<'de> Deserialize<'de> for TextField{
+    impl<'de> Deserialize<'de> for TextField {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
             D: serde::Deserializer<'de>,
@@ -31,7 +30,7 @@ mod s {
         }
     }
 }
-impl<T> FormItem<T> for TextField{
+impl<T> FormItem<T> for TextField {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
@@ -65,7 +64,12 @@ impl<T> FormItem<T> for TextField{
         Ok(None)
     }
 
-    fn popup_area(&self, sel: Self::SelectionInner, area: ratatui::prelude::Rect, full_area: ratatui::prelude::Size) -> ratatui::prelude::Rect {
+    fn popup_area(
+        &self,
+        sel: Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
         Rect::ZERO
     }
 
@@ -99,7 +103,7 @@ impl<T> FormItem<T> for TextField{
         name: &'static str,
     ) -> jellyhaj_widgets_core::Result<()> {
         let mut block = Block::bordered().title(name);
-        if active{
+        if active {
             block = block.border_type(BorderType::Double);
         }
         let main = block.inner(area);

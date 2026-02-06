@@ -1105,13 +1105,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
-name = "form-test"
-version = "0.1.0"
-dependencies = [
- "jellyhaj-form-widget",
-]
-
-[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,23 +1342,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc627f471c528ff0c4a49e1d5e60450c8f6461dd6d10ba9dcd3a61d3dff7728d"
 dependencies = [
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "home-screen"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "entries",
- "fetch",
- "futures-util",
- "jellyfin",
- "jellyhaj-core",
- "keybinds",
- "ratatui",
- "ratatui-fallible-widget",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1733,21 +1709,19 @@ dependencies = [
  "either",
  "entries",
  "futures-util",
- "home-screen",
  "image",
  "item-view",
  "jellyfin",
  "jellyhaj-core",
+ "jellyhaj-home-screen-view",
  "jellyhaj-keybinds-widget",
  "jellyhaj-loading-widget",
  "jellyhaj-render-widgets",
  "keybinds",
  "libc",
  "log-screen",
- "login",
  "parking_lot",
  "pin-project-lite",
- "player",
  "player-core",
  "player-jellyfin",
  "player-mpris",
@@ -1755,7 +1729,6 @@ dependencies = [
  "ratatui-fallible-widget",
  "ratatui-image",
  "rayon",
- "refresh-item",
  "serde",
  "serde_json",
  "spawn",
@@ -1767,7 +1740,6 @@ dependencies = [
  "tracing-error",
  "tracing-subscriber",
  "tui-logger",
- "user-view",
 ]
 
 [[package]]
@@ -1781,6 +1753,7 @@ dependencies = [
  "jellyfin",
  "jellyhaj-entry-widget",
  "jellyhaj-image",
+ "jellyhaj-item-grid",
  "jellyhaj-item-list",
  "jellyhaj-item-screen",
  "jellyhaj-render-widgets",
@@ -1933,6 +1906,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-library-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-entry-widget",
+ "jellyhaj-fetch-view",
+ "jellyhaj-item-grid",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-render-widgets",
+]
+
+[[package]]
 name = "jellyhaj-loading-widget"
 version = "0.1.0"
 dependencies = [
@@ -1970,7 +1957,6 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "jellyfin",
- "jellyhaj-form-widget",
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",
@@ -2002,6 +1988,19 @@ dependencies = [
  "player-core",
  "ratatui",
  "tracing",
+]
+
+[[package]]
+name = "jellyhaj-refresh-item-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-form-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-render-widgets",
 ]
 
 [[package]]
@@ -2276,25 +2275,6 @@ dependencies = [
  "ratatui-fallible-widget",
  "tokio",
  "tui-logger",
-]
-
-[[package]]
-name = "login"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "futures-util",
- "jellyfin",
- "jellyhaj-core",
- "keybinds",
- "ratatui",
- "ratatui-fallible-widget",
- "serde",
- "sqlx",
- "tokio",
- "toml",
- "tracing",
- "whoami 2.0.2",
 ]
 
 [[package]]
@@ -2790,24 +2770,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
-name = "player"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "fetch",
- "futures-util",
- "jellyfin",
- "jellyhaj-core",
- "keybinds",
- "player-core",
- "ratatui",
- "ratatui-fallible-widget",
- "spawn",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "player-core"
 version = "0.1.0"
 dependencies = [
@@ -3217,21 +3179,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
-]
-
-[[package]]
-name = "refresh-item"
-version = "0.1.0"
-dependencies = [
- "checkbox",
- "color-eyre",
- "fetch",
- "futures-util",
- "jellyfin",
- "jellyhaj-core",
- "keybinds",
- "ratatui",
- "ratatui-fallible-widget",
 ]
 
 [[package]]
@@ -4513,23 +4460,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
-]
-
-[[package]]
-name = "user-view"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "entries",
- "fetch",
- "futures-util",
- "jellyfin",
- "jellyhaj-core",
- "keybinds",
- "ratatui",
- "ratatui-fallible-widget",
- "tokio",
- "tracing",
 ]
 
 [[package]]

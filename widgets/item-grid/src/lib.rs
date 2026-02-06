@@ -54,7 +54,8 @@ impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
     }
 }
 
-pub struct ItemGridState<T> {
+#[derive(Debug)]
+pub struct ItemGridData<T> {
     pub items: Vec<T>,
     pub title: String,
     pub current: usize,
@@ -83,12 +84,12 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
-    type State = ItemGridState<<T as ItemWidget>::State>;
+    type State = ItemGridData<<T as ItemWidget>::State>;
     type Action = ItemGridAction<<T as ItemWidget>::Action>;
     type ActionResult = <T as ItemWidget>::ActionResult;
 
     fn into_state(self) -> Self::State {
-        ItemGridState {
+        ItemGridData {
             items: self.items.into_iter().map(ItemWidget::into_state).collect(),
             title: self.title,
             current: self.current,
@@ -97,18 +98,31 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn apply_action(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             ItemGridAction::SpecificInner(index, action) => self
                 .items
                 .get_mut(index)
-                .and_then(|v| ItemWidget::apply_action(v, action).transpose())
+                .and_then(|v| {
+                    ItemWidget::apply_action(v, task.wrap_with(GridWrapper { index }), action)
+                        .transpose()
+                })
                 .transpose(),
             ItemGridAction::CurrentInner(action) => self
                 .items
                 .get_mut(self.current)
-                .and_then(|v| ItemWidget::apply_action(v, action).transpose())
+                .and_then(|v| {
+                    ItemWidget::apply_action(
+                        v,
+                        task.wrap_with(GridWrapper {
+                            index: self.current,
+                        }),
+                        action,
+                    )
+                    .transpose()
+                })
                 .transpose(),
             ItemGridAction::Up => {
                 self.current = self.current.saturating_sub(self.width);
@@ -134,6 +148,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn click(
         &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -160,6 +175,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
             {
                 ItemWidget::click(
                     item,
+                    task.wrap_with(GridWrapper { index }),
                     Position {
                         x: x_position,
                         y: y_position,
@@ -178,10 +194,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())

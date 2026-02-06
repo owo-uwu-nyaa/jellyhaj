@@ -1,11 +1,11 @@
+[dependencies]
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
+jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
+jellyhaj-stats-widget = {path = "../../widgets/stats", version = "0.1.0"}
+color-eyre.workspace = true
+
 [package]
+edition = "2024"
 name = "jellyhaj-stats-view"
 version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-color-eyre.workspace = true
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
-jellyhaj-render-widgets = { version = "0.1.0", path = "../../widgets/render" }
-jellyhaj-stats-widget = { version = "0.1.0", path = "../../widgets/stats" }

@@ -142,7 +142,7 @@ impl ItemWidget for Entry {
         Ok(Some(match action {
             EntryAction::Inner(action) => {
                 if let Some(image) = self.image.as_mut() {
-                    let None = image.apply_action(task.wrap_with(EntryWrapper),action)?;
+                    let None = image.apply_action(task.wrap_with(EntryWrapper), action)?;
                 }
                 return Ok(None);
             }

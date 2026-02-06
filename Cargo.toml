@@ -12,7 +12,6 @@ dirs = {workspace = true}
 either = {workspace = true}
 entries = {path = "entries"}
 futures-util = {workspace = true}
-home-screen = {path = "home-screen"}
 image = {workspace = true}
 item-view = {path = "item-view"}
 jellyfin = {path = "jellyfin-rs"}
@@ -22,17 +21,14 @@ jellyhaj-loading-widget = {path = "widgets/loading", version = "0.1.0"}
 jellyhaj-render-widgets = {path = "widgets/render", version = "0.1.0"}
 keybinds = {path = "keybinds"}
 log-screen = {path = "log-screen", version = "0.1.0"}
-login = {path = "login"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
-player = {path = "player"}
 player-core = {path = "player-core"}
 player-jellyfin = {path = "player-jellyfin"}
 player-mpris = {optional = true, path = "player-mpris"}
 ratatui-fallible-widget = {path = "ratatui-fallible-widget"}
 ratatui-image = {workspace = true}
 rayon = {workspace = true}
-refresh-item = {path = "refresh-item", version = "0.1.0"}
 serde = {workspace = true}
 serde_json = {workspace = true}
 spawn = {path = "spawn"}
@@ -43,10 +39,10 @@ toml = {workspace = true}
 tracing = {workspace = true}
 tracing-error = "0.2.0"
 tracing-subscriber = {features = ["env-filter"], version = "=0.3.19"}
-user-view = {path = "user-view"}
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
+jellyhaj-home-screen-view = { version = "0.1.0", path = "views/home-screen" }
 
 [features]
 attach = []
@@ -70,8 +66,7 @@ members = [
   "checkbox",
   "config",
   "entries",
-  "fetch", "form-test",
-  "home-screen",
+  "fetch",
   "item-view",
   "jellyfin-rs",
   "jellyhaj-core",
@@ -82,28 +77,32 @@ members = [
   "libmpv-rs/libmpv-sys",
   "library-view",
   "log-screen",
-  "login",
-  "player",
   "player-core",
   "player-jellyfin",
   "player-mpris",
   "ratatui-fallible-widget",
-  "refresh-item",
   "serde-json-ratatui",
   "spawn",
   "stats-data",
-  "user-view",
-  "views/fetch", "views/home-screen", "views/login", "views/player",
+  "views/fetch",
+  "views/home-screen", "views/library",
+  "views/login",
+  "views/player",
+  "views/refresh-item",
   "views/stats",
   "widgets/core",
-  "widgets/entry", "widgets/form", "widgets/form-derive", "widgets/form-derive-impl",
+  "widgets/entry",
+  "widgets/form",
+  "widgets/form-derive",
+  "widgets/form-derive-impl",
   "widgets/image",
   "widgets/item-grid",
   "widgets/item-list",
   "widgets/item-screen",
   "widgets/keybinds",
   "widgets/loading",
-  "widgets/login", "widgets/player",
+  "widgets/login",
+  "widgets/player",
   "widgets/render",
   "widgets/stats"
 ]

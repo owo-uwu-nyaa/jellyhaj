@@ -40,6 +40,24 @@ pub fn make_widget(
             offset: u16,
         }
 
+        impl<'s> #widget_ty<'s>{
+            pub fn new<'n>(
+                state: &'n mut #state_ty,
+            ) -> #widget_ty<'n>{
+                #widget_ty{
+                    state, selection: #exports::Default::default(), store: #exports::Default::default(), offset: 0
+                }
+            }
+            pub fn with_selection<'n>(
+                state: &'n mut #state_ty,
+                selection: #selection_ty,
+            ) -> #widget_ty<'n>{
+                #widget_ty{
+                    state, selection, store: #exports::Default::default(), offset: 0
+                }
+            }
+        }
+
         impl #exports::JellyhajWidget for #widget_ty<'_>{
             type State = #selection_ty;
             type Action = #action_ty;
@@ -174,7 +192,7 @@ pub fn make_widget(
                         buf,
                         main,
                         &self.store,
-                        
+
                     )?;
                 }
                 #pass2_fn(

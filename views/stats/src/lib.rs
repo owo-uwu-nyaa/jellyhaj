@@ -1,11 +1,7 @@
 use std::pin::Pin;
 
 use color_eyre::Result;
-use jellyhaj_core::{
-    context::TuiContext,
-    keybinds::StatsCommand,
-    state::Navigation,
-};
+use jellyhaj_core::{context::TuiContext, keybinds::StatsCommand, state::Navigation};
 use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::TermExt;
 use jellyhaj_stats_widget::StatsWidget;

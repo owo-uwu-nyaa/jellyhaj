@@ -1,0 +1,14 @@
+[package]
+name = "jellyhaj-library-view"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-entry-widget = { version = "0.1.0", path = "../../widgets/entry" }
+jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
+jellyhaj-item-grid = { version = "0.1.0", path = "../../widgets/item-grid" }
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
+jellyhaj-render-widgets = { version = "0.1.0", path = "../../widgets/render" }

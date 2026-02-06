@@ -15,17 +15,17 @@ pub mod exports {
         buffer::Buffer,
         crossterm::event::{KeyModifiers, MouseEventKind},
         layout::{Position, Rect, Size},
-        widgets::{StatefulWidget, Widget, Block},
+        widgets::{Block, StatefulWidget, Widget},
     };
     pub use std::{
+        assert,
         cmp::min,
+        convert::From,
         default::Default,
         matches,
         option::Option::{self, None, Some},
-        string::String,
         panic,
-        convert::From,
-        assert,
+        string::String,
     };
     pub use tui_scrollview::{ScrollView, ScrollViewState, ScrollbarVisibility};
 }

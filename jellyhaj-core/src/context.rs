@@ -59,7 +59,7 @@ impl TuiContext {
                 image_cache,
                 mpv_handle,
                 stats,
-                spawn
+                spawn,
             } = self.get_unchecked_mut();
             TuiContextProj {
                 jellyfin,
@@ -72,7 +72,7 @@ impl TuiContext {
                 image_cache,
                 mpv_handle,
                 stats,
-                spawn
+                spawn,
             }
         }
     }

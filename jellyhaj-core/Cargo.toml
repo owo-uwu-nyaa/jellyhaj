@@ -4,19 +4,20 @@ config = {path = "../config"}
 either = {workspace = true}
 image = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
-jellyhaj-entry-widget = { version = "0.1.0", path = "../widgets/entry" }
-jellyhaj-image = { version = "0.1.0", path = "../widgets/image" }
-jellyhaj-item-list = { version = "0.1.0", path = "../widgets/item-list" }
-jellyhaj-item-screen = { version = "0.1.0", path = "../widgets/item-screen" }
-jellyhaj-render-widgets = { version = "0.1.0", path = "../widgets/render" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../widgets/core" }
+jellyhaj-entry-widget = {path = "../widgets/entry", version = "0.1.0"}
+jellyhaj-image = {path = "../widgets/image", version = "0.1.0"}
+jellyhaj-item-grid = { version = "0.1.0", path = "../widgets/item-grid" }
+jellyhaj-item-list = {path = "../widgets/item-list", version = "0.1.0"}
+jellyhaj-item-screen = {path = "../widgets/item-screen", version = "0.1.0"}
+jellyhaj-render-widgets = {path = "../widgets/render", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
 keybinds = {path = "../keybinds"}
 libmpv = {default-features = false, path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 player-core = {path = "../player-core"}
 ratatui = {workspace = true}
 ratatui-image = {workspace = true}
-spawn = { version = "0.1.0", path = "../spawn" }
+spawn = {path = "../spawn", version = "0.1.0"}
 sqlx = {workspace = true}
 stats-data = {path = "../stats-data", version = "0.1.0"}
 tokio = {workspace = true}

@@ -1,11 +1,11 @@
-[package]
-name = "jellyhaj-login-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 color-eyre.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 ratatui.workspace = true
 serde.workspace = true
+
+[package]
+edition = "2024"
+name = "jellyhaj-login-widget"
+version = "0.1.0"

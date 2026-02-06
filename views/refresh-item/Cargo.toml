@@ -2,14 +2,12 @@
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
+jellyhaj-form-widget = {path = "../../widgets/form", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-player-widget = {path = "../../widgets/player", version = "0.1.0"}
 jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
-player-core = {path = "../../player-core", version = "0.1.0"}
 color-eyre.workspace = true
-tracing.workspace = true
 
 [package]
 edition = "2024"
-name = "jellyhaj-player-view"
+name = "jellyhaj-refresh-item-view"
 version = "0.1.0"

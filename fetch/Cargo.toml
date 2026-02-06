@@ -2,14 +2,14 @@
 color-eyre = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
 jellyhaj-core = {path = "../jellyhaj-core"}
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../widgets/keybinds" }
-jellyhaj-loading-widget = { version = "0.1.0", path = "../widgets/loading" }
-jellyhaj-render-widgets = { version = "0.1.0", path = "../widgets/render" }
+jellyhaj-keybinds-widget = {path = "../widgets/keybinds", version = "0.1.0"}
+jellyhaj-loading-widget = {path = "../widgets/loading", version = "0.1.0"}
+jellyhaj-render-widgets = {path = "../widgets/render", version = "0.1.0"}
 keybinds = {path = "../keybinds"}
-ratatui.workspace = true
-spawn = { version = "0.1.0", path = "../spawn" }
+spawn = {path = "../spawn", version = "0.1.0"}
 tokio = {features = ["macros"], workspace = true}
 tracing = {workspace = true}
+ratatui.workspace = true
 
 [package]
 edition = "2024"

@@ -13,7 +13,7 @@ pub fn pass2_fn(
     exports: &Path,
     form_item_tr: &Type,
 ) -> TokenStream {
-    let render = items.iter().enumerate().map(|(i,item)| {
+    let render = items.iter().enumerate().map(|(i, item)| {
         let ty = &item.ty;
         let pat = &item.selection;
         let name = &item.name;
@@ -28,7 +28,7 @@ pub fn pass2_fn(
                 <#ty as #form_item_tr>::render_pass_popup(
                      &mut state.#name,
                      this_area,
-                     full_area,   
+                     full_area,
                     buf,
                      #descr,
                      sel

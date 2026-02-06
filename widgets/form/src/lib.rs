@@ -5,9 +5,9 @@ pub mod checkbox;
 pub mod label;
 #[doc(hidden)]
 pub mod macro_impl;
+pub mod secret_field;
 pub mod selection;
 pub mod text_field;
-pub mod secret_field;
 use color_eyre::Result;
 pub use jellyhaj_form_derive::{Selection, form};
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};

@@ -135,10 +135,7 @@ impl JellyhajWidget for PlayerWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<
-            Self::Action,
-            impl Wrapper<Self::Action>,
-        >,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.send {
             self.send = true;

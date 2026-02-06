@@ -1,12 +1,12 @@
-[package]
-name = "jellyhaj-loading-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+tokio = {features = ["time"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 ratatui.workspace = true
-tokio = { workspace = true, features = ["time"] }
 tracing.workspace = true
+
+[package]
+edition = "2024"
+name = "jellyhaj-loading-widget"
+version = "0.1.0"

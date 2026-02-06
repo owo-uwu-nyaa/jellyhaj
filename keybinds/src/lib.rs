@@ -11,7 +11,6 @@ use std::{
     task::Poll,
 };
 
-
 ///reexport for proc macro
 #[doc(hidden)]
 pub use color_eyre::eyre as __eyre;

@@ -1,8 +1,8 @@
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 use syn::{
-    AttrStyle, Data, DeriveInput, Error, Fields, Ident, LitStr, Result, Variant,
-    parse2, spanned::Spanned,
+    AttrStyle, Data, DeriveInput, Error, Fields, Ident, LitStr, Result, Variant, parse2,
+    spanned::Spanned,
 };
 
 struct SelectionVariant {

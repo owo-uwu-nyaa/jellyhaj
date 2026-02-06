@@ -13,7 +13,7 @@ pub fn height_fn(
     action_result_ty: &Type,
     height_store_ty: &Type,
 ) -> TokenStream {
-    let calc = items.iter().enumerate().map(|(i,item)| {
+    let calc = items.iter().enumerate().map(|(i, item)| {
         let ty = &item.ty;
         let index = Literal::usize_suffixed(i);
         let calc = quote! {
@@ -59,7 +59,7 @@ pub fn item_start_fn(
     height_store_ty: &Type,
     name: &Ident,
 ) -> TokenStream {
-    let pats = items.iter().enumerate().map(|(i,item)| {
+    let pats = items.iter().enumerate().map(|(i, item)| {
         let pat = &item.selection;
         let index = Literal::usize_suffixed(i);
         quote! {

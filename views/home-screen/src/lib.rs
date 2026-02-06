@@ -129,7 +129,7 @@ pub async fn render_home_screen(
 pub async fn render_fetch_home_screen(cx: Pin<&mut TuiContext>) -> Result<Navigation> {
     let cx = cx.project();
     jellyhaj_fetch_view::render_fetch_future(
-        "Fetchin Home Screen",
+        "Fetching Home Screen",
         fetch::fetch(cx.jellyfin),
         cx.events,
         cx.config.keybinds.fetch.clone(),

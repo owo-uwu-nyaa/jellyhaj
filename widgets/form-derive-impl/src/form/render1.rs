@@ -13,7 +13,7 @@ pub fn pass1_fn(
     form_item_tr: &Type,
     height_store_ty: &Type,
 ) -> TokenStream {
-    let render = items.iter().enumerate().map(|(i,item)| {
+    let render = items.iter().enumerate().map(|(i, item)| {
         let ty = &item.ty;
         let pat = &item.selection;
         let id = &item.name;

@@ -111,7 +111,7 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                     state: _,
                 }))) => return Ok(CommandAction::Exit),
                 Either::Left(Ok(Event::Key(key))) => {
-                    match widget.apply_action(task.clone(),KeybindAction::Key(key)) {
+                    match widget.apply_action(task.clone(), KeybindAction::Key(key)) {
                         Ok(None) => {}
                         Ok(Some(v)) => return Ok(v),
                         Err(e) => return Err(e),
@@ -124,7 +124,7 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                     modifiers,
                 }))) => {
                     let size = self.current_buffer_mut().area.as_size();
-                    match widget.click(task.clone(),(column, row).into(), size, kind, modifiers) {
+                    match widget.click(task.clone(), (column, row).into(), size, kind, modifiers) {
                         Ok(None) => {}
                         Ok(Some(v)) => return Ok(v),
                         Err(e) => return Err(e),
@@ -137,7 +137,7 @@ impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
                 }
                 Either::Left(_) => {}
                 Either::Right(Err(e)) => return Err(e),
-                Either::Right(Ok(action)) => match widget.apply_action(task.clone(),action) {
+                Either::Right(Ok(action)) => match widget.apply_action(task.clone(), action) {
                     Ok(None) => {}
                     Ok(Some(v)) => return Ok(v),
                     Err(e) => return Err(e),

@@ -79,7 +79,8 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
         let widget_ty = format_ident!("{name}Widget");
         let fields: Result<Vec<_>> = fields
             .named
-            .iter_mut().filter_map(|field|{
+            .iter_mut()
+            .filter_map(|field| {
                 let index = field.attrs.iter().enumerate().find_map(|(i, a)| {
                     if a.path()
                         .get_ident()
@@ -91,11 +92,14 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                         None
                     }
                 });
-                if index.map(|i|{
-                    field.attrs.remove(i);
-                }).is_none(){
+                if index
+                    .map(|i| {
+                        field.attrs.remove(i);
+                    })
+                    .is_none()
+                {
                     Some(field)
-                }else{
+                } else {
                     None
                 }
             })
@@ -117,10 +121,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                     }
                 });
                 let attr = attr_index.map(|i| field.attrs.remove(i)).ok_or_else(|| {
-                    Error::new(
-                        span,
-                        "Every field must have a #[descr(\"\")] attribute",
-                    )
+                    Error::new(span, "Every field must have a #[descr(\"\")] attribute")
                 })?;
                 let descr: LitStr = attr.parse_args()?;
                 let show_if_index = field.attrs.iter().enumerate().find_map(|(i, a)| {

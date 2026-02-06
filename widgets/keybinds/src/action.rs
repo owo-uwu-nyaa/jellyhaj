@@ -21,9 +21,7 @@ pub fn apply_key_event<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D 
     action: KeybindAction<W::Action>,
 ) -> Result<Option<CommandAction<M::U, W::ActionResult>>> {
     match action {
-        KeybindAction::Inner(a) => match this
-            .inner
-            .apply_action(task.wrap_with(KeybindWrapper), a)
+        KeybindAction::Inner(a) => match this.inner.apply_action(task.wrap_with(KeybindWrapper), a)
         {
             Ok(None) => Ok(None),
             Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),

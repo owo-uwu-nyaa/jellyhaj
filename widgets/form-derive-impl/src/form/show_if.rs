@@ -29,15 +29,18 @@ pub fn assert_current_shown_fn(
     state_ty: &Ident,
     name: &Ident,
     exports: &Path,
-) -> TokenStream{
-    let asserts = items.iter().map(|item|{
+) -> TokenStream {
+    let asserts = items.iter().map(|item| {
         let pat = &item.selection;
-        if let Some(if_fn) = item.show_if_fun.as_ref(){
-            let message = Literal::string(&format!("action on {} resulted in it beeing hidden", item.name));
+        if let Some(if_fn) = item.show_if_fun.as_ref() {
+            let message = Literal::string(&format!(
+                "action on {} resulted in it beeing hidden",
+                item.name
+            ));
             quote! {
                 #pat(_) => #exports::assert!(state.#if_fn(), #message)
             }
-        }else{
+        } else {
             quote! {
                 #pat(_) => {}
             }

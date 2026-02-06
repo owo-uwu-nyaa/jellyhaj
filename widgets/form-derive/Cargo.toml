@@ -1,11 +1,11 @@
-[package]
-name = "jellyhaj-form-derive"
-version = "0.1.0"
-edition = "2024"
+[dependencies]
+jellyhaj-form-derive-impl = {path = "../form-derive-impl", version = "0.1.0"}
+syn.workspace = true
 
 [lib]
 proc-macro = true
 
-[dependencies]
-jellyhaj-form-derive-impl = { version = "0.1.0", path = "../form-derive-impl" }
-syn.workspace = true
+[package]
+edition = "2024"
+name = "jellyhaj-form-derive"
+version = "0.1.0"

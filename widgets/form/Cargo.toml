@@ -1,15 +1,15 @@
-[package]
-name = "jellyhaj-form-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
-color-eyre.workspace = true
-jellyhaj-form-derive = { version = "0.1.0", path = "../form-derive" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
-ratatui.workspace = true
-serde = { workspace = true, optional = true }
+jellyhaj-form-derive = {path = "../form-derive", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+serde = {optional = true, workspace = true}
 tui-scrollview = "0.6.2"
+color-eyre.workspace = true
+ratatui.workspace = true
 
 [features]
 serde = ["dep:serde"]
+
+[package]
+edition = "2024"
+name = "jellyhaj-form-widget"
+version = "0.1.0"

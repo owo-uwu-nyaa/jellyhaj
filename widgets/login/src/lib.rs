@@ -37,7 +37,7 @@ impl<'s> LoginWidget<'s> {
             info,
             selection,
             error,
-            changed: false
+            changed: false,
         }
     }
 }

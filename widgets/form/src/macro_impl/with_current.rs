@@ -25,7 +25,11 @@ pub struct ApplyChar(pub char);
 impl<T> WithCurrentMut<T> for ApplyChar {
     type R = ();
 
-    fn process<I: FormItem<T>>(self, val: &mut I, sel: &mut <I as FormItem<T>>::SelectionInner) -> Self::R {
+    fn process<I: FormItem<T>>(
+        self,
+        val: &mut I,
+        sel: &mut <I as FormItem<T>>::SelectionInner,
+    ) -> Self::R {
         val.apply_char(sel, self.0);
     }
 }
@@ -35,7 +39,11 @@ pub struct ApplyText(pub String);
 impl<T> WithCurrentMut<T> for ApplyText {
     type R = ();
 
-    fn process<I: FormItem<T>>(self, val: &mut I, sel: &mut <I as FormItem<T>>::SelectionInner) -> Self::R {
+    fn process<I: FormItem<T>>(
+        self,
+        val: &mut I,
+        sel: &mut <I as FormItem<T>>::SelectionInner,
+    ) -> Self::R {
         val.apply_text(sel, self.0);
     }
 }
@@ -55,7 +63,11 @@ pub struct ApplyAction(pub FormAction);
 impl<T> WithCurrentMut<T> for ApplyAction {
     type R = color_eyre::Result<Option<T>>;
 
-    fn process<I: FormItem<T>>(self, val: &mut I, sel: &mut <I as FormItem<T>>::SelectionInner) -> Self::R {
+    fn process<I: FormItem<T>>(
+        self,
+        val: &mut I,
+        sel: &mut <I as FormItem<T>>::SelectionInner,
+    ) -> Self::R {
         val.apply_action(sel, self.0)
     }
 }

@@ -1,13 +1,13 @@
-[package]
-name = "jellyhaj-player-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+player-core = {path = "../../player-core", version = "0.1.0"}
 color-eyre.workspace = true
 futures-util.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
-player-core = { version = "0.1.0", path = "../../player-core" }
 ratatui.workspace = true
 tracing.workspace = true
+
+[package]
+edition = "2024"
+name = "jellyhaj-player-widget"
+version = "0.1.0"

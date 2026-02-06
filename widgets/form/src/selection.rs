@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Position, Rect, Result};
 use ratatui::{
     crossterm::event::MouseButton,
     style::Modifier,
@@ -97,12 +97,17 @@ impl<AR, S: Selection> FormItem<AR> for S {
         name: &'static str,
     ) -> Result<()> {
         let mut outer = Block::bordered().title(name);
-        if active{
+        if active {
             outer = outer.border_type(BorderType::Double);
         }
         let main = outer.inner(area);
         name.render(main, buf);
         outer.render(area, buf);
+        buf[Position {
+            x: area.x + area.width - 1,
+            y: area.y + 1,
+        }]
+        .set_char('⮛');
         Ok(())
     }
 
@@ -115,6 +120,11 @@ impl<AR, S: Selection> FormItem<AR> for S {
         sel: Self::SelectionInner,
     ) -> Result<()> {
         if let Some(sel_inner) = sel {
+            buf[Position {
+                x: area.x + area.width - 1,
+                y: area.y + 1,
+            }]
+            .set_char('⮙');
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
@@ -242,9 +252,9 @@ impl<AR, S: Selection> FormItem<AR> for S {
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<(Option<Self::SelectionInner>, Option<AR>)> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind{
+        if let MouseEventKind::Down(MouseButton::Left) = kind {
             Ok((Some(Some(*self)), None))
-        }else{
+        } else {
             Ok((None, None))
         }
     }

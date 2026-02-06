@@ -119,7 +119,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        action::apply_key_event(self,task , action)
+        action::apply_key_event(self, task, action)
     }
 
     fn click(
@@ -130,7 +130,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        click::apply_click(self,task ,position, size, kind, modifier)
+        click::apply_click(self, task, position, size, kind, modifier)
     }
 
     fn render_fallible_inner(

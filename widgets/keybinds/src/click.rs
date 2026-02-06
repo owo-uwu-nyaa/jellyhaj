@@ -74,14 +74,13 @@ pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
                         this.next_maps = Vec::new();
                         return match this.mapper.map(c) {
                             MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
-                            MappedCommand::Down(a) => match this
-                                .inner
-                                .apply_action(task.wrap_with(KeybindWrapper), a)
-                            {
-                                Ok(None) => Ok(None),
-                                Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
-                                Err(e) => Err(e),
-                            },
+                            MappedCommand::Down(a) => {
+                                match this.inner.apply_action(task.wrap_with(KeybindWrapper), a) {
+                                    Ok(None) => Ok(None),
+                                    Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
+                                    Err(e) => Err(e),
+                                }
+                            }
                         };
                     }
                     KeyBinding::Group { map, name } => {
