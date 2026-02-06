@@ -1,0 +1,28 @@
+use jellyhaj_entry_widget::{Entry, EntryAction};
+use jellyhaj_widgets_core::JellyhajWidget;
+
+pub enum OverviewAction {
+    Up,
+    Down,
+}
+
+pub struct Overview{
+    text: String,
+    scroll: usize,
+}
+
+impl JellyhajWidget for Overview{
+    
+}
+
+
+
+enum DisplayAction {
+    Inner(EntryAction),
+    Up,
+    Down,
+}
+
+struct ItemDisplay {
+    entry: Entry,
+}

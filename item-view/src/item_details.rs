@@ -27,11 +27,13 @@ pub async fn display_fetch_item(cx: Pin<&mut TuiContext>, parent: &str) -> Resul
     fetch_screen(
         "fetching episode",
         async {
-            Ok(fetch_child_of_type(jellyfin, "Episode, Movie", parent)
-                .await
-                .context("fetching episode")
-                .map(|item| Navigation::Replace(NextScreen::ItemDetails(item)))
-                .to_nav())
+            Ok(
+                fetch_child_of_type(jellyfin, "Episode, Movie, Music", parent)
+                    .await
+                    .context("fetching episode")
+                    .map(|item| Navigation::Replace(NextScreen::ItemDetails(item)))
+                    .to_nav(),
+            )
         },
         cx.events,
         cx.config.keybinds.fetch.clone(),

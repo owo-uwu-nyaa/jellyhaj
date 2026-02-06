@@ -28,6 +28,23 @@ pub enum EntryData {
     View(UserView),
 }
 
+impl EntryData {
+    pub fn item(&self) -> Option<&MediaItem> {
+        if let EntryData::Item(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+    pub fn into_item(self) -> Option<MediaItem> {
+        if let EntryData::Item(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct Entry {
     image: Option<JellyfinImage>,
     title: String,

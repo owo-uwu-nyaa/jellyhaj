@@ -11,3 +11,16 @@ pub use ratatui::{
     layout::{Position, Rect, Size},
 };
 pub use ratatui_image::FontSize;
+
+pub trait RectExt {
+    fn contains(self, pos: Position) -> bool;
+}
+
+impl RectExt for Rect {
+    fn contains(self, pos: Position) -> bool {
+        self.x <= pos.x
+            && self.y <= pos.y
+            && self.x + self.width > pos.x
+            && self.y + self.height > pos.y
+    }
+}

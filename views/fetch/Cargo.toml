@@ -8,6 +8,8 @@ spawn = {path = "../../spawn", version = "0.1.0"}
 color-eyre.workspace = true
 ratatui.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
 
 [package]
 edition = "2024"

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use color_eyre::{Result, eyre::Report};
 use jellyfin::{
     items::{MediaItem, RefreshItemQuery},
@@ -26,12 +24,6 @@ pub enum LoadPlay {
 #[derive(Debug)]
 pub enum NextScreen {
     LoadHomeScreen,
-    HomeScreenData {
-        resume: Vec<MediaItem>,
-        next_up: Vec<MediaItem>,
-        views: Vec<UserView>,
-        latest: HashMap<String, Vec<MediaItem>>,
-    },
     HomeScreen(ItemScreenData<EntryData>),
     LoadUserView(UserView),
     UserView {
@@ -45,7 +37,6 @@ pub enum NextScreen {
     },
     Error(Report),
     ItemDetails(MediaItem),
-    ItemListDetailsData(MediaItem, Vec<MediaItem>),
     ItemListDetails(MediaItem, ItemListData<EntryData>),
     FetchItemListDetails(MediaItem),
     FetchItemListDetailsRef(String),

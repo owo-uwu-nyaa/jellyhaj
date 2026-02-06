@@ -49,6 +49,9 @@ impl<T: ItemWidget> ItemList<T> {
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         self.items.get_mut(index)
     }
+    pub fn height(&self) -> u16 {
+        self.item_size.height + 4
+    }
 }
 
 impl<T: ItemWidget> Index<usize> for ItemList<T> {
@@ -77,6 +80,16 @@ pub struct ItemListData<T> {
     pub items: Vec<T>,
     pub title: String,
     pub current: usize,
+}
+
+impl<T> ItemListData<T> {
+    pub fn new(items: impl IntoIterator<Item = T>, title: String) -> Self {
+        Self {
+            items: items.into_iter().collect(),
+            title,
+            current: 0,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
