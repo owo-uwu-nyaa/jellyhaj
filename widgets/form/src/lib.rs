@@ -1,14 +1,21 @@
+#![allow(unused_variables)]
+
+pub mod button;
 pub mod checkbox;
+pub mod label;
 #[doc(hidden)]
 pub mod macro_impl;
 pub mod selection;
+pub mod text_field;
+pub mod secret_field;
 use color_eyre::Result;
-pub use jellyhaj_form_derive::{form, Selection};
-pub use selection::Selection;
+pub use jellyhaj_form_derive::{Selection, form};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
 };
+pub use selection::Selection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormAction {
@@ -39,29 +46,40 @@ pub trait FormItem<AR> {
         action: FormAction,
     ) -> Result<Option<AR>>;
 
-    fn click_area(&self, sel: Self::SelectionInner, area: Rect, full_area: Rect) -> Rect;
+    fn popup_area(&self, sel: Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 
-    fn apply_click(
+    fn apply_click_active(
         &mut self,
         sel: &mut Self::SelectionInner,
         area: Rect,
-        full_area: Rect,
+        full_area: Size,
         pos: Position,
+        kind: MouseEventKind,
+        modifier: KeyModifiers,
     ) -> Result<Option<AR>>;
 
+    fn apply_click_inactive(
+        &mut self,
+        size: Size,
+        pos: Position,
+        kind: MouseEventKind,
+        modifier: KeyModifiers,
+    ) -> Result<(Option<Self::SelectionInner>, Option<AR>)>;
+
     fn render_pass_main(
-        &self,
+        &mut self,
         area: Rect,
         buf: &mut Buffer,
         active: bool,
         name: &'static str,
-    );
+    ) -> Result<()>;
+
     fn render_pass_popup(
-        &self,
+        &mut self,
         area: Rect,
         full_area: Rect,
         buf: &mut Buffer,
         name: &'static str,
         sel: Self::SelectionInner,
-    );
+    ) -> Result<()>;
 }

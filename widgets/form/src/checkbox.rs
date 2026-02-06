@@ -1,18 +1,20 @@
-use ratatui::{style::Modifier, widgets::Widget};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result};
+use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
-use crate::FormItem;
+use crate::{FormAction, FormItem};
 
 impl<T> FormItem<T> for bool {
     const HEIGHT: u16 = 1;
     const HEIGHT_BUF: u16 = 0;
     type SelectionInner = ();
+
     fn render_pass_main(
-        &self,
+        &mut self,
         mut area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         active: bool,
         name: &'static str,
-    ) {
+    ) -> Result<()> {
         buf[(area.x, area.y)].set_char('[');
         let mark = &mut buf[(area.x + 1, area.y)];
         if *self {
@@ -24,17 +26,19 @@ impl<T> FormItem<T> for bool {
         buf[(area.x + 2, area.y)].set_char(']');
         area.x += 4;
         name.render(area, buf);
+        Ok(())
     }
+
     fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
-        todo!()
+        false
     }
 
     fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        todo!()
+        unimplemented!()
     }
 
     fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        todo!()
+        unimplemented!()
     }
 
     fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
@@ -45,32 +49,56 @@ impl<T> FormItem<T> for bool {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
-        todo!()
-    }
-
-    fn click_area(&self, sel: Self::SelectionInner, area: ratatui::prelude::Rect, full_area: ratatui::prelude::Rect) -> ratatui::prelude::Rect {
-        todo!()
-    }
-
-    fn apply_click(
-        &mut self,
-        sel: &mut Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Rect,
-        pos: ratatui::prelude::Position,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
-        todo!()
+    ) -> Result<Option<T>> {
+        if FormAction::Enter == action {
+            *self ^= true;
+        }
+        Ok(None)
     }
 
     fn render_pass_popup(
-        &self,
+        &mut self,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: Self::SelectionInner,
-    ) {
-        todo!()
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    fn popup_area(
+        &self,
+        sel: Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        Rect::ZERO
+    }
+    fn apply_click_active(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+        pos: ratatui::prelude::Position,
+        kind: MouseEventKind,
+        modifier: KeyModifiers,
+    ) -> Result<Option<T>> {
+        unreachable!()
+    }
+
+    fn apply_click_inactive(
+        &mut self,
+        size: ratatui::prelude::Size,
+        pos: ratatui::prelude::Position,
+        kind: MouseEventKind,
+        modifier: KeyModifiers,
+    ) -> Result<(Option<Self::SelectionInner>, Option<T>)> {
+        if let MouseEventKind::Down(MouseButton::Left) = kind
+            && pos.x < 3
+        {
+            *self ^= true;
+        }
+        Ok((None, None))
     }
 }

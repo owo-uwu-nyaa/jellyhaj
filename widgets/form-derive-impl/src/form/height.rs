@@ -1,40 +1,21 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 use syn::{Ident, Path, Type};
 
 use super::FormItem;
-
-pub fn make_height_store(items: &[FormItem], name: &Ident, exports: &Path) -> TokenStream {
-    let items = items.iter().map(|i| &i.name);
-    let items2 = items.clone();
-    quote! {
-        struct #name {
-            #(#items: #exports::Option<u16>),*
-        }
-
-        impl #exports::Default for #name{
-            fn default() -> Self{
-                Self{
-                    #(#items2: #exports::None),*
-                }
-            }
-        }
-    }
-}
 
 pub fn height_fn(
     items: &[FormItem],
     state_ty: &Ident,
     name: &Ident,
     size_helpers: &Path,
-    exports: &Path,
     form_item_tr: &Type,
     action_result_ty: &Type,
-    height_store_ty: &Ident,
+    height_store_ty: &Type,
 ) -> TokenStream {
-    let calc = items.iter().map(|item| {
+    let calc = items.iter().enumerate().map(|(i,item)| {
         let ty = &item.ty;
-        let name = &item.name;
+        let index = Literal::usize_suffixed(i);
         let calc = quote! {
             if first{
                 first = false;
@@ -44,14 +25,14 @@ pub fn height_fn(
                 height = #size_helpers::add_form_item::<#action_result_ty,#ty>(height);
                 height_buf = #size_helpers::add_form_item_buf::<#action_result_ty,#ty>(height_buf);
             }
-            store.#name = #exports::Some(height);
+            store[#index] = (height, true);
         };
         if let Some(show_if_fun) = item.show_if_fun.as_ref() {
             quote! {
                 if state.#show_if_fun(){
                     #calc
                 }else{
-                    store.#name = #exports::None;
+                    store[#index] = (height, false);
                 }
             }
         } else {
@@ -74,48 +55,23 @@ pub fn height_fn(
 
 pub fn item_start_fn(
     items: &[FormItem],
-    state_ty: &Ident,
     selection_ty: &Ident,
+    height_store_ty: &Type,
     name: &Ident,
-    size_helpers: &Path,
-    form_item_tr: &Type,
-    action_result_ty: &Type,
 ) -> TokenStream {
-    let calc = items.iter().map(|item| {
-        let ty = &item.ty;
-        let calc = quote! {
-            if first{
-                first = false;
-                height = <#ty as #form_item_tr>::HEIGHT;
-            }else{
-                height = #size_helpers::add_form_item::<#action_result_ty,#ty>(height);
-            }
-        };
-        let calc = if let Some(show_if_fun) = item.show_if_fun.as_ref() {
-            quote! {
-                if state.#show_if_fun(){
-                    #calc
-                }
-            }
-        } else {
-            calc
-        };
+    let pats = items.iter().enumerate().map(|(i,item)| {
         let pat = &item.selection;
+        let index = Literal::usize_suffixed(i);
         quote! {
-            if let #pat(_) = sel{
-                return height;
-            }
-            #calc
+            #pat(_) => #index
         }
     });
     quote! {
-        pub fn #name(state: &#state_ty, sel: &#selection_ty)->u16{
-            let mut first = true;
-            let mut height = 0;
-
-            #(#calc)*
-
-            unreachable!()
+        pub fn #name(store: &#height_store_ty, sel: #selection_ty)->u16{
+            let index = match sel{
+                #(#pats),*
+            };
+            store[index].0
         }
     }
 }

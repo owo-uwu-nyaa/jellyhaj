@@ -1,7 +1,8 @@
-use proc_macro2::{Literal, Span, TokenStream};
-use quote::{ToTokens, format_ident, quote};
-use syn::{Expr, Ident, ItemStruct, LitStr, Path, Result, Type, parse_quote, parse2};
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
+use syn::{Expr, Ident, ItemStruct, LitStr, Path, Result, Type, parse_quote};
 
+mod click;
 mod height;
 mod parse;
 mod render1;
@@ -26,13 +27,12 @@ struct ParseResult {
     action_result: Type,
     state_ty: Ident,
     selection_ty: Ident,
-    height_store_ty: Ident,
+    height_store_ty: Type,
     widget_ty: Ident,
     full: ItemStruct,
 }
 
 pub struct Helpers {
-    size_helpers: Path,
     with_current_helpers: Path,
     form_item_tr: Type,
     action_ty: Type,
@@ -46,6 +46,9 @@ pub struct Helpers {
     pass2_fn: Ident,
     with_current_fn: Ident,
     with_current_mut_fn: Ident,
+    calc_offset_fn: Path,
+    assert_current_shown_fn: Ident,
+    click_fn: Ident,
 }
 
 fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
@@ -61,6 +64,7 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
     let exports: Path = parse_quote!(::jellyhaj_form_widget::macro_impl::exports);
     let action_ty = parse_quote!(::jellyhaj_form_widget::FormAction);
     let quit_form_ty = parse_quote!(::jellyhaj_form_widget::QuitForm);
+    let calc_offset_fn = parse_quote!(::jellyhaj_form_widget::macro_impl::offset::calc_offset);
     let detect_loop_name = format_ident!("_widget_helper_{name}_detect_loop");
     let detect_loop_fn =
         selection::detect_loop_fn(items, selection_ty, &detect_loop_name, &exports);
@@ -88,21 +92,13 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
         state_ty,
         &height_name,
         &size_helpers,
-        &exports,
         &form_item_tr,
         action_result_ty,
         height_store_ty,
     );
     let item_start_name = format_ident!("_widget_helper_{name}_item_start");
-    let item_start_fn = height::item_start_fn(
-        items,
-        state_ty,
-        selection_ty,
-        &item_start_name,
-        &size_helpers,
-        &form_item_tr,
-        action_result_ty,
-    );
+    let item_start_fn =
+        height::item_start_fn(items, selection_ty, height_store_ty, &item_start_name);
     let pass1_name = format_ident!("_widget_helper_{name}_pass1");
     let pass1_fn = render1::pass1_fn(
         items,
@@ -118,8 +114,8 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
         items,
         state_ty,
         selection_ty,
+        height_store_ty,
         &pass2_name,
-        &size_helpers,
         &exports,
         &form_item_tr,
     );
@@ -141,9 +137,28 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
         &with_current_helpers,
         action_result_ty,
     );
-
+    let assert_current_shown_name = format_ident!("_widget_helper_{name}_assert_current_shown");
+    let assert_current_shown_fn = show_if::assert_current_shown_fn(
+        items,
+        selection_ty,
+        state_ty,
+        &assert_current_shown_name,
+        &exports,
+    );
+    let click_name = format_ident!("_widget_helper_{name}_click");
+    let click_fn = click::click_fn(
+        items,
+        state_ty,
+        selection_ty,
+        height_store_ty,
+        &click_name,
+        &exports,
+        &form_item_tr,
+        action_result_ty,
+        &assert_current_shown_name,
+        &size_helpers,
+    );
     let helpers = Helpers {
-        size_helpers,
         with_current_helpers,
         form_item_tr,
         exports,
@@ -157,6 +172,9 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
         action_ty,
         up_fn: up_name,
         down_fn: down_name,
+        assert_current_shown_fn: assert_current_shown_name,
+        calc_offset_fn,
+        click_fn: click_name,
     };
     let helper_impl = quote! {
         #detect_loop_fn
@@ -168,6 +186,8 @@ fn make_helpers(p: &ParseResult) -> (Helpers, TokenStream) {
         #pass2_fn
         #with_current_fn
         #with_current_mut_fn
+        #assert_current_shown_fn
+        #click_fn
     };
     (helpers, helper_impl)
 }
@@ -182,8 +202,6 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         &helpers.form_item_tr,
         &helpers.exports,
     );
-    let height_store =
-        height::make_height_store(&parsed.fields, &parsed.height_store_ty, &helpers.exports);
     let make_widget = widget::make_widget(
         &parsed.state_ty,
         &parsed.widget_ty,
@@ -196,44 +214,23 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         &helpers.with_current_helpers,
         &helpers.with_current_fn,
         &helpers.with_current_mut_fn,
+        &helpers.height_fn,
+        &helpers.item_start_fn,
         &helpers.up_fn,
         &helpers.down_fn,
+        &helpers.pass1_fn,
+        &helpers.pass2_fn,
+        &helpers.assert_current_shown_fn,
+        &helpers.click_fn,
+        &helpers.calc_offset_fn,
+        &parsed.name,
     );
     let full = &parsed.full;
     Ok(quote! {
         #full
         #show_ifs
         #make_selection
-        #height_store
         #helper_code
         #make_widget
     })
-}
-
-fn render_body(
-    items: &[FormItem],
-    descr: &LitStr,
-    self_ty: &Ident,
-    selection_type: &Ident,
-) -> TokenStream {
-    quote! {
-        let outer = ::jellyhaj_form_widget::macro_impl::outer_block(#descr);
-        let main = outer.inner(area);
-        if main.height < height{
-            let mut scroll_view = ::jellyhaj_form_widget::macro_impl::ScrollView::new(
-                jellyhaj_form_widget::macro_impl::Size{width: main.width, height}
-            );
-            render_inner(self, scroll_view.area(), scroll_view.buf_mut());
-            let offset = ::jellyhaj_form_widget::macro_impl::offset::calc_offset(
-                height, main.height, item_start(self.selection)
-            );
-            let mut state = ::jellyhaj_form_widget::macro_impl::ScrollViewState::with_offset(
-                ::jellyhaj_form_widget::macro_impl::Position{x:0, y: }
-            );
-            jellyhaj_form_widget::macro_impl::StatefulWidget::render(scroll_view, main, buf, &mut state);
-        }else{
-            render_inner(self, main, buf);
-        }
-
-    }
 }

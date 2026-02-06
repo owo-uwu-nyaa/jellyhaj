@@ -1,7 +1,6 @@
 use ratatui::widgets::Block;
 
 pub mod offset;
-pub mod selection;
 pub mod size;
 pub mod with_current;
 
@@ -16,7 +15,7 @@ pub mod exports {
         buffer::Buffer,
         crossterm::event::{KeyModifiers, MouseEventKind},
         layout::{Position, Rect, Size},
-        widgets::{StatefulWidget, Widget},
+        widgets::{StatefulWidget, Widget, Block},
     };
     pub use std::{
         cmp::min,
@@ -26,6 +25,7 @@ pub mod exports {
         string::String,
         panic,
         convert::From,
+        assert,
     };
     pub use tui_scrollview::{ScrollView, ScrollViewState, ScrollbarVisibility};
 }

@@ -1,6 +1,6 @@
 use std::char::ToUppercase;
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Literal, Span, TokenStream};
 use quote::format_ident;
 
 use crate::form::{FormItem, ParseResult};
@@ -28,24 +28,24 @@ impl Parse for Args {
     }
 }
 
-enum C {
+enum Upper {
     None,
-    C(char),
-    U(ToUppercase),
+    Unchanged(char),
+    Changed(ToUppercase),
 }
 
-impl Iterator for C {
+impl Iterator for Upper {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            C::None => None,
-            C::C(c) => {
+            Upper::None => None,
+            Upper::Unchanged(c) => {
                 let c = *c;
-                *self = C::None;
+                *self = Upper::None;
                 Some(c)
             }
-            C::U(to_uppercase) => to_uppercase.next(),
+            Upper::Changed(to_uppercase) => to_uppercase.next(),
         }
     }
 }
@@ -57,12 +57,12 @@ fn camel_case(snake: &str) -> String {
         .flat_map(|c| {
             if c == '_' {
                 up = true;
-                C::None
+                Upper::None
             } else if up {
                 up = false;
-                C::U(c.to_uppercase())
+                Upper::Changed(c.to_uppercase())
             } else {
-                C::C(c)
+                Upper::Unchanged(c)
             }
         })
         .collect()
@@ -74,17 +74,37 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
     if let Fields::Named(fields) = &mut input.fields {
         let name = input.ident.to_string();
         let selection_ty = format_ident!("{name}Selection");
-        let height_store_ty = format_ident!("_{name}HeightStore");
+        let fields_len = Literal::usize_unsuffixed(fields.named.len());
+        let height_store_ty = parse_quote!([(u16, bool);#fields_len]);
         let widget_ty = format_ident!("{name}Widget");
         let fields: Result<Vec<_>> = fields
             .named
-            .iter_mut()
+            .iter_mut().filter_map(|field|{
+                let index = field.attrs.iter().enumerate().find_map(|(i, a)| {
+                    if a.path()
+                        .get_ident()
+                        .map(|i| i.to_string().as_str() == "skip")
+                        .unwrap_or(false)
+                    {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                });
+                if index.map(|i|{
+                    field.attrs.remove(i);
+                }).is_none(){
+                    Some(field)
+                }else{
+                    None
+                }
+            })
             .map(|field| {
                 let span = field.span();
                 let name = field
                     .ident
                     .clone()
-                    .ok_or_else(|| Error::new(span.clone(), "field has no name"))?;
+                    .ok_or_else(|| Error::new(span, "field has no name"))?;
                 let attr_index = field.attrs.iter().enumerate().find_map(|(i, a)| {
                     if a.path()
                         .get_ident()
@@ -98,7 +118,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                 });
                 let attr = attr_index.map(|i| field.attrs.remove(i)).ok_or_else(|| {
                     Error::new(
-                        span.clone(),
+                        span,
                         "Every field must have a #[descr(\"\")] attribute",
                     )
                 })?;

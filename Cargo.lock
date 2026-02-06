@@ -1852,6 +1852,7 @@ dependencies = [
  "jellyhaj-form-derive",
  "jellyhaj-widgets-core",
  "ratatui",
+ "serde",
  "tui-scrollview",
 ]
 
@@ -1969,6 +1970,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "jellyfin",
+ "jellyhaj-form-widget",
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",

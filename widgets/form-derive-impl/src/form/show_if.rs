@@ -1,6 +1,6 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Literal, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::{Ident, spanned::Spanned};
+use syn::{Ident, Path, spanned::Spanned};
 
 use crate::form::FormItem;
 
@@ -19,6 +19,35 @@ pub fn gen_show_ifs(items: &[FormItem], self_ty: &Ident) -> TokenStream {
     quote! {
         impl #self_ty {
             #(#fns)*
+        }
+    }
+}
+
+pub fn assert_current_shown_fn(
+    items: &[FormItem],
+    selection_ty: &Ident,
+    state_ty: &Ident,
+    name: &Ident,
+    exports: &Path,
+) -> TokenStream{
+    let asserts = items.iter().map(|item|{
+        let pat = &item.selection;
+        if let Some(if_fn) = item.show_if_fun.as_ref(){
+            let message = Literal::string(&format!("action on {} resulted in it beeing hidden", item.name));
+            quote! {
+                #pat(_) => #exports::assert!(state.#if_fn(), #message)
+            }
+        }else{
+            quote! {
+                #pat(_) => {}
+            }
+        }
+    });
+    quote! {
+        fn #name(state:&#state_ty, sel: #selection_ty){
+            match sel{
+                #(#asserts),*
+            }
         }
     }
 }

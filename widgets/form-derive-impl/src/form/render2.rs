@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 use syn::{Ident, Path, Type};
 
@@ -8,39 +8,47 @@ pub fn pass2_fn(
     items: &[FormItem],
     state_ty: &Ident,
     selection_ty: &Ident,
+    height_store_ty: &Type,
     name: &Ident,
-    size_helpers: &Path,
     exports: &Path,
     form_item_tr: &Type,
 ) -> TokenStream {
-    let render = items.iter().map(|item| {
+    let render = items.iter().enumerate().map(|(i,item)| {
         let ty = &item.ty;
         let pat = &item.selection;
-        let id = &item.name;
+        let name = &item.name;
         let descr = &item.descr;
-        let render = quote! {
-        };
-        if let Some(show_if_fun) = item.show_if_fun.as_ref() {
-            quote! {
-                if state.#show_if_fun(){
-                    #render
-                }
+        let index = Literal::usize_suffixed(i);
+        quote! {
+            #pat(sel) => {
+                let full_area = area;
+                let mut this_area = area;
+                this_area.height = <#ty as #form_item_tr>::HEIGHT;
+                this_area.y += (store[#index].0-offset);
+                <#ty as #form_item_tr>::render_pass_popup(
+                     &mut state.#name,
+                     this_area,
+                     full_area,   
+                    buf,
+                     #descr,
+                     sel
+                )
             }
-        } else {
-            render
         }
     });
 
     quote! {
         pub fn #name(
-            state: &#state_ty,
-            sel: &#selection_ty,
+            state: &mut #state_ty,
+            sel: #selection_ty,
+            store: &#height_store_ty,
             buf: &mut #exports::Buffer,
-            mut area: #exports::Rect,
-            max_height: u16,
-        ){
-            let mut first = true;
-            #(#render)*
+            area: #exports::Rect,
+            offset: u16,
+        )->#exports::Result<()>{
+            match sel{
+                #(#render),*
+            }
         }
     }
 }

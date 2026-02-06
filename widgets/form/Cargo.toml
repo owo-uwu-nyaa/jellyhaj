@@ -8,4 +8,8 @@ color-eyre.workspace = true
 jellyhaj-form-derive = { version = "0.1.0", path = "../form-derive" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 ratatui.workspace = true
+serde = { workspace = true, optional = true }
 tui-scrollview = "0.6.2"
+
+[features]
+serde = ["dep:serde"]
