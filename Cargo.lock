@@ -1638,10 +1638,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "items"
-version = "0.1.0"
-
-[[package]]
 name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1966,6 +1962,26 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jellyhaj-log-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-core",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-log-widget",
+ "jellyhaj-render-widgets",
+]
+
+[[package]]
+name = "jellyhaj-log-widget"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-widgets-core",
+ "ratatui",
+ "tui-logger",
 ]
 
 [[package]]

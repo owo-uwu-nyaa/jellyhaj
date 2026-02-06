@@ -1,0 +1,11 @@
+[package]
+name = "jellyhaj-log-view"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
+jellyhaj-log-widget = { version = "0.1.0", path = "../../widgets/log" }
+jellyhaj-render-widgets = { version = "0.1.0", path = "../../widgets/render" }

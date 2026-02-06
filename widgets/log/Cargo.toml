@@ -1,0 +1,10 @@
+[package]
+name = "jellyhaj-log-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+ratatui.workspace = true
+
+tui-logger.workspace = true
