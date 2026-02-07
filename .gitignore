@@ -6,3 +6,5 @@
 /db.sqlite-shm
 /db.sqlite-wal
 /aarch-shell
+/run_debugging
+/.gdbinit

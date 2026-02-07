@@ -99,9 +99,9 @@ pub fn render_keybinds<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D 
         let len = this.help_prefixes.len();
         if len != 0 {
             let area = Rect {
-                x: area.x,
+                x: area.x + 1,
                 y: area.y + area.height - 1,
-                width: area.width,
+                width: area.width - 2,
                 height: 1,
             };
             let mut message = "For help press ".to_string();
@@ -115,10 +115,7 @@ pub fn render_keybinds<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D 
                 message.push_str(bind);
             }
             message.push('.');
-            Block::bordered()
-                .title(message)
-                .merge_borders(MergeStrategy::Fuzzy)
-                .render(area, buf);
+            message.render(area, buf);
         }
     }
     Ok(())

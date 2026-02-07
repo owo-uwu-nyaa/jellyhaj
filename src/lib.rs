@@ -23,7 +23,7 @@ use ratatui_image::picker::Picker;
 use spawn::Spawner;
 use sqlx::SqliteConnection;
 use tokio_util::sync::CancellationToken;
-use tracing::{error_span, info, instrument};
+use tracing::{debug, error_span, info, instrument};
 
 async fn show_screen(screen: NextScreen, cx: Pin<&mut TuiContext>) -> Result<Navigation> {
     match screen {
@@ -105,6 +105,7 @@ async fn login(
     events: &mut KeybindEvents,
     config: &Config,
 ) -> Option<(JellyfinClient, JellyfinWebSocket)> {
+    debug!("logging in to jellyfin");
     loop {
         match login_jellyfin(term, spawner, events, config).await {
             Ok(v) => break v,

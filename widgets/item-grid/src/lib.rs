@@ -226,6 +226,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
             .skip(self.skip_rows * self.width)
             .zip(position)
         {
+            item.set_active(self.current == index);
             item.render_fallible(
                 Rect::from((position, self.item_size)),
                 buf,

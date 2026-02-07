@@ -13,7 +13,9 @@ futures-util = {workspace = true}
 image = {workspace = true}
 jellyfin = {path = "jellyfin-rs"}
 jellyhaj-core = {path = "jellyhaj-core"}
+jellyhaj-error-view = {path = "views/error", version = "0.1.0"}
 jellyhaj-home-screen-view = {path = "views/home-screen", version = "0.1.0"}
+jellyhaj-image = {path = "widgets/image", version = "0.1.0"}
 jellyhaj-item-details-view = {path = "views/item-details", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "widgets/keybinds", version = "0.1.0"}
 jellyhaj-library-view = {path = "views/library", version = "0.1.0"}
@@ -36,7 +38,7 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 spawn = {path = "spawn"}
 sqlx = {workspace = true}
-tokio = {features = ["macros", "parking_lot", "rt", "signal", "time"], workspace = true}
+tokio = {features = ["macros", "parking_lot", "rt", "signal", "time", "tracing"], workspace = true}
 tokio-util = {workspace = true}
 toml = {workspace = true}
 tracing = {workspace = true}
@@ -45,13 +47,12 @@ tracing-subscriber = {features = ["env-filter"], version = "=0.3.19"}
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
-jellyhaj-error-view = { version = "0.1.0", path = "views/error" }
-jellyhaj-image = { version = "0.1.0", path = "widgets/image" }
+console-subscriber = { version = "0.5.0", optional = true }
 
 [features]
-attach = []
 default = []
 mpris = ["dep:player-mpris"]
+console-subscriber = ["dep:console-subscriber"]
 
 [package]
 description = "kind of fancy jellyfin tui based on ratatui and libmpv"
@@ -61,9 +62,6 @@ version = "0.2.0"
 
 [profile.dev.package."*"]
 opt-level = 3
-
-[target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2.170"
 
 [workspace]
 members = [
@@ -80,7 +78,8 @@ members = [
   "player-mpris",
   "serde-json-ratatui",
   "spawn",
-  "stats-data", "views/error",
+  "stats-data",
+  "views/error",
   "views/fetch",
   "views/home-screen",
   "views/item-details",
@@ -91,7 +90,8 @@ members = [
   "views/refresh-item",
   "views/stats",
   "widgets/core",
-  "widgets/entry", "widgets/error",
+  "widgets/entry",
+  "widgets/error",
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl",

@@ -121,44 +121,44 @@ pub async fn login(
                 error = Some(eyre!("Server URI is empty"));
                 continue;
             }
-            let client = match JellyfinClient::<NoAuth>::new(
-                &login_info.server_url,
-                ClientInfo {
-                    name: "jellyhaj".into(),
-                    version: "0.2.0".into(),
-                },
-                device_name.clone(),
-            ) {
-                Ok(client) => client,
-                Err(e) => {
-                    error = Some(e);
-                    continue;
-                }
-            };
+        }
+        let client = match JellyfinClient::<NoAuth>::new(
+            &login_info.server_url,
+            ClientInfo {
+                name: "jellyhaj".into(),
+                version: "0.2.0".into(),
+            },
+            device_name.clone(),
+        ) {
+            Ok(client) => client,
+            Err(e) => {
+                error = Some(e);
+                continue;
+            }
+        };
 
-            select! {
-                r = render_fetch(
-                    "Connecting to Server",
-                    events,
-                    config.keybinds.fetch.clone(),
-                    term,
-                    &config.help_prefixes,
-                    spawn.clone(),
-                ) => {
-                    r?;
-                    return Ok(None);
-                }
-                v = jellyfin_login(
-                    client,
-                    &login_info.username,
-                    &login_info.password,
-                    login_info.password_cmd.as_deref(),
-                ) => {
-                    match v {
-                        Ok(v) => break v,
-                        Err((_, e)) => {
-                            error = Some(e.wrap_err("logging in"));
-                        }
+        select! {
+            r = render_fetch(
+                "Connecting to Server",
+                events,
+                config.keybinds.fetch.clone(),
+                term,
+                &config.help_prefixes,
+                spawn.clone(),
+            ) => {
+                r?;
+                return Ok(None);
+            }
+            v = jellyfin_login(
+                client,
+                &login_info.username,
+                &login_info.password,
+                login_info.password_cmd.as_deref(),
+            ) => {
+                match v {
+                    Ok(v) => break v,
+                    Err((_, e)) => {
+                        error = Some(e.wrap_err("logging in"));
                     }
                 }
             }

@@ -79,10 +79,10 @@ pub trait JellyhajWidgetExt: JellyhajWidget {
             buf: &mut Buffer,
         ) -> bool {
             if let Some(min_width) = min_width
-                && min_width < area.width
+                && min_width > area.width
             {
                 let message = if let Some(min_height) = min_height
-                    && min_height < area.height
+                    && min_height > area.height
                 {
                     format!("Terminal not large enough. Requires at least {min_width}x{min_height}")
                 } else {
@@ -94,7 +94,7 @@ pub trait JellyhajWidgetExt: JellyhajWidget {
                     .render(area, buf);
                 false
             } else if let Some(min_height) = min_height
-                && min_height < area.height
+                && min_height > area.height
             {
                 let message = format!(
                     "Terminal not large enough. Requires a height of at least {min_height}"

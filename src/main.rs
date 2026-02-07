@@ -14,18 +14,9 @@ use crossterm::{
 use jellyhaj::run_app;
 use rayon::ThreadPoolBuilder;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, level_filters::LevelFilter};
+use tracing::{error, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
-
-#[allow(unused)]
-fn debug() {
-    info!("pid is {}", std::process::id());
-    #[cfg(target_os = "linux")]
-    unsafe {
-        libc::prctl(libc::PR_SET_PTRACER, libc::PR_SET_PTRACER_ANY);
-    }
-}
 
 fn log_stdout() -> Result<()> {
     let format = tracing_subscriber::fmt::format();
@@ -62,11 +53,13 @@ fn log_file() -> Result<()> {
         .event_format(format)
         .with_filter(filter);
     let error_layer = ErrorLayer::default();
-    tracing_subscriber::registry()
+    let registry = tracing_subscriber::registry()
         .with(fmt_layer)
         .with(error_layer)
-        .with(tui_logger::TuiTracingSubscriberLayer)
-        .init();
+        .with(tui_logger::TuiTracingSubscriberLayer);
+    #[cfg(feature = "console-subscriber")]
+    let registry = registry.with(console_subscriber::spawn());
+    registry.init();
     println!("logging to {}", logfile.display());
     Ok(())
 }
@@ -108,8 +101,6 @@ fn main() -> Result<()> {
                 .context("setting up tui logger")?;
             tui_logger::set_default_level(tui_logger::LevelFilter::Info);
             tui_logger::set_env_filter_from_env(None);
-            #[cfg(feature = "attach")]
-            debug();
             let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::new().into_hooks();
             eyre_hook.install().expect("installing eyre hook");
             let cancel = CancellationToken::new();

@@ -294,11 +294,12 @@ pub struct ItemListDisplay {
 }
 
 impl ItemListDisplay {
-    pub fn new(item: MediaItem, children: ItemList<Entry>) -> Self {
+    pub fn new(item: MediaItem, mut children: ItemList<Entry>) -> Self {
         let overview = item
             .overview
             .as_ref()
             .map(|o| Overview::new(o.clone(), "Overview".to_string()));
+        children.active = true;
         Self {
             children,
             item,
