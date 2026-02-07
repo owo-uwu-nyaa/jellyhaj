@@ -38,7 +38,7 @@ pub fn pass2_fn(
     });
 
     quote! {
-        pub fn #name(
+        fn #name(
             state: &mut #state_ty,
             sel: #selection_ty,
             store: &#height_store_ty,

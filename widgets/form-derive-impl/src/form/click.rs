@@ -87,7 +87,7 @@ pub fn click_fn(
 
     quote! {
         #[allow(clippy::too_many_arguments)]
-        pub fn #name(
+        fn #name(
             state: &mut #state_ty,
             sel: &mut #selection_ty,
             store: &#height_store_ty,

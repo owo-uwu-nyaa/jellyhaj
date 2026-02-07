@@ -41,7 +41,7 @@ pub fn height_fn(
     });
 
     quote! {
-        pub fn #name(state: &#state_ty, store: &mut #height_store_ty)->u16{
+        fn #name(state: &#state_ty, store: &mut #height_store_ty)->u16{
             let mut first = true;
             let mut height = 0;
             let mut height_buf = 0;
@@ -67,7 +67,7 @@ pub fn item_start_fn(
         }
     });
     quote! {
-        pub fn #name(store: &#height_store_ty, sel: #selection_ty)->u16{
+        fn #name(store: &#height_store_ty, sel: #selection_ty)->u16{
             let index = match sel{
                 #(#pats),*
             };

@@ -3,30 +3,33 @@ name = "jellyhaj"
 path = "src/main.rs"
 
 [dependencies]
-ansi-to-tui = "8.0.0"
 bytes = {workspace = true}
 clap = {features = ["derive"], version = "4.5.23"}
 config = {path = "config"}
 crossterm = {workspace = true}
 dirs = {workspace = true}
 either = {workspace = true}
-entries = {path = "entries"}
 futures-util = {workspace = true}
 image = {workspace = true}
-item-view = {path = "item-view"}
 jellyfin = {path = "jellyfin-rs"}
 jellyhaj-core = {path = "jellyhaj-core"}
+jellyhaj-home-screen-view = {path = "views/home-screen", version = "0.1.0"}
+jellyhaj-item-details-view = {path = "views/item-details", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "widgets/keybinds", version = "0.1.0"}
+jellyhaj-library-view = {path = "views/library", version = "0.1.0"}
 jellyhaj-loading-widget = {path = "widgets/loading", version = "0.1.0"}
+jellyhaj-log-view = {path = "views/log", version = "0.1.0"}
+jellyhaj-login-view = {path = "views/login", version = "0.1.0"}
+jellyhaj-player-view = {path = "views/player", version = "0.1.0"}
+jellyhaj-refresh-item-view = {path = "views/refresh-item", version = "0.1.0"}
 jellyhaj-render-widgets = {path = "widgets/render", version = "0.1.0"}
+jellyhaj-stats-view = {path = "views/stats", version = "0.1.0"}
 keybinds = {path = "keybinds"}
-log-screen = {path = "log-screen", version = "0.1.0"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
 player-core = {path = "player-core"}
 player-jellyfin = {path = "player-jellyfin"}
 player-mpris = {optional = true, path = "player-mpris"}
-ratatui-fallible-widget = {path = "ratatui-fallible-widget"}
 ratatui-image = {workspace = true}
 rayon = {workspace = true}
 serde = {workspace = true}
@@ -42,7 +45,8 @@ tracing-subscriber = {features = ["env-filter"], version = "=0.3.19"}
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
-jellyhaj-home-screen-view = { version = "0.1.0", path = "views/home-screen" }
+jellyhaj-error-view = { version = "0.1.0", path = "views/error" }
+jellyhaj-image = { version = "0.1.0", path = "widgets/image" }
 
 [features]
 attach = []
@@ -63,11 +67,7 @@ libc = "0.2.170"
 
 [workspace]
 members = [
-  "checkbox",
   "config",
-  "entries",
-  "fetch",
-  "item-view",
   "jellyfin-rs",
   "jellyhaj-core",
   "keybinds",
@@ -75,32 +75,34 @@ members = [
   "keybinds-derive-impl",
   "libmpv-rs",
   "libmpv-rs/libmpv-sys",
-  "library-view",
-  "log-screen",
   "player-core",
   "player-jellyfin",
   "player-mpris",
-  "ratatui-fallible-widget",
   "serde-json-ratatui",
   "spawn",
-  "stats-data",
+  "stats-data", "views/error",
   "views/fetch",
-  "views/home-screen", "views/item-details", "views/library", "views/log",
+  "views/home-screen",
+  "views/item-details",
+  "views/library",
+  "views/log",
   "views/login",
   "views/player",
   "views/refresh-item",
   "views/stats",
   "widgets/core",
-  "widgets/entry",
+  "widgets/entry", "widgets/error",
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl",
-  "widgets/image", "widgets/item-details",
+  "widgets/image",
+  "widgets/item-details",
   "widgets/item-grid",
   "widgets/item-list",
   "widgets/item-screen",
   "widgets/keybinds",
-  "widgets/loading", "widgets/log",
+  "widgets/loading",
+  "widgets/log",
   "widgets/login",
   "widgets/player",
   "widgets/render",
@@ -108,6 +110,7 @@ members = [
 ]
 
 [workspace.dependencies]
+ansi-to-tui = "8.0.0"
 aws-lc-rs = {default-features = false, version = "1.13.3"}
 base64 = "0.22.1"
 bindgen = "0.69"

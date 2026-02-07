@@ -1,0 +1,11 @@
+[package]
+name = "jellyhaj-error-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+color-eyre.workspace = true
+ratatui.workspace = true
+ansi-to-tui.workspace = true

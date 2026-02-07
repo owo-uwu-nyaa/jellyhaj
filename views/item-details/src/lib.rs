@@ -24,12 +24,12 @@ use tokio::try_join;
 use tracing::instrument;
 
 #[instrument(skip_all)]
-pub async fn render_fetch_episode(cx: Pin<&mut TuiContext>, parent: &str) -> Result<Navigation> {
+pub async fn render_fetch_episode(cx: Pin<&mut TuiContext>, parent: String) -> Result<Navigation> {
     let cx = cx.project();
     render_fetch_future(
         "Fetching single item",
         async {
-            let item = fetch_child_of_type(cx.jellyfin, "Episode, Movie, Music", parent)
+            let item = fetch_child_of_type(cx.jellyfin, "Episode, Movie, Music", &parent)
                 .await
                 .context("fetching episode")?;
             Ok(Navigation::Replace(NextScreen::ItemDetails(item)))

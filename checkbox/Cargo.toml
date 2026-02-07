@@ -1,8 +1,0 @@
-[dependencies]
-ratatui-core.workspace = true
-tracing.workspace = true
-
-[package]
-edition = "2024"
-name = "checkbox"
-version = "0.1.0"

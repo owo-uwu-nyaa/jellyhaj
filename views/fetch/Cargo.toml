@@ -1,4 +1,5 @@
 [dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-loading-widget = {path = "../../widgets/loading", version = "0.1.0"}
@@ -9,7 +10,6 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
 
 [package]
 edition = "2024"

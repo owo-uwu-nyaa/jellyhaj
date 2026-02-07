@@ -1,14 +1,14 @@
-[package]
-name = "jellyhaj-item-details-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-entry-widget = {path = "../entry", version = "0.1.0"}
+jellyhaj-item-list = {path = "../item-list", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 color-eyre.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-entry-widget = { version = "0.1.0", path = "../entry" }
-jellyhaj-item-list = { version = "0.1.0", path = "../item-list" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 ratatui.workspace = true
 textwrap.workspace = true
+
+[package]
+edition = "2024"
+name = "jellyhaj-item-details-widget"
+version = "0.1.0"

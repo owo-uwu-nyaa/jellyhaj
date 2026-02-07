@@ -1,14 +1,14 @@
+[dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-entry-widget = {path = "../../widgets/entry", version = "0.1.0"}
+jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
+jellyhaj-item-grid = {path = "../../widgets/item-grid", version = "0.1.0"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
+jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
+color-eyre.workspace = true
+
 [package]
+edition = "2024"
 name = "jellyhaj-library-view"
 version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-color-eyre.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-entry-widget = { version = "0.1.0", path = "../../widgets/entry" }
-jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
-jellyhaj-item-grid = { version = "0.1.0", path = "../../widgets/item-grid" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
-jellyhaj-render-widgets = { version = "0.1.0", path = "../../widgets/render" }

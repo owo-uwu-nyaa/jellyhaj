@@ -26,12 +26,17 @@ pub enum OverviewAction {
 
 pub struct Overview {
     pub text: String,
+    pub title: String,
     pub scroll: usize,
 }
 
 impl Overview {
-    pub fn new(text: String) -> Self {
-        Self { text, scroll: 0 }
+    pub fn new(text: String, title: String) -> Self {
+        Self {
+            text,
+            title,
+            scroll: 0,
+        }
     }
 }
 
@@ -143,7 +148,10 @@ impl ItemDisplay {
         stats: &Stats,
         config: &Config,
     ) -> Self {
-        let overview = item.overview.as_ref().map(|o| Overview::new(o.clone()));
+        let overview = item
+            .overview
+            .as_ref()
+            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
         Self {
             entry: Entry::new(
                 EntryData::Item(item),
@@ -287,7 +295,10 @@ pub struct ItemListDisplay {
 
 impl ItemListDisplay {
     pub fn new(item: MediaItem, children: ItemList<Entry>) -> Self {
-        let overview = item.overview.as_ref().map(|o| Overview::new(o.clone()));
+        let overview = item
+            .overview
+            .as_ref()
+            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
         Self {
             children,
             item,

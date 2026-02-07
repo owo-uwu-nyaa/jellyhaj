@@ -1,6 +1,6 @@
 mod render;
 
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use ratatui::crossterm::event::{MouseButton, MouseEventKind};
 use serde::{Deserialize, Serialize};
 
@@ -83,14 +83,6 @@ impl JellyhajWidget for LoginWidget<'_> {
         Some(19)
     }
 
-    fn min_width_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(18)
-    }
-
-    fn min_height_static(_: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Option<u16> {
-        Some(19)
-    }
-
     fn into_state(self) -> Self::State {
         LoginEdit {
             changed: self.changed,
@@ -118,6 +110,7 @@ impl JellyhajWidget for LoginWidget<'_> {
 
     fn apply_action(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -154,6 +147,7 @@ impl JellyhajWidget for LoginWidget<'_> {
 
     fn click(
         &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: MouseEventKind,
@@ -183,10 +177,7 @@ impl JellyhajWidget for LoginWidget<'_> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         render::render_login(self.info, self.selection, &self.error, area, buf);
         Ok(())

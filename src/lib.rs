@@ -4,103 +4,92 @@ use std::{
     sync::Arc,
 };
 
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, eyre},
+};
 use config::{Config, init_config};
-use entries::image::cache::ImageProtocolCache;
-use futures_util::StreamExt;
 use jellyfin::{JellyfinClient, socket::JellyfinWebSocket};
 use jellyhaj_core::{
     context::TuiContext,
-    keybinds::UnsupportedItemCommand,
     state::{Navigation, NextScreen, State},
 };
-use keybinds::{KeybindEvent, KeybindEventStream, KeybindEvents};
+use jellyhaj_error_view::ResultDisplayExt;
+use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
-use ratatui::{
-    DefaultTerminal,
-    widgets::{Block, Padding, Widget},
-};
-use ratatui_fallible_widget::TermExt;
+use ratatui::DefaultTerminal;
 use ratatui_image::picker::Picker;
 use spawn::Spawner;
 use sqlx::SqliteConnection;
 use tokio_util::sync::CancellationToken;
-use tracing::{error_span, instrument};
-
-use crate::error::ResultDisplayExt;
-pub mod error;
+use tracing::{error_span, info, instrument};
 
 async fn show_screen(screen: NextScreen, cx: Pin<&mut TuiContext>) -> Result<Navigation> {
     match screen {
-        NextScreen::LoadHomeScreen => home_screen::load::load_home_screen(cx).await,
-        NextScreen::HomeScreenData {
-            resume,
-            next_up,
-            views,
-            latest,
-        } => home_screen::handle_home_screen_data(cx, resume, next_up, views, latest),
-        NextScreen::HomeScreen(entry_screen, images_available) => {
-            home_screen::display_home_screen(cx, entry_screen, images_available).await
+        NextScreen::LoadHomeScreen => jellyhaj_home_screen_view::render_fetch_home_screen(cx).await,
+        NextScreen::HomeScreen(entry_screen) => {
+            jellyhaj_home_screen_view::render_home_screen(cx, entry_screen).await
         }
-        NextScreen::LoadUserView(user_view) => user_view::fetch_user_view(cx, user_view).await,
-        NextScreen::UserView { view, items } => user_view::display_user_view(cx, view, items).await,
-        NextScreen::LoadPlayItem(load_play) => {
-            player::fetch_items::fetch_screen(cx, load_play).await
+        NextScreen::LoadUserView(user_view) => {
+            jellyhaj_library_view::render_fetch_user_view(cx, user_view).await
         }
-        NextScreen::Play { items, index } => player::play(cx, items, index).await,
+        NextScreen::UserView { view, items } => {
+            jellyhaj_library_view::render_user_view(cx, items, view).await
+        }
+        NextScreen::Play { items, index } => {
+            jellyhaj_player_view::render_play(cx, items, index).await
+        }
         NextScreen::Error(report) => {
             let cx = cx.project();
-            error::display_error(
+            jellyhaj_error_view::render_error(
                 cx.term,
                 cx.events,
                 &cx.config.keybinds,
                 &cx.config.help_prefixes,
+                cx.spawn.clone(),
                 report,
             )
             .await
         }
         NextScreen::ItemDetails(media_item) => {
-            item_view::item_details::display_item(cx, media_item).await
+            jellyhaj_item_details_view::render_item_details(cx, media_item).await
         }
-        NextScreen::ItemListDetailsData(media_item, media_items) => {
-            item_view::item_list_details::handle_item_list_details_data(cx, media_item, media_items)
-        }
-        NextScreen::ItemListDetails(media_item, entry_list, images_available) => {
-            item_view::item_list_details::display_item_list_details(
-                cx,
-                media_item,
-                entry_list,
-                images_available,
-            )
-            .await
+        NextScreen::ItemListDetails(media_item, entry_list) => {
+            jellyhaj_item_details_view::render_item_list_details(cx, media_item, entry_list).await
         }
         NextScreen::FetchItemListDetails(media_item) => {
-            item_view::item_list_details::display_fetch_item_list(cx, media_item).await
+            jellyhaj_item_details_view::render_fetch_item_list(cx, media_item).await
         }
         NextScreen::FetchItemListDetailsRef(id) => {
-            item_view::item_list_details::display_fetch_item_list_ref(cx, &id).await
+            jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id).await
         }
         NextScreen::FetchItemDetails(id) => {
-            item_view::item_details::display_fetch_item(cx, &id).await
+            jellyhaj_item_details_view::render_fetch_episode(cx, id).await
         }
-        NextScreen::RefreshItem(item) => refresh_item::show_refresh_item(cx, item).await,
+        NextScreen::RefreshItem(item) => {
+            jellyhaj_refresh_item_view::render_refresh_item_form(cx, item).await
+        }
         NextScreen::SendRefreshItem(item, refresh_item_query) => {
-            refresh_item::refresh_screen(cx, item, refresh_item_query).await
+            jellyhaj_refresh_item_view::render_send_refresh_item(cx, item, refresh_item_query).await
         }
-        NextScreen::UnsupportedItem => unsupported_item(cx).await,
-        NextScreen::Stats => stats_view::show_stats(cx).await,
-        NextScreen::Logs => log_screen::show_tui(cx).await,
+        NextScreen::UnsupportedItem => Err(eyre!("Operation is not available for this item")),
+        NextScreen::Stats => jellyhaj_stats_view::render_stats(cx).await,
+        NextScreen::Logs => jellyhaj_log_view::render_log(cx).await,
+        NextScreen::FetchPlay(load_play) => {
+            jellyhaj_player_view::render_fetch_play(cx, load_play).await
+        }
     }
 }
 
 async fn login_jellyfin(
     term: &mut DefaultTerminal,
+    spawner: &Spawner,
     events: &mut KeybindEvents,
     config: &Config,
 ) -> Result<Option<(JellyfinClient, JellyfinWebSocket)>> {
     Ok(
-        if let Some(client) = login::login(term, config, events).await? {
+        if let Some(client) = jellyhaj_login_view::login(term, spawner, config, events).await? {
             let socket = client.get_socket()?;
             Some((client, socket))
         } else {
@@ -112,15 +101,23 @@ async fn login_jellyfin(
 #[instrument(skip_all, level = "debug")]
 async fn login(
     term: &mut DefaultTerminal,
+    spawner: &Spawner,
     events: &mut KeybindEvents,
     config: &Config,
 ) -> Option<(JellyfinClient, JellyfinWebSocket)> {
     loop {
-        match login_jellyfin(term, events, config).await {
+        match login_jellyfin(term, spawner, events, config).await {
             Ok(v) => break v,
             Err(e) => {
-                match error::display_error(term, events, &config.keybinds, &config.help_prefixes, e)
-                    .await
+                match jellyhaj_error_view::render_error(
+                    term,
+                    events,
+                    &config.keybinds,
+                    &config.help_prefixes,
+                    spawner.clone(),
+                    e,
+                )
+                .await
                 {
                     Err(_) | Ok(Navigation::Exit) => break None,
                     _ => {}
@@ -133,6 +130,7 @@ async fn login(
 #[instrument(skip_all, level = "debug")]
 async fn run_state(mut cx: Pin<&mut TuiContext>) {
     let mut state = State::new();
+    info!("reached main application loop");
     while let Some(screen) = state.pop() {
         state.navigate(match show_screen(screen, cx.as_mut()).await {
             Ok(nav) => nav,
@@ -149,7 +147,8 @@ async fn run_app_inner(
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
 ) {
-    if let Some((jellyfin, jellyfin_socket)) = login(&mut term, &mut events, &config).await
+    if let Some((jellyfin, jellyfin_socket)) =
+        login(&mut term, &spawner, &mut events, &config).await
         && let Some(mpv_handle) = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,
@@ -159,11 +158,12 @@ async fn run_app_inner(
             true,
             &spawner,
         )
-        .display_error(
+        .render_error(
             &mut term,
             &mut events,
             &config.keybinds,
             &config.help_prefixes,
+            spawner.clone(),
         )
         .await
     {
@@ -184,9 +184,10 @@ async fn run_app_inner(
             events,
             image_picker: Arc::new(image_picker),
             cache,
-            image_cache: ImageProtocolCache::new(),
+            image_cache: jellyhaj_image::cache::ImageProtocolCache::new(),
             mpv_handle,
             stats: Default::default(),
+            spawn: spawner
         });
         run_state(cx).await
     }
@@ -212,40 +213,4 @@ pub async fn run_app(
     )
     .await;
     Ok(())
-}
-
-struct UnsupportedItem;
-impl Widget for &UnsupportedItem {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
-    where
-        Self: Sized,
-    {
-        let text = "This item type is unsupported!";
-        let block = Block::bordered().padding(Padding::uniform(1));
-        text.render(block.inner(area), buf);
-        block.render(area, buf);
-    }
-}
-
-pub async fn unsupported_item(cx: Pin<&mut TuiContext>) -> Result<Navigation> {
-    let cx = cx.project();
-    let mut widget = UnsupportedItem;
-    let mut events = KeybindEventStream::new(
-        cx.events,
-        &mut widget,
-        cx.config.keybinds.unsupported_item.clone(),
-        &cx.config.help_prefixes,
-    );
-    loop {
-        cx.term.draw_fallible(&mut events)?;
-        match events.next().await {
-            None => break Ok(Navigation::Exit),
-            Some(Err(e)) => break Err(e).context("getting key events from terminal"),
-            Some(Ok(KeybindEvent::Render)) => continue,
-            Some(Ok(KeybindEvent::Text(_))) => unreachable!(),
-            Some(Ok(KeybindEvent::Command(UnsupportedItemCommand::Quit))) => {
-                break Ok(Navigation::PopContext);
-            }
-        }
-    }
 }

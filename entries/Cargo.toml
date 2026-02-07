@@ -1,6 +1,0 @@
-[dependencies]
-
-[package]
-edition = "2024"
-name = "entries"
-version = "0.1.0"

@@ -38,7 +38,7 @@ pub fn pass1_fn(
     });
 
     quote! {
-        pub fn #name(
+        fn #name(
             state: &mut #state_ty,
             sel: #selection_ty,
             buf: &mut #exports::Buffer,
