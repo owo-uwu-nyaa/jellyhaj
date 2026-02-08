@@ -7,6 +7,7 @@ use jellyhaj_entry_widget::EntryData;
 use jellyhaj_item_grid::ItemGridData;
 use jellyhaj_item_list::ItemListData;
 use jellyhaj_item_screen::ItemScreenData;
+use player_core::PlayItem;
 use tracing::{debug, instrument};
 
 #[allow(clippy::large_enum_variant)]
@@ -32,7 +33,7 @@ pub enum NextScreen {
     },
     FetchPlay(LoadPlay),
     Play {
-        items: Vec<MediaItem>,
+        items: Vec<PlayItem>,
         index: usize,
     },
     Error(Report),

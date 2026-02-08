@@ -1,5 +1,6 @@
 use std::{convert::Infallible, pin::Pin};
 
+use futures_util::future::try_join_all;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
@@ -15,10 +16,10 @@ use jellyhaj_fetch_view::render_fetch_future;
 use jellyhaj_keybinds_widget::{KeybindWidget, MappedCommand};
 use jellyhaj_player_widget::{PlayerAction, PlayerQuit, PlayerWidget};
 use jellyhaj_render_widgets::TermExt;
-use player_core::{Command, PlayerHandle};
+use player_core::{Command, PlayItem, PlayerHandle};
 
 use color_eyre::{
-    Result,
+    Report, Result,
     eyre::{Context, eyre},
 };
 use tracing::warn;
@@ -35,7 +36,7 @@ impl Drop for MinimizeGuard<'_> {
 
 pub async fn render_play(
     cx: Pin<&mut TuiContext>,
-    items: Vec<MediaItem>,
+    items: Vec<PlayItem>,
     index: usize,
 ) -> Result<Navigation> {
     if items.is_empty() {
@@ -173,6 +174,21 @@ async fn fetch_items(cx: &JellyfinClient, item: LoadPlay) -> Result<Navigation> 
         }
         LoadPlay::MusicAlbum { id } => (fetch_childs(cx, &id).await?, 0),
     };
+
+    let items = try_join_all(items.into_iter().map(|item| async {
+        let info = cx
+            .get_playback_info(&item.id)
+            .await
+            .context("getting playback info")?
+            .deserialize()
+            .await
+            .context("parsing playback info")?;
+        Ok::<_, Report>(PlayItem {
+            item,
+            playback_session_id: info.play_session_id,
+        })
+    }))
+    .await?;
     Ok(Navigation::Replace(NextScreen::Play { items, index }))
 }
 

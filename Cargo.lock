@@ -2134,6 +2134,7 @@ name = "jellyhaj-player-view"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "futures-util",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-fetch-view",

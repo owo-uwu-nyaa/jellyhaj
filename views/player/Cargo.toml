@@ -8,6 +8,7 @@ jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
 player-core = {path = "../../player-core", version = "0.1.0"}
 color-eyre.workspace = true
 tracing.workspace = true
+futures-util.workspace = true
 
 [package]
 edition = "2024"
