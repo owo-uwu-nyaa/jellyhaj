@@ -15,7 +15,7 @@ pub mod exports {
         buffer::Buffer,
         crossterm::event::{KeyModifiers, MouseEventKind},
         layout::{Position, Rect, Size},
-        widgets::{Block, StatefulWidget, Widget},
+        widgets::{Block, Padding, StatefulWidget, Widget},
     };
     pub use std::{
         assert,

@@ -104,7 +104,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         name.render(main, buf);
         outer.render(area, buf);
         buf[Position {
-            x: area.x + area.width - 1,
+            x: area.x + area.width - 2,
             y: area.y + 1,
         }]
         .set_char('⮛');
@@ -121,18 +121,19 @@ impl<AR, S: Selection> FormItem<AR> for S {
     ) -> Result<()> {
         if let Some(sel_inner) = sel {
             buf[Position {
-                x: area.x + area.width - 1,
+                x: area.x + area.width - 2,
                 y: area.y + 1,
             }]
             .set_char('⮙');
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN as u16 + 2, area.width);
+            full_area.width = min(S::MAX_LEN as u16 + 2, area.width)-1;
+            full_area.x += 1;
             let needed_height = S::ALL.len() as u16 + 2;
             let mut items = S::ALL;
             let mut scrollbar = false;
-            if needed_height < full_area.height {
+            if needed_height > full_area.height {
                 let window = full_area.height;
                 let offset = calc_offset(
                     S::ALL.len().try_into().expect("len is to large"),
@@ -158,7 +159,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
                     }
                 }
             }
-            selection_block.render(area, buf);
+            selection_block.render(full_area, buf);
             if scrollbar {
                 full_area.height = full_area.height.strict_sub(2);
                 full_area.y += 1;

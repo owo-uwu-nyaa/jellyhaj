@@ -1,7 +1,7 @@
 use crate::FormItem;
 
 pub const fn add_form_item<T, F: FormItem<T>>(height: u16) -> u16 {
-    height.strict_add(F::HEIGHT).strict_add(1)
+    height.strict_add(F::HEIGHT)
 }
 
 pub const fn add_form_item_buf<T, F: FormItem<T>>(height_buf: u16) -> u16 {

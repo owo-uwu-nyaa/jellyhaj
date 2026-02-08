@@ -162,7 +162,7 @@ pub fn make_widget(
                 buf: &mut #exports::Buffer,
                 task: #exports::TaskSubmitter<Self::Action, impl #exports::Wrapper<Self::Action>>,
             ) -> #exports::Result<()>{
-                let outer = #exports::Block::bordered().title(#descr);
+                let outer = #exports::Block::bordered().title(#descr).padding(#exports::Padding::uniform(1));
                 let main = outer.inner(area);
                 let height = #height_fn(&self.state, &mut self.store);
                 if main.height < height {

@@ -19,13 +19,15 @@ pub fn height_fn(
         let calc = quote! {
             if first{
                 first = false;
+                store[#index] = (height, true);
                 height = <#ty as #form_item_tr>::HEIGHT;
                 height_buf = <#ty as #form_item_tr>::HEIGHT_BUF;
             }else{
+                height = #size_helpers::add(height, 1);
+                store[#index] = (height, true);
                 height = #size_helpers::add_form_item::<#action_result_ty,#ty>(height);
                 height_buf = #size_helpers::add_form_item_buf::<#action_result_ty,#ty>(height_buf);
             }
-            store[#index] = (height, true);
         };
         if let Some(show_if_fun) = item.show_if_fun.as_ref() {
             quote! {
