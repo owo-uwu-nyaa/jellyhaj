@@ -128,7 +128,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN as u16 + 2, area.width)-1;
+            full_area.width = min(S::MAX_LEN as u16 + 2, area.width) - 1;
             full_area.x += 1;
             let needed_height = S::ALL.len() as u16 + 2;
             let mut items = S::ALL;
