@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use crate::Authed;
 use crate::request::{NoQuery, RequestBuilderExt};
+use crate::user::MediaSource;
 use crate::{JellyfinClient, JellyfinVec, Result, connect::JsonResponse};
 use color_eyre::eyre::Context;
 use http::Uri;
@@ -25,6 +26,23 @@ pub struct RefreshItemQuery {
     pub replace_all_metadata: bool,
     pub replace_all_images: bool,
     pub regenerate_trickplay: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct GetVideoQuery<'s> {
+    #[serde(rename = "static")]
+    use_original: &'s str,
+    media_source_id: &'s str,
+    play_session_id: &'s str,
+    api_key: &'s str,
+    device_id: &'s str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct SubtitleQuery<'s> {
+    api_key: &'s str,
 }
 
 impl Default for RefreshItemQuery {
@@ -227,6 +245,13 @@ pub struct MediaItem {
     pub run_time_ticks: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlaybackInfo {
+    pub media_sources: Vec<MediaSource>,
+    pub play_session_id: String,
+}
+
 impl<Auth: Authed> JellyfinClient<Auth> {
     #[instrument(skip(self))]
     pub async fn get_user_items_resume(
@@ -304,20 +329,70 @@ impl<Auth: Authed> JellyfinClient<Auth> {
         Ok(())
     }
 
-    pub fn get_video_uri(&self, item: &MediaItem) -> Result<Uri> {
+    pub fn get_video_uri(&self, item_id: &str, play_session_id: &str) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.tls() { "https" } else { "http" })
             .authority(self.authority().to_owned())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
-                    prefix.push_str("/Items/");
-                    prefix.push_str(&item.id);
-                    prefix.push_str("/Download");
+                    prefix.push_str("/videos/");
+                    prefix.push_str(item_id);
+                    prefix.push_str("/stream");
                 },
-                NoQuery,
+                GetVideoQuery {
+                    use_original: "true",
+                    media_source_id: item_id,
+                    play_session_id,
+                    api_key: self.get_auth().token(),
+                    device_id: self.get_auth().device_id(),
+                },
             )?)
             .build()
             .context("assembling video uri")
+    }
+
+    pub fn get_subtitle_uri(
+        &self,
+        item_id: &str,
+        media_source_id: &str,
+        index: i32,
+        format: &str,
+    ) -> Result<Uri> {
+        Uri::builder()
+            .scheme(if self.tls() { "https" } else { "http" })
+            .authority(self.authority().to_owned())
+            .path_and_query(self.build_uri(
+                |prefix: &mut String| {
+                    prefix.push_str("/Videos/");
+                    prefix.push_str(item_id);
+                    prefix.push('/');
+                    prefix.push_str(media_source_id);
+                    prefix.push_str("/Subtitles/");
+                    prefix.push_str(&index.to_string());
+                    prefix.push_str("/0/Stream.");
+                    prefix.push_str(format);
+                },
+                SubtitleQuery {
+                    api_key: self.get_auth().token(),
+                },
+            )?)
+            .build()
+            .context("assembling subtitle uri")
+    }
+
+    pub async fn get_playback_info(&self, item_id: &str) -> Result<JsonResponse<PlaybackInfo>> {
+        self.send_request_json(
+            self.get(
+                |prefix: &mut String| {
+                    prefix.push_str("/Items/");
+                    prefix.push_str(item_id);
+                    prefix.push_str("/PlaybackInfo");
+                },
+                NoQuery,
+            )?
+            .empty_body()?,
+        )
+        .await
     }
 }
 

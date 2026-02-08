@@ -25,7 +25,7 @@ use crate::{
     Command, PlayerState, PlaylistItem,
     mpv_stream::{MpvEvent, MpvStream, ObservedProperty},
 };
-use crate::{Events, PlaylistItemId, PlaylistItemIdGen};
+use crate::{Events, PlayItem, PlaylistItemId, PlaylistItemIdGen};
 use color_eyre::{
     Result,
     eyre::{Context, OptionExt},
@@ -76,7 +76,7 @@ impl ResExt for Result<()> {
 
 fn extract_id(download_url: &str) -> &str {
     let id_part = download_url
-        .rsplit("/Items/")
+        .rsplit("/videos/")
         .next()
         .expect("Items part not present in url");
     id_part
@@ -430,7 +430,7 @@ fn replace_playlist(
     jellyfin: &JellyfinClient,
     playlist_id_gen: &mut PlaylistItemIdGen,
     playlist: &mut Arc<Vec<Arc<PlaylistItem>>>,
-    items: Vec<MediaItem>,
+    items: Vec<PlayItem>,
     first: usize,
     send_events: &broadcast::Sender<Events>,
     index: &mut Option<usize>,
@@ -466,13 +466,15 @@ fn insert_at(
     playlist: &mut Arc<Vec<Arc<PlaylistItem>>>,
     mpv: &MpvStream,
     jellyfin: &JellyfinClient,
-    item: Box<MediaItem>,
+    item: Box<PlayItem>,
     after: Option<PlaylistItemId>,
     mk_id: &mut PlaylistItemIdGen,
     play: bool,
     send_events: &broadcast::Sender<Events>,
 ) -> Result<()> {
-    let uri = jellyfin.get_video_uri(&item)?.to_string();
+    let uri = jellyfin
+        .get_video_uri(&item.item.id, &item.playback_session_id)?
+        .to_string();
 
     let index = if let Some(id) = after {
         index_of(playlist, id).ok_or_eyre("could not find this item id!")?
@@ -481,6 +483,7 @@ fn insert_at(
     };
     info!("inserting item at index {index}");
     let position = item
+        .item
         .user_data
         .as_ref()
         .ok_or_eyre("user data missing")?
@@ -504,7 +507,7 @@ fn insert_at(
                 CString::new(position.to_string())
                     .context("converting start to cstr")?
                     .to_node(),
-                name(&item)?.to_node(),
+                name(&item.item)?.to_node(),
             ],
         )
         .to_node(),
@@ -512,7 +515,13 @@ fn insert_at(
 
     let id = mk_id.next();
     let mut playlist_vec = Vec::clone(playlist);
-    playlist_vec.insert(index, Arc::new(PlaylistItem { item: *item, id }));
+    playlist_vec.insert(
+        index,
+        Arc::new(PlaylistItem {
+            item: item.item,
+            id,
+        }),
+    );
     *playlist = Arc::new(playlist_vec);
     assert_shadow_playlist_state(mpv, playlist)?;
     send_events

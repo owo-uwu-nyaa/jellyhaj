@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{Report, Result, eyre::Context};
+use futures_util::future::try_join_all;
 use jellyfin::{
     Auth, JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
@@ -11,10 +12,11 @@ use jellyhaj_core::{
     context::TuiContext,
     state::{LoadPlay, Navigation, NextScreen},
 };
+use player_core::PlayItem;
 use tracing::warn;
 
-async fn fetch_items(cx: &JellyfinClient<Auth>, item: LoadPlay) -> Result<(Vec<MediaItem>, usize)> {
-    Ok(match item {
+async fn fetch_items(cx: &JellyfinClient<Auth>, item: LoadPlay) -> Result<(Vec<PlayItem>, usize)> {
+    let (items, pos) = match item {
         LoadPlay::Series { id } => (fetch_series(cx, &id).await?, 0),
         LoadPlay::Season { series_id, id } => {
             let all = fetch_series(cx, &series_id).await?;
@@ -95,7 +97,23 @@ async fn fetch_items(cx: &JellyfinClient<Auth>, item: LoadPlay) -> Result<(Vec<M
             (items, pos)
         }
         LoadPlay::MusicAlbum { id } => (fetch_childs(cx, &id).await?, 0),
-    })
+    };
+
+    let items = try_join_all(items.into_iter().map(|item| async {
+        let info = cx
+            .get_playback_info(&item.id)
+            .await
+            .context("getting playback info")?
+            .deserialize()
+            .await
+            .context("parsing playback info")?;
+        Ok::<_, Report>(PlayItem {
+            item,
+            playback_session_id: info.play_session_id,
+        })
+    }))
+    .await?;
+    Ok((items, pos))
 }
 
 fn item_position(id: &str, items: &[MediaItem]) -> Option<usize> {

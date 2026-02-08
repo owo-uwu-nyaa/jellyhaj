@@ -95,6 +95,7 @@ impl AuthStatus for KeyAuth {
 }
 pub trait Authed: AuthStatus {
     fn token(&self) -> &str;
+    fn device_id(&self) -> &str;
     fn header(&self) -> &HeaderValue;
 }
 
@@ -105,6 +106,10 @@ impl Authed for Auth {
     fn header(&self) -> &HeaderValue {
         &self.header
     }
+
+    fn device_id(&self) -> &str {
+        &self.device_id
+    }
 }
 
 impl Authed for KeyAuth {
@@ -113,6 +118,10 @@ impl Authed for KeyAuth {
     }
     fn header(&self) -> &HeaderValue {
         &self.header
+    }
+
+    fn device_id(&self) -> &str {
+        &self.device_id
     }
 }
 

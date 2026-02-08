@@ -56,6 +56,12 @@ impl FromStr for PlaylistItemId {
 }
 
 #[derive(Debug)]
+pub struct PlayItem {
+    pub item: MediaItem,
+    pub playback_session_id: String,
+}
+
+#[derive(Debug)]
 pub enum Command {
     Pause(bool),
     TogglePause,
@@ -69,13 +75,13 @@ pub enum Command {
     Volume(i64),
     Play(PlaylistItemId),
     AddTrack {
-        item: Box<MediaItem>,
+        item: Box<PlayItem>,
         after: Option<PlaylistItemId>,
         play: bool,
     },
     Remove(PlaylistItemId),
     ReplacePlaylist {
-        items: Vec<MediaItem>,
+        items: Vec<PlayItem>,
         first: usize,
     },
     Stop,

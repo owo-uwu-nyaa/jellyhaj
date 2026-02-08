@@ -6,6 +6,7 @@ use jellyfin::{
     items::{MediaItem, RefreshItemQuery},
     user_views::UserView,
 };
+use player_core::PlayItem;
 use tracing::{debug, instrument};
 
 #[allow(clippy::large_enum_variant)]
@@ -37,7 +38,7 @@ pub enum NextScreen {
     },
     LoadPlayItem(LoadPlay),
     Play {
-        items: Vec<MediaItem>,
+        items: Vec<PlayItem>,
         index: usize,
     },
     Error(Report),

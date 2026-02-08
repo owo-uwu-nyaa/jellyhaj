@@ -4,7 +4,6 @@ use std::{borrow::Cow, pin::Pin};
 
 use color_eyre::eyre::{Context, Result, eyre};
 use futures_util::StreamExt;
-use jellyfin::items::MediaItem;
 use jellyhaj_core::{
     context::TuiContext,
     keybinds::MpvCommand,
@@ -12,7 +11,7 @@ use jellyhaj_core::{
 };
 use keybinds::{KeybindEvent, KeybindEventStream};
 use player_core::{
-    Command, PlayerHandle,
+    Command, PlayItem, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
 };
 use ratatui::{
@@ -36,7 +35,7 @@ impl Drop for MinimizeGuard {
 #[instrument(skip_all)]
 pub async fn play(
     cx: Pin<&mut TuiContext>,
-    items: Vec<MediaItem>,
+    items: Vec<PlayItem>,
     index: usize,
 ) -> Result<Navigation> {
     if items.is_empty() {
