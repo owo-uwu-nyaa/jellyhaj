@@ -56,7 +56,9 @@ pub struct EventReceiver<S: State = PlayerState> {
 
 impl<S: State + std::fmt::Debug> std::fmt::Debug for EventReceiver<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EventReceiver").field("state", &self.state).finish()
+        f.debug_struct("EventReceiver")
+            .field("state", &self.state)
+            .finish()
     }
 }
 

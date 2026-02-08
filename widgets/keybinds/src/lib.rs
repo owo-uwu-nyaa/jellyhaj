@@ -124,7 +124,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         self.inner.accept_text(text);
     }
 
-    #[instrument(skip_all, name="action_keybinds")]
+    #[instrument(skip_all, name = "action_keybinds")]
     fn apply_action(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -133,7 +133,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         action::apply_key_event(self, task, action)
     }
 
-    #[instrument(skip_all, name="click_keybinds")]
+    #[instrument(skip_all, name = "click_keybinds")]
     fn click(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -145,7 +145,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         click::apply_click(self, task, position, size, kind, modifier)
     }
 
-    #[instrument(skip_all, name="render_keybind")]
+    #[instrument(skip_all, name = "render_keybind")]
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,

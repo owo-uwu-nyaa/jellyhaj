@@ -10,7 +10,7 @@ use jellyhaj_widgets_core::{
     ItemWidget, JellyhajWidget, JellyhajWidgetExt, Rect, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::{
-    layout::Margin,
+    layout::{HorizontalAlignment, Margin},
     symbols::merge::MergeStrategy,
     text::Line,
     widgets::{
@@ -104,6 +104,7 @@ impl JellyhajWidget for Overview {
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title("Overview")
+            .title_alignment(HorizontalAlignment::Center)
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
         let lines: Vec<_> = self
@@ -125,6 +126,7 @@ impl JellyhajWidget for Overview {
             buf,
             &mut ScrollbarState::new(len).position(self.scroll),
         );
+        outer.render(area, buf);
         Ok(())
     }
 }
@@ -394,7 +396,7 @@ impl JellyhajWidget for ItemListDisplay {
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         let area = Rect::from((
             (2, 2).into(),
-            (size.width - 2, self.children.height()).into(),
+            (size.width - 4, self.children.height()).into(),
         ));
         if area.contains(pos) {
             pos.x -= 2;
@@ -402,7 +404,7 @@ impl JellyhajWidget for ItemListDisplay {
             self.children.click(
                 task.wrap_with(DisplayListAction::Inner),
                 pos,
-                (size.width - 2, self.children.height()).into(),
+                (size.width - 4, self.children.height()).into(),
                 kind,
                 modifier,
             )
@@ -420,7 +422,7 @@ impl JellyhajWidget for ItemListDisplay {
         self.children.render_fallible(
             (
                 (area.x + 2, area.y + 2).into(),
-                (area.width - 2, self.children.height()).into(),
+                (area.width - 4, self.children.height()).into(),
             )
                 .into(),
             buf,

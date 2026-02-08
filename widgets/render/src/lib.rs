@@ -1,5 +1,7 @@
 use std::{
-    fmt::Debug, pin::{Pin, pin}, task::Poll
+    fmt::Debug,
+    pin::{Pin, pin},
+    task::Poll,
 };
 
 use color_eyre::{Report, Result};
@@ -81,8 +83,8 @@ impl<'e, A: Send> Stream for SelectStream<'e, A> {
 
 impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
     async fn render<
-        A: Debug+ Send + 'static,
-        R: Debug+ Send + 'static,
+        A: Debug + Send + 'static,
+        R: Debug + Send + 'static,
         M,
         W: Send + JellyhajWidget<Action = KeybindAction<A>, ActionResult = CommandAction<R, M>>,
     >(
