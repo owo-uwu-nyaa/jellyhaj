@@ -152,11 +152,11 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
                 })
                 .transpose(),
             ItemListAction::Left => {
-                self.current = min(self.items.len(), self.current + 1);
+                self.current = self.current.saturating_sub(1);
                 Ok(None)
             }
             ItemListAction::Right => {
-                self.current = self.current.saturating_sub(1);
+                self.current = self.current.saturating_add(1);
                 Ok(None)
             }
         }
@@ -185,6 +185,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
             if x_position < self.item_size.width
                 && let Some(item) = self.items.get_mut(index)
             {
+                self.current = index;
                 ItemWidget::click(
                     item,
                     TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
@@ -209,6 +210,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
         buf: &mut ratatui::prelude::Buffer,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
+        self.current = min(self.current, self.items.len().saturating_sub(1));
         let outer = Block::bordered()
             .title_top(self.title.as_str())
             .padding(Padding::uniform(1));
