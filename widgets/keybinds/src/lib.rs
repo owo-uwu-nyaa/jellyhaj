@@ -2,34 +2,44 @@ mod action;
 mod click;
 mod render;
 
+use std::fmt::Debug;
+
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{BindingMap, Command};
 use ratatui::crossterm::event::KeyEvent;
+use tracing::instrument;
 
-pub enum MappedCommand<U: Send + 'static, D: Send + 'static> {
+#[derive(Debug)]
+pub enum MappedCommand<U: Debug + Send + 'static, D: Debug + Send + 'static> {
     Up(U),
     Down(D),
 }
 
-pub enum KeybindAction<A: Send + 'static> {
+#[derive(Debug)]
+pub enum KeybindAction<A: Debug + Send + 'static> {
     Inner(A),
     Key(KeyEvent),
 }
 
-pub enum CommandAction<U: Send + 'static, A> {
+#[derive(Debug)]
+pub enum CommandAction<U: Debug + Send + 'static, A> {
     Action(A),
     Up(U),
     Exit,
 }
 
 pub trait CommandMapper<T: Command> {
-    type U: Send + 'static;
-    type D: Send + 'static;
+    type U: Debug + Send + 'static;
+    type D: Debug + Send + 'static;
     fn map(&self, command: T) -> MappedCommand<Self::U, Self::D>;
 }
 
-impl<T: Command, U: Send + 'static, D: Send + 'static, F: Fn(T) -> MappedCommand<U, D>>
-    CommandMapper<T> for F
+impl<
+    T: Command,
+    U: Debug + Send + 'static,
+    D: Debug + Send + 'static,
+    F: Fn(T) -> MappedCommand<U, D>,
+> CommandMapper<T> for F
 {
     type U = U;
     type D = D;
@@ -114,6 +124,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         self.inner.accept_text(text);
     }
 
+    #[instrument(skip_all, name="action_keybinds")]
     fn apply_action(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -122,6 +133,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         action::apply_key_event(self, task, action)
     }
 
+    #[instrument(skip_all, name="click_keybinds")]
     fn click(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -133,6 +145,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         click::apply_click(self, task, position, size, kind, modifier)
     }
 
+    #[instrument(skip_all, name="render_keybind")]
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,
@@ -146,7 +159,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
 #[derive(Clone, Copy)]
 struct KeybindWrapper;
 
-impl<T: Send + 'static> Wrapper<T> for KeybindWrapper {
+impl<T: Debug + Send + 'static> Wrapper<T> for KeybindWrapper {
     type F = KeybindAction<T>;
 
     fn wrap(&self, val: T) -> Self::F {

@@ -6,6 +6,7 @@ use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_log_widget::{LogWidget, TuiWidgetEvent};
 use jellyhaj_render_widgets::TermExt;
 
+#[derive(Debug)]
 struct Quit;
 
 pub async fn render_log(cx: Pin<&mut TuiContext>) -> Result<Navigation> {

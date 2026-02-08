@@ -26,6 +26,8 @@ impl ErrorWidget {
         }
     }
 }
+
+#[derive(Debug)]
 pub enum ErrorAction {
     Up,
     Down,

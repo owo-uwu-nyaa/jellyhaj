@@ -49,10 +49,15 @@ impl State for SharedPlayerState {
     }
 }
 
-#[derive(Debug)]
 pub struct EventReceiver<S: State = PlayerState> {
     pub(crate) state: S,
     pub(crate) receive: broadcast::Receiver<Events>,
+}
+
+impl<S: State + std::fmt::Debug> std::fmt::Debug for EventReceiver<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventReceiver").field("state", &self.state).finish()
+    }
 }
 
 impl<S: State> EventReceiver<S> {

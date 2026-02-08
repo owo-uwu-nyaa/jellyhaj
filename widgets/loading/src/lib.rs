@@ -6,7 +6,7 @@ use std::{
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
-use ratatui::widgets::{Block, Widget};
+use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
 
@@ -30,19 +30,21 @@ impl Loading<'_> {
     }
 }
 
-const TIMEOUT_CYCLE: u8 = 4;
+const TIMEOUT_CYCLE: u8 = 5;
+const BORDERS: ratatui::symbols::border::Set = BorderType::Thick.to_border_set();
 
+#[derive(Debug)]
 pub struct AdvanceLoadingScreen;
 
-fn draw_line_down(x: u16, y_start: u16, y_end: u16, buf: &mut ratatui::prelude::Buffer) {
+fn draw_line_down(x: u16, y_start: u16, y_end: u16, buf: &mut ratatui::prelude::Buffer, c: &str) {
     for y in y_start..=y_end {
-        buf[(x, y)].set_symbol("│");
+        buf[(x, y)].set_symbol(c);
     }
 }
 
-fn draw_line_right(y: u16, x_start: u16, x_end: u16, buf: &mut ratatui::prelude::Buffer) {
+fn draw_line_right(y: u16, x_start: u16, x_end: u16, buf: &mut ratatui::prelude::Buffer, c: &str) {
     for x in x_start..=x_end {
-        buf[(x, y)].set_symbol("─");
+        buf[(x, y)].set_symbol(c);
     }
 }
 
@@ -98,7 +100,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
-            let timer = unfold(interval(Duration::from_secs(1)), |mut interval| async {
+            let timer = unfold(interval(Duration::from_millis(100)), |mut interval| async {
                 interval.tick().await;
                 Some((Ok(AdvanceLoadingScreen), interval))
             });
@@ -113,25 +115,50 @@ impl<'s> JellyhajWidget for Loading<'s> {
             if (main.height % 2) == 1 {
                 for size in self.lines.iter().copied().filter(|s| s * 2 < self.max) {
                     if size == 0 {
-                        buf[(center_x, center_y)].set_symbol("█");
+                        buf[(center_x, center_y)].set_char('█');
                     } else {
                         if main.width > size * 2 {
                             let y_start = max(main.y, center_y - size + 1);
                             let y_end = min(main.y + main.height - 1, center_y + size - 1);
-                            draw_line_down(center_x - size, y_start, y_end, buf);
-                            draw_line_down(center_x + size, y_start, y_end, buf);
+                            draw_line_down(
+                                center_x - size,
+                                y_start,
+                                y_end,
+                                buf,
+                                BORDERS.vertical_left,
+                            );
+                            draw_line_down(
+                                center_x + size,
+                                y_start,
+                                y_end,
+                                buf,
+                                BORDERS.vertical_right,
+                            );
                         }
                         if main.height > size * 2 {
                             let x_start = max(main.x, center_x - size + 1);
                             let x_end = min(main.x + main.width - 1, center_x + size - 1);
-                            draw_line_right(center_y - size, x_start, x_end, buf);
-                            draw_line_right(center_y + size, x_start, x_end, buf);
+                            draw_line_right(
+                                center_y - size,
+                                x_start,
+                                x_end,
+                                buf,
+                                BORDERS.horizontal_top,
+                            );
+                            draw_line_right(
+                                center_y + size,
+                                x_start,
+                                x_end,
+                                buf,
+                                BORDERS.horizontal_bottom,
+                            );
                         }
                         if main.width > size * 2 || main.height > size * 2 {
-                            buf[(center_x - size, center_y - size)].set_symbol("┌");
-                            buf[(center_x - size, center_y + size)].set_symbol("└");
-                            buf[(center_x + size, center_y - size)].set_symbol("┐");
-                            buf[(center_x + size, center_y + size)].set_symbol("┘");
+                            buf[(center_x - size, center_y - size)].set_symbol(BORDERS.top_left);
+                            buf[(center_x - size, center_y + size)].set_symbol(BORDERS.bottom_left);
+                            buf[(center_x + size, center_y - size)].set_symbol(BORDERS.top_right);
+                            buf[(center_x + size, center_y + size)]
+                                .set_symbol(BORDERS.bottom_right);
                         }
                     }
                 }
@@ -144,20 +171,47 @@ impl<'s> JellyhajWidget for Loading<'s> {
                         if main.width > size * 2 {
                             let y_start = max(main.y, center_y - size);
                             let y_end = min(main.y + main.height - 1, center_y + size - 1);
-                            draw_line_down(center_x - size, y_start, y_end, buf);
-                            draw_line_down(center_x + size, y_start, y_end, buf);
+                            draw_line_down(
+                                center_x - size,
+                                y_start,
+                                y_end,
+                                buf,
+                                BORDERS.vertical_left,
+                            );
+                            draw_line_down(
+                                center_x + size,
+                                y_start,
+                                y_end,
+                                buf,
+                                BORDERS.vertical_right,
+                            );
                         }
                         if main.height > size * 2 + 1 {
                             let x_start = max(main.x, center_x - size + 1);
                             let x_end = min(main.x + main.width - 1, center_x + size - 1);
-                            draw_line_right(center_y - size, x_start, x_end, buf);
-                            draw_line_right(center_y + size, x_start, x_end, buf);
+                            draw_line_right(
+                                center_y - size,
+                                x_start,
+                                x_end,
+                                buf,
+                                BORDERS.horizontal_top,
+                            );
+                            draw_line_right(
+                                center_y + size,
+                                x_start,
+                                x_end,
+                                buf,
+                                BORDERS.horizontal_bottom,
+                            );
                         }
                         if main.width > size * 2 || main.height > size * 2 + 1 {
-                            buf[(center_x - size, center_y - size - 1)].set_symbol("┌");
-                            buf[(center_x - size, center_y + size)].set_symbol("└");
-                            buf[(center_x + size, center_y - size - 1)].set_symbol("┐");
-                            buf[(center_x + size, center_y + size)].set_symbol("┘");
+                            buf[(center_x - size, center_y - size - 1)]
+                                .set_symbol(BORDERS.top_left);
+                            buf[(center_x - size, center_y + size)].set_symbol(BORDERS.bottom_left);
+                            buf[(center_x + size, center_y - size - 1)]
+                                .set_symbol(BORDERS.top_right);
+                            buf[(center_x + size, center_y + size)]
+                                .set_symbol(BORDERS.bottom_right);
                         }
                     }
                 }
@@ -171,20 +225,44 @@ impl<'s> JellyhajWidget for Loading<'s> {
                     if main.width > size * 2 + 1 {
                         let y_start = max(main.y, center_y - size + 1);
                         let y_end = min(main.y + main.height - 1, center_y + size - 1);
-                        draw_line_down(center_x - size, y_start, y_end, buf);
-                        draw_line_down(center_x + size, y_start, y_end, buf);
+                        draw_line_down(
+                            center_x - size - 1,
+                            y_start,
+                            y_end,
+                            buf,
+                            BORDERS.vertical_left,
+                        );
+                        draw_line_down(
+                            center_x + size,
+                            y_start,
+                            y_end,
+                            buf,
+                            BORDERS.vertical_right,
+                        );
                     }
                     if main.height > size * 2 {
                         let x_start = max(main.x, center_x - size);
                         let x_end = min(main.x + main.width - 1, center_x + size - 1);
-                        draw_line_right(center_y - size, x_start, x_end, buf);
-                        draw_line_right(center_y + size, x_start, x_end, buf);
+                        draw_line_right(
+                            center_y - size,
+                            x_start,
+                            x_end,
+                            buf,
+                            BORDERS.horizontal_top,
+                        );
+                        draw_line_right(
+                            center_y + size,
+                            x_start,
+                            x_end,
+                            buf,
+                            BORDERS.horizontal_bottom,
+                        );
                     }
                     if main.width > size * 2 + 1 || main.height > size * 2 {
-                        buf[(center_x - size - 1, center_y - size)].set_symbol("┌");
-                        buf[(center_x - size - 1, center_y + size)].set_symbol("└");
-                        buf[(center_x + size, center_y - size)].set_symbol("┐");
-                        buf[(center_x + size, center_y + size)].set_symbol("┘");
+                        buf[(center_x - size - 1, center_y - size)].set_symbol(BORDERS.top_left);
+                        buf[(center_x - size - 1, center_y + size)].set_symbol(BORDERS.bottom_left);
+                        buf[(center_x + size, center_y - size)].set_symbol(BORDERS.top_right);
+                        buf[(center_x + size, center_y + size)].set_symbol(BORDERS.bottom_right);
                     }
                 }
             }
@@ -199,20 +277,45 @@ impl<'s> JellyhajWidget for Loading<'s> {
                     if main.width > size * 2 + 1 {
                         let y_start = max(main.y, center_y - size);
                         let y_end = min(main.y + main.height - 1, center_y + size - 1);
-                        draw_line_down(center_x - size, y_start, y_end, buf);
-                        draw_line_down(center_x + size, y_start, y_end, buf);
+                        draw_line_down(
+                            center_x - size - 1,
+                            y_start,
+                            y_end,
+                            buf,
+                            BORDERS.vertical_left,
+                        );
+                        draw_line_down(
+                            center_x + size,
+                            y_start,
+                            y_end,
+                            buf,
+                            BORDERS.vertical_right,
+                        );
                     }
                     if main.height > size * 2 + 1 {
                         let x_start = max(main.x, center_x - size);
                         let x_end = min(main.x + main.width - 1, center_x + size - 1);
-                        draw_line_right(center_y - size, x_start, x_end, buf);
-                        draw_line_right(center_y + size, x_start, x_end, buf);
+                        draw_line_right(
+                            center_y - size - 1,
+                            x_start,
+                            x_end,
+                            buf,
+                            BORDERS.horizontal_top,
+                        );
+                        draw_line_right(
+                            center_y + size,
+                            x_start,
+                            x_end,
+                            buf,
+                            BORDERS.horizontal_bottom,
+                        );
                     }
                     if main.width > size * 2 + 1 || main.height > size * 2 + 1 {
-                        buf[(center_x - size - 1, center_y - size - 1)].set_symbol("┌");
-                        buf[(center_x - size - 1, center_y + size)].set_symbol("└");
-                        buf[(center_x + size, center_y - size - 1)].set_symbol("┐");
-                        buf[(center_x + size, center_y + size)].set_symbol("┘");
+                        buf[(center_x - size - 1, center_y - size - 1)]
+                            .set_symbol(BORDERS.top_left);
+                        buf[(center_x - size - 1, center_y + size)].set_symbol(BORDERS.bottom_left);
+                        buf[(center_x + size, center_y - size - 1)].set_symbol(BORDERS.top_right);
+                        buf[(center_x + size, center_y + size)].set_symbol(BORDERS.bottom_right);
                     }
                 }
             }

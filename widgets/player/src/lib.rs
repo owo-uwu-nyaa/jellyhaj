@@ -29,6 +29,7 @@ impl PlayerWidget {
     }
 }
 
+#[derive(Debug)]
 pub enum PlayerAction {
     Quit,
     TogglePause,
@@ -36,6 +37,7 @@ pub enum PlayerAction {
     Events(EventReceiver),
 }
 
+#[derive(Debug)]
 pub struct PlayerQuit;
 
 impl JellyhajWidget for PlayerWidget {

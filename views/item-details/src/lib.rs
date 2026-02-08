@@ -96,6 +96,7 @@ pub async fn render_fetch_item_list_ref(
     .await
 }
 
+#[derive(Debug)]
 struct ItemDetailsQuit;
 
 #[instrument(skip_all)]
@@ -153,6 +154,7 @@ pub async fn render_item_details(cx: Pin<&mut TuiContext>, item: MediaItem) -> R
     })
 }
 
+#[derive(Debug)]
 enum ItemDetailsListPass {
     Quit,
     Reload,

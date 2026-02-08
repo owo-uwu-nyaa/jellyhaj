@@ -69,6 +69,7 @@ pub async fn render_fetch_user_view(
     .await
 }
 
+#[derive(Debug)]
 pub enum Pass {
     Reload,
     Quit,

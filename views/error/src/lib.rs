@@ -8,6 +8,7 @@ use jellyhaj_error_widget::{ErrorAction, ErrorWidget};
 use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::TermExt;
 
+#[derive(Debug)]
 enum Pass {
     Quit,
     Kill,

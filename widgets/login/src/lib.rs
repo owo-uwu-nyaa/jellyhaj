@@ -42,10 +42,12 @@ impl<'s> LoginWidget<'s> {
     }
 }
 
+#[derive(Debug)]
 pub struct LoginEdit {
     pub changed: bool,
 }
 
+#[derive(Debug)]
 pub enum LoginAction {
     Submit,
     Prev,

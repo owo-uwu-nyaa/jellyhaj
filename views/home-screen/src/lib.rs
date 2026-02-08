@@ -15,6 +15,7 @@ use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::{JellyhajWidget, TermExt};
 use std::pin::Pin;
 
+#[derive(Debug)]
 pub enum Pass {
     Reload,
     Stats,

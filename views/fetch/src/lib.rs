@@ -16,8 +16,10 @@ use spawn::Spawner;
 use tokio::select;
 use tracing::instrument;
 
+#[derive(Debug)]
 struct QuitAction;
 
+#[derive(Debug)]
 pub struct Quit {
     exit: bool,
 }

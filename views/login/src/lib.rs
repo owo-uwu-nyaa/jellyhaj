@@ -24,6 +24,7 @@ use spawn::Spawner;
 use tokio::select;
 use tracing::{info, instrument};
 
+#[derive(Debug)]
 struct Quit;
 
 #[allow(clippy::too_many_arguments)]

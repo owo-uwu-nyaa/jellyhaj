@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyModifiers, MouseEventKind},
@@ -9,8 +11,8 @@ use color_eyre::{Result, eyre::ensure};
 
 pub trait ItemWidget {
     type State;
-    type Action: Send + 'static;
-    type ActionResult;
+    type Action: Debug + Send + 'static;
+    type ActionResult: Debug;
 
     fn dimensions(&self) -> Size;
     fn dimensions_static(par: DimensionsParameter<'_>) -> Size;

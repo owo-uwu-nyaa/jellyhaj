@@ -30,6 +30,7 @@ enum Action {
     ReplaceMetadata,
 }
 
+#[derive(Debug)]
 pub enum FormResult {
     Quit,
     Submit,

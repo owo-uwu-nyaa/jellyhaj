@@ -61,6 +61,7 @@ pub struct ItemGridData<T> {
     pub current: usize,
 }
 
+#[derive(Debug)]
 pub enum ItemGridAction<T> {
     SpecificInner(usize, T),
     CurrentInner(T),

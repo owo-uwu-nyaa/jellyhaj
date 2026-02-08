@@ -68,6 +68,7 @@ impl<T: ItemWidget> IndexMut<usize> for ItemList<T> {
     }
 }
 
+#[derive(Debug)]
 pub enum ItemListAction<T> {
     SpecificInner(usize, T),
     CurrentInner(T),

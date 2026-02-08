@@ -15,6 +15,7 @@ use tracing::instrument;
 
 use crate::{ImageSize, cache::ImageProtocolKey};
 
+#[derive(Debug)]
 pub struct ParsedImage {
     pub(crate) image: DynamicImage,
     pub(crate) size: Size,

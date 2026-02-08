@@ -60,6 +60,7 @@ impl<T: ItemWidget> IndexMut<usize> for ItemScreen<T> {
     }
 }
 
+#[derive(Debug)]
 pub enum ItemScreenAction<T> {
     SpecificInner { row: usize, item: usize, action: T },
     CurrentInner(T),

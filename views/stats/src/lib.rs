@@ -6,6 +6,7 @@ use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::TermExt;
 use jellyhaj_stats_widget::StatsWidget;
 
+#[derive(Debug)]
 struct QuitAction;
 
 pub async fn render_stats(cx: Pin<&mut TuiContext>) -> Result<Navigation> {

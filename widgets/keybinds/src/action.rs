@@ -81,7 +81,10 @@ pub fn apply_key_event<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D 
                             Some(KeyBinding::Command(c)) => {
                                 debug!("found matching command");
                                 this.next_maps = Vec::new();
-                                return match this.mapper.map(*c) {
+                                debug!("executing command {c:?}");
+                                let mapped = this.mapper.map(*c);
+                                debug!("triggering action {mapped:?}");
+                                return match mapped {
                                     MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
                                     MappedCommand::Down(a) => match this
                                         .inner

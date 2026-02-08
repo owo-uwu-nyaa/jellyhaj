@@ -86,6 +86,7 @@ impl StatsWidget {
     }
 }
 
+#[derive(Debug)]
 pub struct StatsUpdate;
 
 impl JellyhajWidget for StatsWidget {

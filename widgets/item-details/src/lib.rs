@@ -19,11 +19,13 @@ use ratatui::{
     },
 };
 
+#[derive(Debug)]
 pub enum OverviewAction {
     Up,
     Down,
 }
 
+#[derive(Debug)]
 pub struct Overview {
     pub text: String,
     pub title: String,
@@ -127,6 +129,7 @@ impl JellyhajWidget for Overview {
     }
 }
 
+#[derive(Debug)]
 pub enum DisplayAction {
     Inner(EntryAction),
     Up,
@@ -279,6 +282,8 @@ impl JellyhajWidget for ItemDisplay {
         Ok(())
     }
 }
+
+#[derive(Debug)]
 pub enum DisplayListAction {
     Inner(ItemListAction<EntryAction>),
     Up,

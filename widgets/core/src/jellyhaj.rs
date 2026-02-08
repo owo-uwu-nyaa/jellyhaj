@@ -8,6 +8,7 @@ use ratatui::{
 };
 use ratatui_image::FontSize;
 use std::any::type_name;
+use std::fmt::Debug;
 use tracing::warn;
 
 use crate::async_task::TaskSubmitter;
@@ -31,8 +32,8 @@ impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R>
 
 pub trait JellyhajWidget {
     type State;
-    type Action: Send + 'static;
-    type ActionResult;
+    type Action: Debug + Send + 'static;
+    type ActionResult: Debug;
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
 

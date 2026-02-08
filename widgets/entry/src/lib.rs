@@ -105,6 +105,7 @@ impl Entry {
     }
 }
 
+#[derive(Debug)]
 pub enum EntryAction {
     Inner(<JellyfinImage as JellyhajWidget>::Action),
     Activate,
@@ -116,6 +117,7 @@ pub enum EntryAction {
     Refresh,
 }
 
+#[derive(Debug)]
 pub enum EntryResult {
     Activate(EntryData),
     Play(EntryData),

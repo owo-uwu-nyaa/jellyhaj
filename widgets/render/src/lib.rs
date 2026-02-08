@@ -1,6 +1,5 @@
 use std::{
-    pin::{Pin, pin},
-    task::Poll,
+    fmt::Debug, pin::{Pin, pin}, task::Poll
 };
 
 use color_eyre::{Report, Result};
@@ -25,8 +24,8 @@ use std::ops::DerefMut;
 
 pub trait TermExt {
     fn render<
-        A: Send + 'static,
-        R: Send + 'static,
+        A: Debug + Send + 'static,
+        R: Debug + Send + 'static,
         M,
         W: Send + JellyhajWidget<Action = KeybindAction<A>, ActionResult = CommandAction<R, M>>,
     >(
@@ -82,8 +81,8 @@ impl<'e, A: Send> Stream for SelectStream<'e, A> {
 
 impl<B: Backend<Error = std::io::Error> + Send> TermExt for Terminal<B> {
     async fn render<
-        A: Send + 'static,
-        R: Send + 'static,
+        A: Debug+ Send + 'static,
+        R: Debug+ Send + 'static,
         M,
         W: Send + JellyhajWidget<Action = KeybindAction<A>, ActionResult = CommandAction<R, M>>,
     >(
