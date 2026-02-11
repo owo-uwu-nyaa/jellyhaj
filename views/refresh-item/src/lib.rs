@@ -15,6 +15,7 @@ use jellyhaj_form_widget::{
     FormAction, QuitForm, Selection,
     button::{ActionCreator, Button},
     form,
+    form::FormState,
 };
 use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::TermExt;
@@ -39,6 +40,11 @@ pub enum FormResult {
 impl From<QuitForm> for FormResult {
     fn from(_: QuitForm) -> Self {
         FormResult::Quit
+    }
+}
+impl From<Infallible> for FormResult {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
     }
 }
 
@@ -106,7 +112,7 @@ pub async fn render_refresh_item_form(
 
     let mut form = RefreshItem::default();
     let mut widget = KeybindWidget::new(
-        RefreshItemWidget::new(&mut form),
+        form.make_widget_with(RefreshItemSelection::Action(None)),
         &cx.config.help_prefixes,
         cx.config.keybinds.refresh_item.clone(),
         |command| {

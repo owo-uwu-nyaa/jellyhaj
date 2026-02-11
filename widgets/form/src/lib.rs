@@ -6,6 +6,7 @@ pub mod form;
 pub mod label;
 #[doc(hidden)]
 pub mod macro_impl;
+mod offset;
 pub mod secret_field;
 pub mod selection;
 pub mod text_field;
@@ -32,25 +33,24 @@ pub enum FormAction {
 
 pub struct QuitForm;
 
-
-
 pub trait FormItem<AR> {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;
-    type SelectionInner: Clone + Copy + Default;
+    type SelectionInner: Default;
+    type R: Into<AR>;
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool;
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool;
     fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char);
     fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String);
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool;
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool;
     fn apply_action(
         &mut self,
         sel: &mut Self::SelectionInner,
         action: FormAction,
-    ) -> Result<Option<AR>>;
+    ) -> Result<Option<Self::R>>;
 
-    fn popup_area(&self, sel: Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
+    fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 
     fn apply_click_active(
         &mut self,
@@ -60,15 +60,16 @@ pub trait FormItem<AR> {
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<AR>>;
+    ) -> Result<Option<Self::R>>;
 
+    #[allow(clippy::type_complexity)]
     fn apply_click_inactive(
         &mut self,
         size: Size,
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<AR>)>;
+    ) -> Result<(Option<Self::SelectionInner>, Option<Self::R>)>;
 
     fn render_pass_main(
         &mut self,
@@ -84,6 +85,6 @@ pub trait FormItem<AR> {
         full_area: Rect,
         buf: &mut Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> Result<()>;
 }

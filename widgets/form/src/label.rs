@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use jellyhaj_widgets_core::Rect;
 use ratatui::widgets::Widget;
 
@@ -5,14 +7,15 @@ use crate::FormItem;
 
 pub struct Label;
 
-impl<T> FormItem<T> for Label {
+impl<AR: From<Infallible>> FormItem<AR> for Label {
     const HEIGHT: u16 = 1;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = ();
+    type R = Infallible;
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -24,7 +27,7 @@ impl<T> FormItem<T> for Label {
         unimplemented!()
     }
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -32,13 +35,13 @@ impl<T> FormItem<T> for Label {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
         Ok(None)
     }
 
     fn popup_area(
         &self,
-        sel: Self::SelectionInner,
+        sel: &Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
@@ -53,7 +56,7 @@ impl<T> FormItem<T> for Label {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
         Ok(None)
     }
 
@@ -63,7 +66,7 @@ impl<T> FormItem<T> for Label {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<T>)> {
+    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
         Ok((None, None))
     }
 
@@ -89,7 +92,7 @@ impl<T> FormItem<T> for Label {
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> jellyhaj_widgets_core::Result<()> {
         Ok(())
     }

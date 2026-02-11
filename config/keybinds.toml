@@ -44,7 +44,7 @@ template = ["m", "o"]
 enter = "play"
 r = "reload"
 R = "refresh-parent-item"
-"C-R" = "refresh-current-item"
+"C-r" = "refresh-current-item"
 
 [login_info]
 backspace = "delete"

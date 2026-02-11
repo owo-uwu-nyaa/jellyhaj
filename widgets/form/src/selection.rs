@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::{cmp::min, convert::Infallible};
 
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Position, Rect, Result};
 use ratatui::{
@@ -10,7 +10,7 @@ use ratatui::{
     },
 };
 
-use crate::{FormAction, FormItem, macro_impl::offset::calc_offset};
+use crate::{FormAction, FormItem, offset::calc_offset};
 
 pub trait Selection: Clone + Copy + PartialEq + Eq + 'static {
     fn descr(self) -> &'static str;
@@ -36,14 +36,15 @@ fn selection_prev<S: Selection>(cur: S) -> S {
     S::ALL[index]
 }
 
-impl<AR, S: Selection> FormItem<AR> for S {
+impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 4;
 
     type SelectionInner = Option<S>;
+    type R = Infallible;
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -55,7 +56,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         unimplemented!()
     }
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         sel.is_some()
     }
 
@@ -63,7 +64,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: FormAction,
-    ) -> Result<Option<AR>> {
+    ) -> Result<Option<Infallible>> {
         if let Some(sel_inner) = sel {
             match action {
                 FormAction::Up => {
@@ -117,7 +118,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         mut full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> Result<()> {
         if let Some(sel_inner) = sel {
             buf[Position {
@@ -153,7 +154,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
                 area.y += i as u16;
                 area.height = 1;
                 c.descr().render(area, buf);
-                if sel_inner == c {
+                if *sel_inner == c {
                     for i in 0..area.width {
                         buf[(area.x + i, area.y)].set_style(Modifier::REVERSED);
                     }
@@ -175,7 +176,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
 
     fn popup_area(
         &self,
-        sel: Self::SelectionInner,
+        sel: &Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
@@ -208,7 +209,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<AR>> {
+    ) -> Result<Option<Infallible>> {
         if let MouseEventKind::Down(MouseButton::Left) = kind {
             let sel_inner = sel.as_mut().expect("inner must be set");
             let mut full_area: Rect = ((0, 0).into(), full_area).into();
@@ -252,7 +253,7 @@ impl<AR, S: Selection> FormItem<AR> for S {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<AR>)> {
+    ) -> Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
         if let MouseEventKind::Down(MouseButton::Left) = kind {
             Ok((Some(Some(*self)), None))
         } else {

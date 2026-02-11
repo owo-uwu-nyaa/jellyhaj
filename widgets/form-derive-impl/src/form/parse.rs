@@ -1,6 +1,6 @@
 use std::char::ToUppercase;
 
-use proc_macro2::{Literal, Span, TokenStream};
+use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 
 use crate::form::{FormItem, ParseResult};
@@ -74,9 +74,6 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
     if let Fields::Named(fields) = &mut input.fields {
         let name = input.ident.to_string();
         let selection_ty = format_ident!("{name}Selection");
-        let fields_len = Literal::usize_unsuffixed(fields.named.len());
-        let height_store_ty = parse_quote!([(u16, bool);#fields_len]);
-        let widget_ty = format_ident!("{name}Widget");
         let fields: Result<Vec<_>> = fields
             .named
             .iter_mut()
@@ -163,8 +160,6 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
             action_result: args.action_result,
             state_ty,
             selection_ty,
-            widget_ty,
-            height_store_ty,
         })
     } else {
         Err(Error::new(input.span(), "Struct must have named fields"))

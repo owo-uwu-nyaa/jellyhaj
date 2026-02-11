@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use jellyhaj_widgets_core::Rect;
 use ratatui::widgets::{Block, BorderType, Widget};
 
@@ -30,14 +32,15 @@ mod s {
         }
     }
 }
-impl<T> FormItem<T> for TextField {
+impl<AR: From<Infallible>> FormItem<AR> for TextField {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = ();
+    type R = Infallible;
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
 
@@ -49,7 +52,7 @@ impl<T> FormItem<T> for TextField {
         self.text.push_str(&text);
     }
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -57,7 +60,7 @@ impl<T> FormItem<T> for TextField {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
         if FormAction::Delete == action {
             self.text.pop();
         }
@@ -66,7 +69,7 @@ impl<T> FormItem<T> for TextField {
 
     fn popup_area(
         &self,
-        sel: Self::SelectionInner,
+        sel: &Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
@@ -81,7 +84,7 @@ impl<T> FormItem<T> for TextField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
         unimplemented!()
     }
 
@@ -91,7 +94,7 @@ impl<T> FormItem<T> for TextField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<T>)> {
+    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
         Ok((Some(()), None))
     }
 
@@ -118,7 +121,7 @@ impl<T> FormItem<T> for TextField {
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> jellyhaj_widgets_core::Result<()> {
         Ok(())
     }

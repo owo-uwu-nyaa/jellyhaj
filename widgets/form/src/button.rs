@@ -4,10 +4,10 @@ use ratatui::{
     widgets::{Block, BorderType, Widget},
 };
 
-use crate::{FormAction, FormItem, QuitForm};
+use crate::{FormAction, FormItem};
 
 pub trait ActionCreator {
-    type T: From<QuitForm>;
+    type T;
     fn make_action(&self) -> Self::T;
 }
 
@@ -43,14 +43,15 @@ fn center(full: u16, requested: u16) -> Centered {
     }
 }
 
-impl<C: ActionCreator> FormItem<C::T> for Button<C> {
+impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = ();
+    type R = C::T;
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -62,7 +63,7 @@ impl<C: ActionCreator> FormItem<C::T> for Button<C> {
         unimplemented!()
     }
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -80,7 +81,7 @@ impl<C: ActionCreator> FormItem<C::T> for Button<C> {
 
     fn popup_area(
         &self,
-        sel: Self::SelectionInner,
+        sel: &Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
@@ -144,7 +145,7 @@ impl<C: ActionCreator> FormItem<C::T> for Button<C> {
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> jellyhaj_widgets_core::Result<()> {
         Ok(())
     }

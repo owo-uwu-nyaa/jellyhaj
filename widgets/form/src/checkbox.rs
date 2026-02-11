@@ -1,12 +1,15 @@
+use std::convert::Infallible;
+
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result};
 use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
 use crate::{FormAction, FormItem};
 
-impl<T> FormItem<T> for bool {
+impl<AR: From<Infallible>> FormItem<AR> for bool {
     const HEIGHT: u16 = 1;
     const HEIGHT_BUF: u16 = 0;
     type SelectionInner = ();
+    type R = Infallible;
 
     fn render_pass_main(
         &mut self,
@@ -29,7 +32,7 @@ impl<T> FormItem<T> for bool {
         Ok(())
     }
 
-    fn accepts_text_input(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -41,7 +44,7 @@ impl<T> FormItem<T> for bool {
         unimplemented!()
     }
 
-    fn accepts_movement_action(&self, sel: Self::SelectionInner) -> bool {
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
@@ -49,7 +52,7 @@ impl<T> FormItem<T> for bool {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> Result<Option<T>> {
+    ) -> Result<Option<Infallible>> {
         if FormAction::Enter == action {
             *self ^= true;
         }
@@ -62,14 +65,14 @@ impl<T> FormItem<T> for bool {
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
-        sel: Self::SelectionInner,
+        sel: &mut Self::SelectionInner,
     ) -> Result<()> {
         Ok(())
     }
 
     fn popup_area(
         &self,
-        sel: Self::SelectionInner,
+        sel: &Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
@@ -83,7 +86,7 @@ impl<T> FormItem<T> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<T>> {
+    ) -> Result<Option<Infallible>> {
         unreachable!()
     }
 
@@ -93,7 +96,7 @@ impl<T> FormItem<T> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<T>)> {
+    ) -> Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
         if let MouseEventKind::Down(MouseButton::Left) = kind
             && pos.x < 3
         {
