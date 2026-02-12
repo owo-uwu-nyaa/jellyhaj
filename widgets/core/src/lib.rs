@@ -9,8 +9,10 @@ pub use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyModifiers, MouseEventKind},
     layout::{Position, Rect, Size},
+    self
 };
 pub use ratatui_image::FontSize;
+pub use spawn;
 
 pub trait RectExt {
     fn contains(self, pos: Position) -> bool;

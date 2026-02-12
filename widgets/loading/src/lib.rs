@@ -14,7 +14,6 @@ pub struct Loading<'s> {
     title: &'s str,
     timeout: u8,
     lines: Vec<u16>,
-    max: u16,
     spawned: bool,
 }
 
@@ -24,7 +23,6 @@ impl Loading<'_> {
             title,
             timeout: 0,
             lines: Vec::new(),
-            max: 0,
             spawned: false,
         }
     }
@@ -69,10 +67,9 @@ impl<'s> JellyhajWidget for Loading<'s> {
         _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        self.lines.retain_mut(|line| {
-            *line += 1;
-            self.max >= *line
-        });
+        for v in &mut self.lines{
+            *v+=1;
+        }
         if self.timeout == 0 {
             self.lines.push(0);
         }
@@ -108,17 +105,18 @@ impl<'s> JellyhajWidget for Loading<'s> {
         }
         let outer = Block::bordered().title(self.title);
         let main = outer.inner(area);
-        self.max = max(main.width, main.height).div_ceil(2) - 1;
+        let max_size = max(main.width, main.height).div_ceil(2) - 1;
         let center_x = main.x + main.width / 2;
         let center_y = main.y + main.height / 2;
+        self.lines.retain(|s|*s<max_size);
         if (main.width % 2) == 1 {
             if (main.height % 2) == 1 {
-                for size in self.lines.iter().copied().filter(|s| s * 2 < self.max) {
+                for size in self.lines.iter().copied() {
                     if size == 0 {
                         buf[(center_x, center_y)].set_char('█');
                     } else {
                         if main.width > size * 2 {
-                            let y_start = max(main.y, center_y - size + 1);
+                            let y_start = max(main.y, (center_y + 1).saturating_sub(size));
                             let y_end = min(main.y + main.height - 1, center_y + size - 1);
                             draw_line_down(
                                 center_x - size,
@@ -136,7 +134,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                             );
                         }
                         if main.height > size * 2 {
-                            let x_start = max(main.x, center_x - size + 1);
+                            let x_start = max(main.x, (center_x + 1).saturating_sub(size));
                             let x_end = min(main.x + main.width - 1, center_x + size - 1);
                             draw_line_right(
                                 center_y - size,
@@ -153,7 +151,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                                 BORDERS.horizontal_bottom,
                             );
                         }
-                        if main.width > size * 2 || main.height > size * 2 {
+                        if main.width > size * 2 && main.height > size * 2 {
                             buf[(center_x - size, center_y - size)].set_symbol(BORDERS.top_left);
                             buf[(center_x - size, center_y + size)].set_symbol(BORDERS.bottom_left);
                             buf[(center_x + size, center_y - size)].set_symbol(BORDERS.top_right);
@@ -163,13 +161,13 @@ impl<'s> JellyhajWidget for Loading<'s> {
                     }
                 }
             } else {
-                for size in self.lines.iter().copied().filter(|s| s * 2 < self.max) {
+                for size in self.lines.iter().copied() {
                     if size == 0 {
                         buf[(center_x, center_y - 1)].set_symbol("▄");
                         buf[(center_x, center_y)].set_symbol("▀");
                     } else {
                         if main.width > size * 2 {
-                            let y_start = max(main.y, center_y - size);
+                            let y_start = max(main.y, center_y.saturating_sub(size));
                             let y_end = min(main.y + main.height - 1, center_y + size - 1);
                             draw_line_down(
                                 center_x - size,
@@ -187,7 +185,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                             );
                         }
                         if main.height > size * 2 + 1 {
-                            let x_start = max(main.x, center_x - size + 1);
+                            let x_start = max(main.x, (center_x + 1).saturating_sub(size));
                             let x_end = min(main.x + main.width - 1, center_x + size - 1);
                             draw_line_right(
                                 center_y - size,
@@ -204,7 +202,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                                 BORDERS.horizontal_bottom,
                             );
                         }
-                        if main.width > size * 2 || main.height > size * 2 + 1 {
+                        if main.width > size * 2 && main.height > size * 2 + 1 {
                             buf[(center_x - size, center_y - size - 1)]
                                 .set_symbol(BORDERS.top_left);
                             buf[(center_x - size, center_y + size)].set_symbol(BORDERS.bottom_left);
@@ -217,13 +215,13 @@ impl<'s> JellyhajWidget for Loading<'s> {
                 }
             }
         } else if (main.height % 2) == 1 {
-            for size in self.lines.iter().copied().filter(|s| s * 2 < self.max) {
+            for size in self.lines.iter().copied() {
                 if size == 0 {
                     buf[(center_x - 1, center_y)].set_symbol("▐");
                     buf[(center_x, center_y)].set_symbol("▌");
                 } else {
                     if main.width > size * 2 + 1 {
-                        let y_start = max(main.y, center_y - size + 1);
+                        let y_start = max(main.y, (center_y + 1).saturating_sub(size));
                         let y_end = min(main.y + main.height - 1, center_y + size - 1);
                         draw_line_down(
                             center_x - size - 1,
@@ -241,7 +239,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                         );
                     }
                     if main.height > size * 2 {
-                        let x_start = max(main.x, center_x - size);
+                        let x_start = max(main.x, center_x.saturating_sub(size));
                         let x_end = min(main.x + main.width - 1, center_x + size - 1);
                         draw_line_right(
                             center_y - size,
@@ -258,7 +256,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                             BORDERS.horizontal_bottom,
                         );
                     }
-                    if main.width > size * 2 + 1 || main.height > size * 2 {
+                    if main.width > size * 2 + 1 && main.height > size * 2 {
                         buf[(center_x - size - 1, center_y - size)].set_symbol(BORDERS.top_left);
                         buf[(center_x - size - 1, center_y + size)].set_symbol(BORDERS.bottom_left);
                         buf[(center_x + size, center_y - size)].set_symbol(BORDERS.top_right);
@@ -267,7 +265,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                 }
             }
         } else {
-            for size in self.lines.iter().copied().filter(|s| s * 2 < self.max) {
+            for size in self.lines.iter().copied() {
                 if size == 0 {
                     buf[(center_x - 1, center_y - 1)].set_symbol("▗");
                     buf[(center_x, center_y - 1)].set_symbol("▖");
@@ -275,7 +273,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                     buf[(center_x, center_y)].set_symbol("▘");
                 } else {
                     if main.width > size * 2 + 1 {
-                        let y_start = max(main.y, center_y - size);
+                        let y_start = max(main.y, center_y.saturating_sub(size));
                         let y_end = min(main.y + main.height - 1, center_y + size - 1);
                         draw_line_down(
                             center_x - size - 1,
@@ -293,7 +291,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                         );
                     }
                     if main.height > size * 2 + 1 {
-                        let x_start = max(main.x, center_x - size);
+                        let x_start = max(main.x, center_x.saturating_sub(size));
                         let x_end = min(main.x + main.width - 1, center_x + size - 1);
                         draw_line_right(
                             center_y - size - 1,
@@ -310,7 +308,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
                             BORDERS.horizontal_bottom,
                         );
                     }
-                    if main.width > size * 2 + 1 || main.height > size * 2 + 1 {
+                    if main.width > size * 2 + 1 && main.height > size * 2 + 1 {
                         buf[(center_x - size - 1, center_y - size - 1)]
                             .set_symbol(BORDERS.top_left);
                         buf[(center_x - size - 1, center_y + size)].set_symbol(BORDERS.bottom_left);
