@@ -6,10 +6,10 @@ pub use config::Config;
 pub use item::ItemWidget;
 pub use jellyhaj::{DimensionsParameter, JellyhajWidget, JellyhajWidgetExt, Wrapper};
 pub use ratatui::{
+    self,
     buffer::Buffer,
     crossterm::event::{KeyModifiers, MouseEventKind},
     layout::{Position, Rect, Size},
-    self
 };
 pub use ratatui_image::FontSize;
 pub use spawn;
