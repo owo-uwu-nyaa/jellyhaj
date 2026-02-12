@@ -11,7 +11,7 @@ pub fn calc_offset(len: u16, window: u16, cur: u16) -> u16 {
 
 #[cfg(test)]
 mod offset_tests {
-    use crate::macro_impl::offset::calc_offset;
+    use crate::offset::calc_offset;
 
     fn check(len: u16, window: u16, cur: u16, offset: u16) {
         assert!(offset + window <= len, "window is out of bounds");
