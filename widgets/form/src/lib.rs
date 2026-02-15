@@ -11,7 +11,10 @@ pub mod secret_field;
 pub mod selection;
 pub mod text_field;
 
+use std::{fmt::Debug, ops::ControlFlow};
+
 use color_eyre::Result;
+use jellyhaj_core::state::Navigation;
 pub use jellyhaj_form_derive::{Selection, form};
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};
 use ratatui::{
@@ -31,12 +34,10 @@ pub enum FormAction {
     Quit,
 }
 
-pub struct QuitForm;
-
 pub trait FormItem<AR> {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;
-    type SelectionInner: Default;
+    type SelectionInner: Default + Debug;
     type R: Into<AR>;
 
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool;
@@ -48,7 +49,7 @@ pub trait FormItem<AR> {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: FormAction,
-    ) -> Result<Option<Self::R>>;
+    ) -> Result<Option<ControlFlow<Navigation, Self::R>>>;
 
     fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 
@@ -60,7 +61,7 @@ pub trait FormItem<AR> {
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<Self::R>>;
+    ) -> Result<Option<ControlFlow<Navigation, Self::R>>>;
 
     #[allow(clippy::type_complexity)]
     fn apply_click_inactive(
@@ -69,7 +70,10 @@ pub trait FormItem<AR> {
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<Self::R>)>;
+    ) -> Result<(
+        Option<Self::SelectionInner>,
+        Option<ControlFlow<Navigation, Self::R>>,
+    )>;
 
     fn render_pass_main(
         &mut self,

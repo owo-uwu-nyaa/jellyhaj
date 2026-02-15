@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{JellyhajWidget, Result, Wrapper, async_task::TaskSubmitter};
 use player_core::{
     Command, Events, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
@@ -41,7 +41,7 @@ pub enum PlayerAction {
 pub struct PlayerQuit;
 
 impl JellyhajWidget for PlayerWidget {
-    type State = PlayerHandle;
+    type State = PlayerWidget;
 
     type Action = PlayerAction;
 
@@ -56,7 +56,7 @@ impl JellyhajWidget for PlayerWidget {
     }
 
     fn into_state(self) -> Self::State {
-        self.handle
+        self
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -76,7 +76,7 @@ impl JellyhajWidget for PlayerWidget {
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+    ) -> Result<Option<Self::ActionResult>> {
         match action {
             PlayerAction::Quit => Ok(Some(PlayerQuit)),
             PlayerAction::TogglePause => {
@@ -121,6 +121,15 @@ impl JellyhajWidget for PlayerWidget {
         }
     }
 
+    #[inline(always)]
+    fn apply_action_to_state(
+        state: &mut Self::State,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        state.apply_action(task, action)
+    }
+
     fn click(
         &mut self,
         _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -128,7 +137,7 @@ impl JellyhajWidget for PlayerWidget {
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+    ) -> Result<Option<Self::ActionResult>> {
         Ok(None)
     }
 
@@ -138,7 +147,7 @@ impl JellyhajWidget for PlayerWidget {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         if !self.send {
             self.send = true;
             let res = self.handle.get_state();

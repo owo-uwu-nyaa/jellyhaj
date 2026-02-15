@@ -1,18 +1,24 @@
-use std::{convert::Infallible, fmt::Debug, marker::PhantomData, ops::Index};
+use std::{
+    convert::Infallible,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{ControlFlow, Index},
+};
 
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, KeyModifiers, MouseEventKind, Position, Rect, Size, Wrapper,
-    async_task::TaskSubmitter,
+    Buffer, JellyhajWidget, JellyhajWidgetState, KeyModifiers, MouseEventKind, Position, Rect,
+    Size, TuiContext, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use tui_scrollview::{ScrollView, ScrollViewState};
 
-use crate::{FormAction, FormItem, QuitForm};
+use crate::{FormAction, FormItem};
 use color_eyre::Result;
 
-pub trait FormState<const TOTAL_SIZE: usize> {
-    type Selector;
-    type AR: Debug + From<QuitForm> + From<Infallible>;
+pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug {
+    type Selector: Debug + Send;
+    type AR: Debug + From<Infallible>;
     fn with_selection<T, W: WithSelection<Self::AR, T>>(
         this: &Self::Selector,
         state: &Self,
@@ -35,47 +41,83 @@ pub trait FormState<const TOTAL_SIZE: usize> {
     fn index(sel: &Self::Selector) -> usize;
     const TITLE: &str;
 
-    fn make_widget_with<'s>(
-        &'s mut self,
-        selection: Self::Selector,
-    ) -> Form<'s, { TOTAL_SIZE }, Self> {
+    fn make_widget_with(self, selection: Self::Selector) -> Form<{ TOTAL_SIZE }, Self> {
         Form {
             sel: selection,
-            state: self,
+            data: self,
             store: [0; TOTAL_SIZE],
             offset: 0,
         }
     }
 }
 
-pub trait FormStateDefaultExt<const TOTAL_SIZE: usize>: FormState<TOTAL_SIZE> {
-    fn make_widget_with_default<'s>(&'s mut self) -> Form<'s, { TOTAL_SIZE }, Self>;
+pub trait FormStateDefaultExt<const TOTAL_SIZE: usize>: FormData<TOTAL_SIZE> {
+    fn make_widget_with_default(self) -> Form<{ TOTAL_SIZE }, Self>;
 }
 
-impl<const TOTAL_SIZE: usize, F: FormState<TOTAL_SIZE>> FormStateDefaultExt<TOTAL_SIZE> for F
+impl<const TOTAL_SIZE: usize, F: FormData<TOTAL_SIZE>> FormStateDefaultExt<TOTAL_SIZE> for F
 where
     F::Selector: Default,
 {
-    fn make_widget_with_default<'s>(&'s mut self) -> Form<'s, { TOTAL_SIZE }, Self> {
+    fn make_widget_with_default<'s>(self) -> Form<{ TOTAL_SIZE }, Self> {
         Self::make_widget_with(self, Self::Selector::default())
     }
 }
 
-pub struct Form<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }> + ?Sized> {
+#[derive(Debug)]
+pub struct FormState<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> {
+    pub sel: Data::Selector,
+    pub data: Data,
+}
+
+impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE> + 'static> JellyhajWidgetState
+    for FormState<{ TOTAL_SIZE }, Data>
+{
+    type Action = FormAction;
+
+    type ActionResult = ControlFlow<Navigation, Data::AR>;
+
+    type Widget = Form<{ TOTAL_SIZE }, Data>;
+
+    const NAME: &str = Data::TITLE;
+
+    fn visit_tree(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        todo!()
+    }
+
+    fn into_widget(self, cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        Form {
+            sel: self.sel,
+            data: self.data,
+            store: [0; TOTAL_SIZE],
+            offset: 0,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        todo!()
+    }
+}
+
+pub struct Form<const TOTAL_SIZE: usize, State: FormData<{ TOTAL_SIZE }>> {
     sel: State::Selector,
-    state: &'s mut State,
+    data: State,
     store: [u16; TOTAL_SIZE],
     offset: u16,
 }
 
-impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidget
-    for Form<'s, { TOTAL_SIZE }, State>
+impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }> + 'static> JellyhajWidget
+    for Form<{ TOTAL_SIZE }, Data>
 {
-    type State = State::Selector;
-
     type Action = FormAction;
 
-    type ActionResult = State::AR;
+    type ActionResult = ControlFlow<Navigation, Data::AR>;
+
+    type State = FormState<{ TOTAL_SIZE }, Data>;
 
     fn min_width(&self) -> Option<u16> {
         Some(10)
@@ -86,19 +128,22 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
     }
 
     fn into_state(self) -> Self::State {
-        self.sel
+        FormState {
+            sel: self.sel,
+            data: self.data,
+        }
     }
 
     fn accepts_text_input(&self) -> bool {
-        State::with_selection(&self.sel, self.state, AcceptsTextInput)
+        Data::with_selection(&self.sel, &self.data, AcceptsTextInput)
     }
 
     fn accept_char(&mut self, text: char) {
-        State::with_mut_selection(&mut self.sel, self.state, ApplyChar(text))
+        Data::with_mut_selection(&mut self.sel, &mut self.data, ApplyChar(text))
     }
 
     fn accept_text(&mut self, text: String) {
-        State::with_mut_selection(&mut self.sel, self.state, ApplyText(text))
+        Data::with_mut_selection(&mut self.sel, &mut self.data, ApplyText(text))
     }
 
     fn apply_action(
@@ -106,20 +151,20 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        fn inner<const TOTAL_SIZE: usize, S: FormState<{ TOTAL_SIZE }>>(
+        fn inner<const TOTAL_SIZE: usize, S: FormData<{ TOTAL_SIZE }>>(
             state: &mut S,
             sel: &mut S::Selector,
             action: FormAction,
-        ) -> Result<Option<S::AR>> {
+        ) -> Result<Option<ControlFlow<Navigation, S::AR>>> {
             S::with_mut_selection(sel, state, ApplyAction(action))
         }
-        if State::with_selection(&self.sel, self.state, AcceptsMovementAction) {
-            inner(self.state, &mut self.sel, action)
+        if Data::with_selection(&self.sel, &self.data, AcceptsMovementAction) {
+            inner(&mut self.data, &mut self.sel, action)
         } else {
             match action {
                 FormAction::Up => {
-                    let start = State::index(&self.sel);
-                    let show_if = State::show_if(self.state);
+                    let start = Data::index(&self.sel);
+                    let show_if = Data::show_if(&self.data);
                     let mut current = start;
                     let index = loop {
                         current = current.checked_sub(1).unwrap_or(TOTAL_SIZE.strict_sub(1));
@@ -129,12 +174,12 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
                             panic!("all form other than the current are hidden")
                         }
                     };
-                    State::with_index_mut(&mut self.sel, self.state, index, SelectionDefault)?;
+                    Data::with_index_mut(&mut self.sel, &mut self.data, index, SelectionDefault)?;
                     Ok(None)
                 }
                 FormAction::Down => {
-                    let start = State::index(&self.sel);
-                    let show_if = State::show_if(self.state);
+                    let start = Data::index(&self.sel);
+                    let show_if = Data::show_if(&self.data);
                     let mut current = start;
                     let index = loop {
                         current = current.strict_add(1) % TOTAL_SIZE;
@@ -144,12 +189,14 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
                             panic!("all form other than the current are hidden")
                         }
                     };
-                    State::with_index_mut(&mut self.sel, self.state, index, SelectionDefault)?;
+                    Data::with_index_mut(&mut self.sel, &mut self.data, index, SelectionDefault)?;
                     Ok(None)
                 }
 
-                FormAction::Delete | FormAction::Enter => inner(self.state, &mut self.sel, action),
-                FormAction::Quit => Ok(Some(QuitForm.into())),
+                FormAction::Delete | FormAction::Enter => {
+                    inner(&mut self.data, &mut self.sel, action)
+                }
+                FormAction::Quit => Ok(Some(ControlFlow::Break(Navigation::PopContext))),
                 FormAction::Left | FormAction::Right => Ok(None),
             }
         }
@@ -181,11 +228,11 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
                 size,
                 offset: self.offset,
             };
-            let res = State::with_mut_selection(&mut self.sel, self.state, &mut cur)?;
+            let res = Data::with_mut_selection(&mut self.sel, &mut self.data, &mut cur)?;
             if cur.cought {
                 return Ok(res);
             }
-            let mut cur = ClickItem::<{ TOTAL_SIZE }, State::AR> {
+            let mut cur = ClickItem::<{ TOTAL_SIZE }, Data::AR> {
                 pos: position,
                 res: None,
                 size,
@@ -203,7 +250,7 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
                     }) - 1
                 }
             };
-            State::with_index_mut(&mut self.sel, self.state, index, &mut cur)?;
+            Data::with_index_mut(&mut self.sel, &mut self.data, index, &mut cur)?;
             Ok(cur.res)
         } else {
             Ok(None)
@@ -217,12 +264,12 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let outer = Block::bordered()
-            .title(State::TITLE)
+            .title(Data::TITLE)
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
-        let show_if = State::show_if(self.state);
+        let show_if = Data::show_if(&self.data);
 
-        let mut cur = CalcHeight::<{ TOTAL_SIZE }, State> {
+        let mut cur = CalcHeight::<{ TOTAL_SIZE }, Data> {
             store: &mut self.store,
             first: true,
             show_if: &show_if,
@@ -230,24 +277,21 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
             height_buf: 0,
             sel: PhantomData,
         };
-        State::with_iter(self.state, &mut cur)?;
+        Data::with_iter(&self.data, &mut cur)?;
         let height = cur.height.strict_add(cur.height_buf);
         if main.height < height {
             let mut scroll_view = ScrollView::new((main.width, height).into());
             let area = scroll_view.area();
-            self.offset = crate::offset::calc_offset(
-                height,
-                main.height,
-                self.store[State::index(&self.sel)],
-            );
+            self.offset =
+                crate::offset::calc_offset(height, main.height, self.store[Data::index(&self.sel)]);
             let mut cur = Pass1::<{ TOTAL_SIZE }> {
                 area,
                 store: &self.store,
                 show_if: &show_if,
                 buf: scroll_view.buf_mut(),
-                cur: State::index(&self.sel),
+                cur: Data::index(&self.sel),
             };
-            State::with_iter_mut(self.state, &mut cur)?;
+            Data::with_iter_mut(&mut self.data, &mut cur)?;
             scroll_view.render(
                 main,
                 buf,
@@ -260,9 +304,9 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
                 store: &self.store,
                 show_if: &show_if,
                 buf,
-                cur: State::index(&self.sel),
+                cur: Data::index(&self.sel),
             };
-            State::with_iter_mut(self.state, &mut cur)?;
+            Data::with_iter_mut(&mut self.data, &mut cur)?;
         }
         let cur = Pass2::<{ TOTAL_SIZE }> {
             area: main,
@@ -270,7 +314,7 @@ impl<'s, const TOTAL_SIZE: usize, State: FormState<{ TOTAL_SIZE }>> JellyhajWidg
             buf,
             offset: self.offset,
         };
-        State::with_mut_selection(&mut self.sel, self.state, cur)?;
+        Data::with_mut_selection(&mut self.sel, &mut self.data, cur)?;
         outer.render(area, buf);
         Ok(())
     }
@@ -359,14 +403,17 @@ impl<AR> WithSelectionMut<AR, ()> for ApplyText {
 
 struct ApplyAction(FormAction);
 
-impl<AR> WithSelectionMut<AR, Result<Option<AR>>> for ApplyAction {
+impl<AR> WithSelectionMut<AR, Result<Option<ControlFlow<Navigation, AR>>>> for ApplyAction {
     fn with_mut<const INDEX: usize, I: FormItem<AR>>(
         self,
         sel: &mut I::SelectionInner,
         state: &mut I,
         name: &'static str,
-    ) -> Result<Option<AR>> {
-        Ok(state.apply_action(sel, self.0)?.map(Into::into))
+    ) -> Result<Option<ControlFlow<Navigation, AR>>> {
+        Ok(state.apply_action(sel, self.0)?.map(|cf| match cf {
+            ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
+            ControlFlow::Break(n) => ControlFlow::Break(n),
+        }))
     }
 }
 
@@ -405,7 +452,8 @@ struct ClickCurrent<'s, const TOTAL_SIZE: usize> {
     offset: u16,
 }
 
-impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<Option<AR>>>
+impl<'s, const TOTAL_SIZE: usize, AR>
+    WithSelectionMut<AR, Result<Option<ControlFlow<Navigation, AR>>>>
     for &mut ClickCurrent<'s, { TOTAL_SIZE }>
 {
     fn with_mut<const INDEX: usize, I: FormItem<AR>>(
@@ -413,7 +461,7 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<Option<AR>>>
         sel: &mut I::SelectionInner,
         state: &mut I,
         name: &'static str,
-    ) -> Result<Option<AR>> {
+    ) -> Result<Option<ControlFlow<Navigation, AR>>> {
         let this_area = Rect {
             x: 0,
             y: self.store[INDEX] - self.offset,
@@ -431,7 +479,12 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<Option<AR>>>
                 self.kind,
                 self.modifier,
             )
-            .map(|v| v.map(Into::into));
+            .map(|v| {
+                v.map(|cf| match cf {
+                    ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
+                    ControlFlow::Break(n) => ControlFlow::Break(n),
+                })
+            });
             self.cought = true;
             res
         } else {
@@ -442,7 +495,7 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<Option<AR>>>
 
 struct ClickItem<'s, const TOTAL_SIZE: usize, AR> {
     pos: Position,
-    res: Option<AR>,
+    res: Option<ControlFlow<Navigation, AR>>,
     size: Size,
     store: &'s [u16],
     kind: MouseEventKind,
@@ -470,7 +523,10 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithIndexMut<AR> for &mut ClickItem<'s, TO
                 self.kind,
                 self.modifier,
             )?;
-            self.res = res.map(Into::into);
+            self.res = res.map(|cf| match cf {
+                ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
+                ControlFlow::Break(n) => ControlFlow::Break(n),
+            });
             Ok(s.unwrap_or_default())
         } else {
             Ok(I::SelectionInner::default())
@@ -478,7 +534,7 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithIndexMut<AR> for &mut ClickItem<'s, TO
     }
 }
 
-struct CalcHeight<'s, const TOTAL_SIZE: usize, S: FormState<{ TOTAL_SIZE }>> {
+struct CalcHeight<'s, const TOTAL_SIZE: usize, S: FormData<{ TOTAL_SIZE }>> {
     store: &'s mut [u16; TOTAL_SIZE],
     show_if: &'s [bool; TOTAL_SIZE],
     first: bool,
@@ -487,7 +543,7 @@ struct CalcHeight<'s, const TOTAL_SIZE: usize, S: FormState<{ TOTAL_SIZE }>> {
     sel: PhantomData<S>,
 }
 
-impl<const TOTAL_SIZE: usize, S: FormState<{ TOTAL_SIZE }>> WithIterItems<S::AR>
+impl<const TOTAL_SIZE: usize, S: FormData<{ TOTAL_SIZE }>> WithIterItems<S::AR>
     for CalcHeight<'_, { TOTAL_SIZE }, S>
 {
     fn with<const INDEX: usize, I: FormItem<S::AR>>(

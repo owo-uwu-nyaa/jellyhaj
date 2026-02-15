@@ -143,7 +143,7 @@ pub async fn fetch(client: &JellyfinClient) -> Result<Navigation> {
         },
         ItemListData {
             items: user_views.into_iter().map(EntryData::View).collect(),
-            title: "Continue Watching".to_string(),
+            title: "User Views".to_string(),
             current: 0,
         },
     ];

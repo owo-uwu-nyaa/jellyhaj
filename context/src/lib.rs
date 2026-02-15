@@ -2,8 +2,8 @@ use std::{pin::Pin, sync::Arc};
 
 pub use ::keybinds::KeybindEvents;
 use config::Config;
+use image_cache::ImageProtocolCache;
 use jellyfin::{Auth, JellyfinClient, socket::JellyfinWebSocket};
-use jellyhaj_entry_widget::ImageProtocolCache;
 pub use player_core::{OwnedPlayerHandle, PlayerHandle};
 pub use ratatui::DefaultTerminal;
 pub use ratatui_image::picker::Picker;

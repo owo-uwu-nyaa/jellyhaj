@@ -1,6 +1,6 @@
 use std::{
-    ops::{Deref, DerefMut},
-    pin::pin,
+    ops::Deref,
+    pin::{Pin, pin},
     task::Poll,
 };
 
@@ -92,17 +92,14 @@ pub struct EventReceiver<T> {
     _cancel: DropGuard,
 }
 
-impl<T> Deref for EventReceiver<T> {
-    type Target = Receiver<Result<T>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.receiver
-    }
-}
-
-impl<T> DerefMut for EventReceiver<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.receiver
+impl<T> Stream for EventReceiver<T> {
+    type Item = Result<T>;
+    #[inline]
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.get_mut().receiver).poll_next(cx)
     }
 }
 

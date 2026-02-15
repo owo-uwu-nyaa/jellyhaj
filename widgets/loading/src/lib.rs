@@ -1,4 +1,14 @@
-use std::{cmp::min, convert::Infallible, time::Duration};
+use std::{
+    borrow::Cow,
+    cmp::min,
+    convert::Infallible,
+    ops::Deref,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{JellyhajWidget, Rect, Wrapper, async_task::TaskSubmitter};
@@ -6,20 +16,28 @@ use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
 
-pub struct Loading<'s> {
-    title: &'s str,
+pub struct Loading {
+    title: Cow<'static, str>,
     timeout: u8,
     lines: Vec<u16>,
     spawned: bool,
+    stop: Arc<AtomicBool>,
 }
 
-impl Loading<'_> {
-    pub fn new<'s>(title: &'s str) -> Loading<'s> {
+impl Drop for Loading {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
+impl Loading {
+    pub fn new(title: impl Into<Cow<'static, str>>) -> Loading {
         Loading {
-            title,
+            title: title.into(),
             timeout: 0,
             lines: Vec::new(),
             spawned: false,
+            stop: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -31,8 +49,8 @@ const TICK_INTERVAL: Duration = Duration::from_millis(200);
 #[derive(Debug)]
 pub struct AdvanceLoadingScreen;
 
-impl<'s> JellyhajWidget for Loading<'s> {
-    type State = &'s str;
+impl JellyhajWidget for Loading {
+    type State = ();
     type Action = AdvanceLoadingScreen;
     type ActionResult = Infallible;
 
@@ -44,7 +62,7 @@ impl<'s> JellyhajWidget for Loading<'s> {
     }
 
     fn into_state(self) -> Self::State {
-        self.title
+        self.stop.store(true, Ordering::Relaxed);
     }
 
     fn apply_action(
@@ -82,13 +100,21 @@ impl<'s> JellyhajWidget for Loading<'s> {
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
-            let timer = unfold(interval(TICK_INTERVAL), |mut interval| async {
-                interval.tick().await;
-                Some((Ok(AdvanceLoadingScreen), interval))
+            let stop = self.stop.clone();
+            let timer = unfold(interval(TICK_INTERVAL), move |mut interval| {
+                let stop = stop.load(Ordering::Relaxed);
+                async move {
+                    if stop {
+                        None
+                    } else {
+                        interval.tick().await;
+                        Some((Ok(AdvanceLoadingScreen), interval))
+                    }
+                }
             });
             task.spawn_stream(timer, info_span!("update"))
         }
-        let outer = Block::bordered().title(self.title);
+        let outer = Block::bordered().title(self.title.deref());
         let main = outer.inner(area);
         let max_size = (min(main.width, main.height) - 1) / 2;
         let width_rem = main.width - (max_size * 2);
@@ -158,5 +184,13 @@ impl<'s> JellyhajWidget for Loading<'s> {
 
     fn accept_text(&mut self, _: String) {
         unimplemented!()
+    }
+
+    fn apply_action_to_state(
+        _: &mut Self::State,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        Ok(None)
     }
 }

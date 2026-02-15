@@ -33,7 +33,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         full,
     } = parse::parse(args, input)?;
     let form_item_tr: Type = parse_quote!(::jellyhaj_form_widget::FormItem<#action_result>);
-    let form_state_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormState);
+    let form_state_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormData);
     let with_selection_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelection);
     let with_selection_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelectionMut);
     let with_index_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIndexMut);

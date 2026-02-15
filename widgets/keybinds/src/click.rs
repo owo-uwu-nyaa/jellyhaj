@@ -13,8 +13,8 @@ use keybinds::{Command, KeyBinding};
 use ratatui::layout::{Position, Size};
 use tracing::{debug, warn};
 
-pub fn apply_click<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
-    this: &mut KeybindWidget<'e, T, W, M>,
+pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
+    this: &mut KeybindWidget<T, W, M>,
     task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     mut position: ratatui::prelude::Position,
     size: ratatui::prelude::Size,

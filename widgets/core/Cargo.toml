@@ -10,6 +10,7 @@ ratatui.workspace = true
 ratatui-image.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
+jellyhaj-context = { version = "0.1.0", path = "../../context" }
 
 [package]
 edition = "2024"

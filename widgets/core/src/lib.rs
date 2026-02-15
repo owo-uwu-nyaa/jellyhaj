@@ -1,10 +1,15 @@
 pub mod async_task;
 mod item;
 mod jellyhaj;
+pub mod outer;
 pub use color_eyre::Result;
 pub use config::Config;
 pub use item::ItemWidget;
-pub use jellyhaj::{DimensionsParameter, JellyhajWidget, JellyhajWidgetExt, Wrapper};
+pub use jellyhaj::{
+    DimensionsParameter, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, WidgetTreeVisitor,
+    Wrapper,
+};
+pub use jellyhaj_context::TuiContext;
 pub use ratatui::{
     self,
     buffer::Buffer,

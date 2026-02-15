@@ -1,3 +1,6 @@
+use std::ops::ControlFlow;
+
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{MouseEventKind, Rect};
 use ratatui::{
     crossterm::event::MouseButton,
@@ -71,9 +74,9 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<C::T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, C::T>>> {
         if action == FormAction::Enter {
-            Ok(Some(self.creator.make_action()))
+            Ok(Some(ControlFlow::Continue(self.creator.make_action())))
         } else {
             Ok(None)
         }
@@ -96,7 +99,7 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<C::T>> {
+    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, C::T>>> {
         unimplemented!()
     }
 
@@ -106,13 +109,19 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<C::T>)> {
+    ) -> jellyhaj_widgets_core::Result<(
+        Option<Self::SelectionInner>,
+        Option<ControlFlow<Navigation, C::T>>,
+    )> {
         let centered = center(size.width, self.width);
         if let MouseEventKind::Down(MouseButton::Left) = kind
             && pos.x >= centered.offset
             && pos.x < centered.offset + centered.size
         {
-            Ok((Some(()), Some(self.creator.make_action())))
+            Ok((
+                Some(()),
+                Some(ControlFlow::Continue(self.creator.make_action())),
+            ))
         } else {
             Ok((None, None))
         }

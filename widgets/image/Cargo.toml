@@ -12,6 +12,7 @@ ratatui-image.workspace = true
 rayon.workspace = true
 sqlx.workspace = true
 tracing.workspace = true
+image-cache = { version = "0.1.0", path = "../../image-cache" }
 
 [package]
 edition = "2024"

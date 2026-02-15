@@ -6,13 +6,16 @@ use ratatui::{
     layout::{Position, Rect, Size},
 };
 
-use crate::{DimensionsParameter, JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use crate::{
+    DimensionsParameter, JellyhajWidget, Wrapper, async_task::TaskSubmitter,
+    jellyhaj::JellyhajWidgetState,
+};
 use color_eyre::{Result, eyre::ensure};
 
-pub trait ItemWidget {
-    type State;
+pub trait ItemWidget: Send + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
+    type State: JellyhajWidgetState<Widget = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
 
     fn dimensions(&self) -> Size;
     fn dimensions_static(par: DimensionsParameter<'_>) -> Size;
@@ -30,6 +33,7 @@ pub trait ItemWidget {
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
+
     fn click(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
@@ -67,18 +71,22 @@ impl<I: ItemWidget> JellyhajWidget for I {
         ItemWidget::into_state(self)
     }
 
+    #[inline(always)]
     fn render_fallible_inner(
         &mut self,
         mut area: Rect,
         buf: &mut Buffer,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
-        let dim = self.dimensions();
-        assert!(dim.width <= area.width, "width is too small");
-        assert!(dim.height <= area.height, "height is too small");
-        area = area.resize(dim);
-        ensure!(dim.width == area.width, "width is too large for position");
-        ensure!(dim.height == area.height, "width is too large for position");
+        fn inner(dim: Size, area: &mut Rect) -> Result<()> {
+            assert!(dim.width <= area.width, "width is too small");
+            assert!(dim.height <= area.height, "height is too small");
+            *area = area.resize(dim);
+            ensure!(dim.width == area.width, "width is too large for position");
+            ensure!(dim.height == area.height, "width is too large for position");
+            Ok(())
+        }
+        inner(self.dimensions(), &mut area)?;
         Self::render_item_inner(self, area, buf, task)
     }
 

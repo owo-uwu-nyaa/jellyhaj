@@ -15,8 +15,8 @@ fn if_non_empty<T>(v: &Vec<T>) -> Option<&Vec<T>> {
     if v.is_empty() { None } else { Some(v) }
 }
 
-pub fn apply_key_event<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
-    this: &mut KeybindWidget<'e, T, W, M>,
+pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
+    this: &mut KeybindWidget<T, W, M>,
     task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     action: KeybindAction<W::Action>,
 ) -> Result<Option<CommandAction<M::U, W::ActionResult>>> {

@@ -24,7 +24,6 @@ jellyhaj-log-view = {path = "views/log", version = "0.1.0"}
 jellyhaj-login-view = {path = "views/login", version = "0.1.0"}
 jellyhaj-player-view = {path = "views/player", version = "0.1.0"}
 jellyhaj-refresh-item-view = {path = "views/refresh-item", version = "0.1.0"}
-jellyhaj-render-widgets = {path = "widgets/render", version = "0.1.0"}
 jellyhaj-stats-view = {path = "views/stats", version = "0.1.0"}
 keybinds = {path = "keybinds"}
 parking_lot = {workspace = true}
@@ -65,7 +64,7 @@ opt-level = 3
 
 [workspace]
 members = [
-  "config",
+  "config", "context", "image-cache",
   "jellyfin-rs",
   "jellyhaj-core",
   "keybinds",
@@ -105,7 +104,6 @@ members = [
   "widgets/log",
   "widgets/login",
   "widgets/player",
-  "widgets/render",
   "widgets/stats"
 ]
 

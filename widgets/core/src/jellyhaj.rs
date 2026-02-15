@@ -7,8 +7,8 @@ use ratatui::{
     widgets::{Paragraph, Widget, Wrap},
 };
 use ratatui_image::FontSize;
-use std::any::type_name;
 use std::fmt::Debug;
+use std::{any::type_name, pin::Pin};
 use tracing::warn;
 
 use crate::async_task::TaskSubmitter;
@@ -30,10 +30,33 @@ impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R>
     }
 }
 
-pub trait JellyhajWidget {
-    type State;
+pub trait WidgetTreeVisitor {
+    fn enter(&mut self, name: &'static str);
+    fn exit(&mut self);
+}
+
+pub trait JellyhajWidgetState: Debug + Send + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
+    type Widget: JellyhajWidget<State = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
+
+    const NAME: &str;
+
+    fn visit_tree(visitor: &mut impl WidgetTreeVisitor);
+
+    fn into_widget(self, cx: Pin<&mut jellyhaj_context::TuiContext>) -> Self::Widget;
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>>;
+}
+
+pub trait JellyhajWidget: Send + Sized + 'static {
+    type Action: Debug + Send + 'static;
+    type ActionResult: Debug;
+    type State: JellyhajWidgetState<Widget = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
+
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
 
@@ -48,6 +71,7 @@ pub trait JellyhajWidget {
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
+
     fn click(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,

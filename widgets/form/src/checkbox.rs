@@ -1,5 +1,6 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, ops::ControlFlow};
 
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result};
 use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
@@ -52,7 +53,7 @@ impl<AR: From<Infallible>> FormItem<AR> for bool {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> Result<Option<Infallible>> {
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if FormAction::Enter == action {
             *self ^= true;
         }
@@ -86,7 +87,7 @@ impl<AR: From<Infallible>> FormItem<AR> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<Infallible>> {
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unreachable!()
     }
 
@@ -96,7 +97,10 @@ impl<AR: From<Infallible>> FormItem<AR> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
+    ) -> Result<(
+        Option<Self::SelectionInner>,
+        Option<ControlFlow<Navigation, Infallible>>,
+    )> {
         if let MouseEventKind::Down(MouseButton::Left) = kind
             && pos.x < 3
         {

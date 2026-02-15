@@ -1,12 +1,12 @@
-pub mod cache;
 mod fetch;
 
+pub use image_cache as cache;
+pub use image_cache::ImageSize;
 use std::{cmp::min, convert::Infallible, mem, sync::Arc};
 
-use crate::{
-    cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef},
-    fetch::{ParsedImage, get_image},
-};
+use image_cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef};
+
+use crate::fetch::{ParsedImage, get_image};
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
@@ -20,12 +20,6 @@ pub use sqlx::SqliteConnection;
 pub use stats_data::Stats;
 pub use tokio;
 use tracing::info_span;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ImageSize {
-    pub p_width: u32,
-    pub p_height: u32,
-}
 
 pub struct JellyfinImage {
     item_id: String,

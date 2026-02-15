@@ -1,19 +1,16 @@
 [dependencies]
 color-eyre = {workspace = true}
 config = {path = "../config"}
-either = {workspace = true}
+either.workspace = true
+futures-util.workspace = true
 image = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
-jellyhaj-entry-widget = {path = "../widgets/entry", version = "0.1.0"}
-jellyhaj-image = {path = "../widgets/image", version = "0.1.0"}
-jellyhaj-item-grid = {path = "../widgets/item-grid", version = "0.1.0"}
-jellyhaj-item-list = {path = "../widgets/item-list", version = "0.1.0"}
-jellyhaj-item-screen = {path = "../widgets/item-screen", version = "0.1.0"}
-jellyhaj-render-widgets = {path = "../widgets/render", version = "0.1.0"}
+jellyhaj-context = { version = "0.1.0", path = "../context" }
 jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
 keybinds = {path = "../keybinds"}
 libmpv = {default-features = false, path = "../libmpv-rs"}
 parking_lot = {workspace = true}
+pin-project-lite.workspace = true
 player-core = {path = "../player-core"}
 ratatui = {workspace = true}
 ratatui-image = {workspace = true}
@@ -21,6 +18,7 @@ spawn = {path = "../spawn", version = "0.1.0"}
 sqlx = {workspace = true}
 stats-data = {path = "../stats-data", version = "0.1.0"}
 tokio = {workspace = true}
+tokio-util.workspace = true
 tracing = {workspace = true}
 
 [package]

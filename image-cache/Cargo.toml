@@ -1,0 +1,10 @@
+[package]
+name = "image-cache"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jellyfin = { version = "0.1.4", path = "../jellyfin-rs" }
+parking_lot.workspace = true
+ratatui-image.workspace = true
+tracing.workspace = true

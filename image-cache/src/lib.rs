@@ -5,7 +5,11 @@ use parking_lot::Mutex;
 use ratatui_image::protocol::Protocol;
 use tracing::{instrument, trace};
 
-use crate::ImageSize;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ImageSize {
+    pub p_width: u32,
+    pub p_height: u32,
+}
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ImageProtocolKey {

@@ -4,7 +4,6 @@ jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-login-widget = {path = "../../widgets/login", version = "0.1.0"}
-jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
 keybinds = {path = "../../keybinds", version = "0.1.0"}
 spawn = {path = "../../spawn", version = "0.1.0"}
 tokio = {features = ["macros", "process"], workspace = true}

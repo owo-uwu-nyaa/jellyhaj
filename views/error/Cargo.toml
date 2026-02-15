@@ -2,7 +2,6 @@
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-error-widget = {path = "../../widgets/error", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-render-widgets = {path = "../../widgets/render", version = "0.1.0"}
 color-eyre.workspace = true
 tracing.workspace = true
 

@@ -1,14 +1,9 @@
-use color_eyre::{Result, eyre::Report};
+use color_eyre::eyre::Report;
+use futures_util::future::BoxFuture;
 use jellyfin::{
-    items::{MediaItem, RefreshItemQuery},
+    items::{MediaItem, PlaybackInfo, RefreshItemQuery},
     user_views::UserView,
 };
-use jellyhaj_entry_widget::EntryData;
-use jellyhaj_item_grid::ItemGridData;
-use jellyhaj_item_list::ItemListData;
-use jellyhaj_item_screen::ItemScreenData;
-use player_core::PlayItem;
-use tracing::{debug, instrument};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
@@ -25,20 +20,25 @@ pub enum LoadPlay {
 #[derive(Debug)]
 pub enum NextScreen {
     LoadHomeScreen,
-    HomeScreen(ItemScreenData<EntryData>),
+    HomeScreen {
+        cont: Vec<MediaItem>,
+        next_up: Vec<MediaItem>,
+        libraries: Vec<UserView>,
+        library_latext: Vec<(String, Vec<MediaItem>)>,
+    },
     LoadUserView(UserView),
     UserView {
         view: UserView,
-        items: ItemGridData<EntryData>,
+        items: Vec<MediaItem>,
     },
     FetchPlay(LoadPlay),
     Play {
-        items: Vec<PlayItem>,
+        items: Vec<(MediaItem, PlaybackInfo)>,
         index: usize,
     },
     Error(Report),
     ItemDetails(MediaItem),
-    ItemListDetails(MediaItem, ItemListData<EntryData>),
+    ItemListDetails(MediaItem, Vec<MediaItem>),
     FetchItemListDetails(MediaItem),
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),
@@ -49,71 +49,25 @@ pub enum NextScreen {
     Logs,
 }
 
+pub type Next = Box<NextScreen>;
+
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
 pub enum Navigation {
     PopContext,
-    Push {
-        current: NextScreen,
-        next: NextScreen,
-    },
-    Replace(NextScreen),
+    Push(Next),
+    Replace(Next),
     Exit,
+    PushWithoutTui(BoxFuture<'static, ()>),
 }
 
-#[derive(Debug)]
-pub struct State {
-    screen_stack: Vec<NextScreen>,
-}
-
-impl State {
-    #[instrument(skip_all)]
-    pub fn navigate(&mut self, nav: Navigation) {
-        debug!("navigate instruction: {nav:?}");
-        match nav {
-            Navigation::PopContext => {}
-            Navigation::Replace(next) => {
-                self.screen_stack.push(next);
-            }
-            Navigation::Push { current, next } => {
-                self.screen_stack.push(current);
-                self.screen_stack.push(next);
-            }
-            Navigation::Exit => {
-                debug!("full exit returned");
-                self.screen_stack.clear();
-            }
-        }
-    }
-    #[instrument(skip_all)]
-    pub fn pop(&mut self) -> Option<NextScreen> {
-        debug!("state stack: {:?}", self.screen_stack);
-        self.screen_stack.pop()
-    }
-    pub fn new() -> Self {
-        let mut stack = Vec::with_capacity(8);
-        stack.push(NextScreen::LoadHomeScreen);
-        Self {
-            screen_stack: stack,
-        }
-    }
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub trait ToNavigation {
-    fn to_nav(self) -> Navigation;
-}
-
-impl ToNavigation for Result<Navigation> {
-    fn to_nav(self) -> Navigation {
+impl std::fmt::Debug for Navigation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Ok(v) => v,
-            Err(e) => Navigation::Replace(NextScreen::Error(e)),
+            Self::PopContext => write!(f, "PopContext"),
+            Self::Push(arg0) => f.debug_tuple("Push").field(arg0).finish(),
+            Self::Replace(arg0) => f.debug_tuple("Replace").field(arg0).finish(),
+            Self::Exit => write!(f, "Exit"),
+            Self::PushWithoutTui(_) => write!(f, "PushWithoutTui"),
         }
     }
 }

@@ -1,0 +1,17 @@
+[package]
+name = "jellyhaj-context"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+config = { version = "0.1.0", path = "../config" }
+image-cache = { version = "0.1.0", path = "../image-cache" }
+jellyfin = { version = "0.1.4", path = "../jellyfin-rs" }
+keybinds = { version = "0.1.0", path = "../keybinds" }
+player-core = { version = "0.1.0", path = "../player-core" }
+ratatui.workspace = true
+ratatui-image.workspace = true
+spawn = { version = "0.1.0", path = "../spawn" }
+sqlx.workspace = true
+stats-data = { version = "0.1.0", path = "../stats-data" }
+tokio = { workspace = true, features = ["sync"] }

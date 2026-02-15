@@ -2,7 +2,7 @@ mod action;
 mod click;
 mod render;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{BindingMap, Command};
@@ -48,9 +48,9 @@ impl<
     }
 }
 
-pub struct KeybindWidget<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> {
+pub struct KeybindWidget<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> {
     inner: W,
-    help_prefixes: &'e [String],
+    help_prefixes: Arc<[String]>,
     top: BindingMap<T>,
     next_maps: Vec<BindingMap<T>>,
     minor: Vec<BindingMap<T>>,
@@ -58,10 +58,8 @@ pub struct KeybindWidget<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, 
     current_view: usize,
 }
 
-impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
-    KeybindWidget<'e, T, W, M>
-{
-    pub fn new(inner: W, help_prefixes: &'e [String], top: BindingMap<T>, mapper: M) -> Self {
+impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> KeybindWidget<T, W, M> {
+    pub fn new(inner: W, help_prefixes: Arc<[String]>, top: BindingMap<T>, mapper: M) -> Self {
         Self {
             inner,
             help_prefixes,
@@ -74,7 +72,7 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
     }
     pub fn new_with_minor(
         inner: W,
-        help_prefixes: &'e [String],
+        help_prefixes: Arc<[String]>,
         top: BindingMap<T>,
         minor: Vec<BindingMap<T>>,
         mapper: M,
@@ -91,8 +89,8 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>
     }
 }
 
-impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget
-    for KeybindWidget<'e, T, W, M>
+impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget
+    for KeybindWidget<T, W, M>
 {
     type State = W::State;
 
@@ -131,6 +129,22 @@ impl<'e, T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jell
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         action::apply_key_event(self, task, action)
+    }
+
+    fn apply_action_to_state(
+        state: &mut Self::State,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            KeybindAction::Inner(a) => {
+                Ok(
+                    W::apply_action_to_state(state, task.wrap_with(KeybindWrapper), a)?
+                        .map(CommandAction::Action),
+                )
+            }
+            KeybindAction::Key(_) => Ok(None),
+        }
     }
 
     #[instrument(skip_all, name = "click_keybinds")]

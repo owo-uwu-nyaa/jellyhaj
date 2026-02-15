@@ -1,5 +1,6 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, ops::ControlFlow};
 
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::Rect;
 use ratatui::widgets::{Block, BorderType, Widget};
 
@@ -60,7 +61,7 @@ impl<AR: From<Infallible>> FormItem<AR> for SecretField {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: crate::FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
+    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, Infallible>>> {
         if crate::FormAction::Delete == action {
             self.secret.pop();
         }
@@ -84,7 +85,7 @@ impl<AR: From<Infallible>> FormItem<AR> for SecretField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<Infallible>> {
+    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, Infallible>>> {
         unimplemented!()
     }
 
@@ -94,7 +95,10 @@ impl<AR: From<Infallible>> FormItem<AR> for SecretField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
+    ) -> jellyhaj_widgets_core::Result<(
+        Option<Self::SelectionInner>,
+        Option<ControlFlow<Navigation, Infallible>>,
+    )> {
         Ok((Some(()), None))
     }
 

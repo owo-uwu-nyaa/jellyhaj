@@ -5,6 +5,7 @@ serde = {optional = true, workspace = true}
 tui-scrollview = "0.6.2"
 color-eyre.workspace = true
 ratatui.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 
 [features]
 serde = ["dep:serde"]

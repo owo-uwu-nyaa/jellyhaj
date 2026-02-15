@@ -1,5 +1,6 @@
-use std::{cmp::min, convert::Infallible};
+use std::{cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
 
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Position, Rect, Result};
 use ratatui::{
     crossterm::event::MouseButton,
@@ -12,7 +13,7 @@ use ratatui::{
 
 use crate::{FormAction, FormItem, offset::calc_offset};
 
-pub trait Selection: Clone + Copy + PartialEq + Eq + 'static {
+pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + 'static {
     fn descr(self) -> &'static str;
     fn index(self) -> usize;
     const MAX_LEN: usize;
@@ -64,7 +65,7 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
         &mut self,
         sel: &mut Self::SelectionInner,
         action: FormAction,
-    ) -> Result<Option<Infallible>> {
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if let Some(sel_inner) = sel {
             match action {
                 FormAction::Up => {
@@ -209,7 +210,7 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<Infallible>> {
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if let MouseEventKind::Down(MouseButton::Left) = kind {
             let sel_inner = sel.as_mut().expect("inner must be set");
             let mut full_area: Rect = ((0, 0).into(), full_area).into();
@@ -253,7 +254,10 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<(Option<Self::SelectionInner>, Option<Infallible>)> {
+    ) -> Result<(
+        Option<Self::SelectionInner>,
+        Option<ControlFlow<Navigation, Infallible>>,
+    )> {
         if let MouseEventKind::Down(MouseButton::Left) = kind {
             Ok((Some(Some(*self)), None))
         } else {
