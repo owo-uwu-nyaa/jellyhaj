@@ -15,7 +15,7 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Widget},
 };
 
-pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
+pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
     this: &mut KeybindWidget<T, W, M>,
     area: Rect,
     buf: &mut ratatui::buffer::Buffer,

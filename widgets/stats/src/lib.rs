@@ -1,7 +1,17 @@
-use std::{cmp::max, convert::Infallible, sync::atomic::Ordering::Relaxed, time::Duration};
+use std::{
+    cmp::max,
+    convert::Infallible,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering::Relaxed},
+    },
+    time::Duration,
+};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, TuiContext, Wrapper, async_task::TaskSubmitter,
+};
 use ratatui::{
     layout::Constraint,
     symbols::merge::MergeStrategy,
@@ -66,12 +76,46 @@ impl Widget for &BorderedTable<'_> {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct StatsState;
+
+impl JellyhajWidgetState for StatsState {
+    type Action = StatsUpdate;
+
+    type ActionResult = Infallible;
+
+    type Widget = StatsWidget;
+
+    const NAME: &str = "stats";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        StatsWidget::new(cx.stats.clone())
+    }
+
+    fn apply_action(
+        &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        Ok(None)
+    }
+}
+
 pub struct StatsWidget {
     image_fetches: String,
     db_image_cache_hits: String,
     memory_image_cache_hits: String,
     spawned: bool,
     stats: Stats,
+    stop: Arc<AtomicBool>,
+}
+
+impl Drop for StatsWidget {
+    fn drop(&mut self) {
+        self.stop.store(true, Relaxed);
+    }
 }
 
 impl StatsWidget {
@@ -82,6 +126,7 @@ impl StatsWidget {
             memory_image_cache_hits: stats.memory_image_cache_hits.load(Relaxed).to_string(),
             stats,
             spawned: false,
+            stop: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -90,7 +135,7 @@ impl StatsWidget {
 pub struct StatsUpdate;
 
 impl JellyhajWidget for StatsWidget {
-    type State = Stats;
+    type State = StatsState;
 
     type Action = StatsUpdate;
 
@@ -120,7 +165,7 @@ impl JellyhajWidget for StatsWidget {
     }
 
     fn into_state(self) -> Self::State {
-        self.stats
+        StatsState
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -166,10 +211,18 @@ impl JellyhajWidget for StatsWidget {
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
+            let stop = self.stop.clone();
             task.spawn_stream(
-                unfold(interval(Duration::from_secs(5)), |mut i| async move {
-                    i.tick().await;
-                    Some((Ok(StatsUpdate), i))
+                unfold(interval(Duration::from_secs(5)), move |mut i| {
+                    let stop = stop.load(Relaxed);
+                    async move {
+                        i.tick().await;
+                        if stop {
+                            None
+                        } else {
+                            Some((Ok(StatsUpdate), i))
+                        }
+                    }
                 }),
                 info_span!("tick"),
             );

@@ -17,7 +17,7 @@ pub use color_eyre::eyre as __eyre;
 
 pub use keybinds_derive::{Command, keybind_config};
 
-pub trait Command: Clone + Copy + Debug {
+pub trait Command: Send + Sync + Clone + Copy + Debug + 'static {
     fn to_name(self) -> &'static str;
     fn from_name(name: &str) -> Option<Self>;
     fn all() -> &'static [&'static str];

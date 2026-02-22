@@ -1,4 +1,5 @@
 pub mod async_task;
+pub mod flatten;
 mod item;
 mod jellyhaj;
 pub mod outer;
@@ -6,8 +7,8 @@ pub use color_eyre::Result;
 pub use config::Config;
 pub use item::ItemWidget;
 pub use jellyhaj::{
-    DimensionsParameter, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, WidgetTreeVisitor,
-    Wrapper,
+    DimensionsParameter, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TreeVisitor,
+    WidgetTreeVisitor, Wrapper,
 };
 pub use jellyhaj_context::TuiContext;
 pub use ratatui::{

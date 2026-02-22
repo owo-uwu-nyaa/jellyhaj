@@ -7,7 +7,7 @@ image = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
 jellyhaj-context = { version = "0.1.0", path = "../context" }
 jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
-keybinds = {path = "../keybinds"}
+keybinds = { path = "../keybinds" }
 libmpv = {default-features = false, path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 pin-project-lite.workspace = true

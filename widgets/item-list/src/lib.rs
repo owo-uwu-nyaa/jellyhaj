@@ -4,7 +4,8 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper, async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -76,15 +77,98 @@ pub enum ItemListAction<T> {
     Right,
 }
 
-#[derive(Debug)]
-pub struct ItemListData<T> {
-    pub items: Vec<T>,
+pub struct ItemListState<T: ItemWidget> {
+    pub items: Vec<T::State>,
     pub title: String,
     pub current: usize,
 }
 
-impl<T> ItemListData<T> {
-    pub fn new(items: impl IntoIterator<Item = T>, title: String) -> Self {
+impl<T: ItemWidget> std::fmt::Debug for ItemListState<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ItemListData")
+            .field("items", &self.items)
+            .field("title", &self.title)
+            .field("current", &self.current)
+            .finish()
+    }
+}
+
+impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
+    type Action = ItemListAction<T::Action>;
+
+    type ActionResult = <T as ItemWidget>::ActionResult;
+
+    type Widget = ItemList<T>;
+
+    const NAME: &str = "item-list";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<T::State>();
+    }
+
+    fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        let item_size = <T as ItemWidget>::dimensions_static(DimensionsParameter {
+            config: &cx.config,
+            font_size: cx.image_picker.font_size(),
+        });
+        ItemList {
+            items: self
+                .items
+                .into_iter()
+                .map(|i| i.into_widget(cx.as_mut()))
+                .collect(),
+            current: self.current,
+            title: self.title,
+            active: false,
+            offset: 0,
+            item_size,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            ItemListAction::SpecificInner(index, action) => self
+                .items
+                .get_mut(index)
+                .and_then(|v| {
+                    v.apply_action(
+                        TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
+                        action,
+                    )
+                    .transpose()
+                })
+                .transpose(),
+            ItemListAction::CurrentInner(action) => self
+                .items
+                .get_mut(self.current)
+                .and_then(|v| {
+                    v.apply_action(
+                        TaskSubmitter::clone(&task).wrap_with(ListWrapper {
+                            index: self.current,
+                        }),
+                        action,
+                    )
+                    .transpose()
+                })
+                .transpose(),
+            ItemListAction::Left => {
+                self.current = self.current.saturating_sub(1);
+                Ok(None)
+            }
+            ItemListAction::Right => {
+                self.current = self.current.saturating_add(1);
+                Ok(None)
+            }
+        }
+    }
+}
+
+impl<T: ItemWidget> ItemListState<T> {
+    pub fn new(items: impl IntoIterator<Item = T::State>, title: String) -> Self {
         Self {
             items: items.into_iter().collect(),
             title,
@@ -107,14 +191,14 @@ impl<T: Send + 'static> Wrapper<T> for ListWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
-    type State = ItemListData<<T as ItemWidget>::State>;
+    type State = ItemListState<T>;
 
     type Action = ItemListAction<<T as ItemWidget>::Action>;
 
     type ActionResult = <T as ItemWidget>::ActionResult;
 
     fn into_state(self) -> Self::State {
-        ItemListData {
+        ItemListState {
             items: self.items.into_iter().map(ItemWidget::into_state).collect(),
             title: self.title,
             current: self.current,

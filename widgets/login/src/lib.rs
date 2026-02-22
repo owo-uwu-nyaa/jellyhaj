@@ -1,187 +1,234 @@
-mod render;
+use std::{convert::Infallible, ops::ControlFlow};
 
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
-use ratatui::crossterm::event::{MouseButton, MouseEventKind};
-use serde::{Deserialize, Serialize};
+use jellyhaj_core::Config;
+use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
+use jellyhaj_form_widget::button::{ActionCreator, Button};
+use jellyhaj_form_widget::form;
+use jellyhaj_form_widget::label::Label;
+use jellyhaj_form_widget::{
+    form::{FormCommandMapper, FormData},
+    label_block::LabelBlock,
+    secret_field::SecretField,
+    text_field::TextField,
+};
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_widgets_core::async_task::TaskSubmitter;
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::Flatten};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Result, Wrapper};
+use ratatui::prelude::{Buffer, Position, Rect, Size};
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct LoginInfo {
-    pub server_url: String,
-    pub username: String,
-    pub password: String,
-    pub password_cmd: Option<Vec<String>>,
+#[derive(Debug)]
+pub struct Submit;
+impl From<Infallible> for Submit {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+impl ActionCreator for Submit {
+    type T = Self;
+
+    fn make_action(&self) -> Self::T {
+        Self
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LoginSelection {
-    Server,
-    Username,
-    Password,
-    Retry,
+#[form("Enter Jellyfin Server / Login Information", Submit)]
+#[derive(Debug)]
+pub struct LoginData {
+    #[descr("Jellyfin URL")]
+    server_url: TextField,
+    #[descr("Username")]
+    username: TextField,
+    #[descr("Password")]
+    #[show_if(!self.password_cmd)]
+    password: SecretField,
+    #[descr("Password already set through command in login config")]
+    #[show_if(self.password_cmd)]
+    password_set: Label,
+    #[skip]
+    password_cmd: bool,
+    #[descr("Login")]
+    submit: Button<Submit>,
+    #[descr("Error")]
+    error: LabelBlock,
 }
 
-pub struct LoginWidget<'s> {
-    info: &'s mut LoginInfo,
-    selection: LoginSelection,
-    error: String,
-    changed: bool,
+type InnerState = <InnerWidget as JellyhajWidget>::State;
+
+#[derive(Debug)]
+pub struct LoginState {
+    inner: InnerState,
 }
 
-impl<'s> LoginWidget<'s> {
-    pub fn new<'v>(
-        info: &'v mut LoginInfo,
-        selection: LoginSelection,
-        error: String,
-    ) -> LoginWidget<'v> {
+type InnerWidget =
+    Flatten<Navigation, Submit, KeybindWidget<FormCommand, LoginDataWidget, FormCommandMapper>>;
+
+pub struct LoginWidget {
+    inner: InnerWidget,
+}
+
+#[derive(Debug)]
+pub enum LoginResult {
+    Quit,
+    Data {
+        server_url: String,
+        username: String,
+        password: String,
+    },
+}
+
+impl JellyhajWidgetState for LoginState {
+    type Action = <InnerState as JellyhajWidgetState>::Action;
+
+    type ActionResult = LoginResult;
+
+    type Widget = LoginWidget;
+
+    const NAME: &str = "login";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<InnerState>();
+    }
+
+    fn into_widget(
+        self,
+        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
         LoginWidget {
-            info,
-            selection,
-            error,
-            changed: false,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct LoginEdit {
-    pub changed: bool,
-}
-
-#[derive(Debug)]
-pub enum LoginAction {
-    Submit,
-    Prev,
-    Next,
-    Delete,
-}
-
-fn get_field(info: &mut LoginInfo, selection: LoginSelection) -> Option<&mut String> {
-    match selection {
-        LoginSelection::Server => Some(&mut info.server_url),
-        LoginSelection::Username => Some(&mut info.username),
-        LoginSelection::Password => {
-            if info.password_cmd.is_none() {
-                Some(&mut info.password)
-            } else {
-                None
-            }
-        }
-        LoginSelection::Retry => None,
-    }
-}
-
-impl JellyhajWidget for LoginWidget<'_> {
-    type State = LoginEdit;
-
-    type Action = LoginAction;
-
-    type ActionResult = LoginEdit;
-
-    fn min_width(&self) -> Option<u16> {
-        Some(18)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(19)
-    }
-
-    fn into_state(self) -> Self::State {
-        LoginEdit {
-            changed: self.changed,
-        }
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        !(self.selection == LoginSelection::Retry
-            || (self.selection == LoginSelection::Password && self.info.password_cmd.is_some()))
-    }
-
-    fn accept_char(&mut self, text: char) {
-        if let Some(field) = get_field(self.info, self.selection) {
-            field.push(text);
-            self.changed = true;
-        }
-    }
-
-    fn accept_text(&mut self, text: String) {
-        if let Some(field) = get_field(self.info, self.selection) {
-            field.push_str(&text);
-            self.changed = true;
+            inner: self.inner.into_widget(cx),
         }
     }
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        match action {
-            LoginAction::Submit => Ok(Some(LoginEdit {
-                changed: self.changed,
-            })),
-            LoginAction::Prev => {
-                self.selection = match self.selection {
-                    LoginSelection::Server => LoginSelection::Retry,
-                    LoginSelection::Username => LoginSelection::Server,
-                    LoginSelection::Password => LoginSelection::Username,
-                    LoginSelection::Retry => LoginSelection::Password,
-                };
-                Ok(None)
-            }
-            LoginAction::Next => {
-                self.selection = match self.selection {
-                    LoginSelection::Server => LoginSelection::Username,
-                    LoginSelection::Username => LoginSelection::Password,
-                    LoginSelection::Password => LoginSelection::Retry,
-                    LoginSelection::Retry => LoginSelection::Server,
-                };
-                Ok(None)
-            }
-            LoginAction::Delete => {
-                if let Some(field) = get_field(self.info, self.selection) {
-                    field.pop();
-                    self.changed = true;
-                }
-                Ok(None)
-            }
+    ) -> Result<Option<Self::ActionResult>> {
+        self.inner.apply_action(task, action).map(|v| {
+            v.map(|v| match v {
+                ControlFlow::Continue(_) => LoginResult::Data {
+                    server_url: self.inner.inner.inner.data.server_url.text.clone(),
+                    username: self.inner.inner.inner.data.username.text.clone(),
+                    password: self.inner.inner.inner.data.password.secret.clone(),
+                },
+                ControlFlow::Break(_) => LoginResult::Quit,
+            })
+        })
+    }
+}
+
+impl JellyhajWidget for LoginWidget {
+    type Action = <InnerWidget as JellyhajWidget>::Action;
+
+    type ActionResult = LoginResult;
+
+    type State = LoginState;
+
+    fn min_width(&self) -> Option<u16> {
+        self.inner.min_width()
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        self.inner.min_height()
+    }
+
+    fn into_state(self) -> Self::State {
+        LoginState {
+            inner: self.inner.into_state(),
         }
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.inner.accepts_text_input()
+    }
+
+    fn accept_char(&mut self, text: char) {
+        self.inner.accept_char(text);
+    }
+
+    fn accept_text(&mut self, text: String) {
+        self.inner.accept_text(text);
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        let res = self.inner.apply_action(task, action);
+        self.map_res(res)
     }
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-        position: ratatui::prelude::Position,
-        size: ratatui::prelude::Size,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        position: Position,
+        size: Size,
         kind: MouseEventKind,
-        _: ratatui::crossterm::event::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        if kind == MouseEventKind::Down(MouseButton::Left)
-            && position.x >= 1
-            && position.x < size.width - 2
-        {
-            #[allow(non_contiguous_range_endpoints)]
-            match position.y {
-                2..5 => self.selection = LoginSelection::Server,
-                6..9 => self.selection = LoginSelection::Username,
-                10..13 => self.selection = LoginSelection::Password,
-                14..17 => {
-                    return Ok(Some(LoginEdit {
-                        changed: self.changed,
-                    }));
-                }
-                _ => {}
-            }
-        }
-        Ok(None)
+        modifier: KeyModifiers,
+    ) -> Result<Option<Self::ActionResult>> {
+        let res = self.inner.click(task, position, size, kind, modifier);
+        self.map_res(res)
     }
 
     fn render_fallible_inner(
         &mut self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-    ) -> jellyhaj_widgets_core::Result<()> {
-        render::render_login(self.info, self.selection, &self.error, area, buf);
-        Ok(())
+        area: Rect,
+        buf: &mut Buffer,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+    ) -> Result<()> {
+        self.inner.render_fallible_inner(area, buf, task)
+    }
+}
+
+impl LoginWidget {
+    fn map_res(
+        &mut self,
+        res: Result<Option<<InnerWidget as JellyhajWidget>::ActionResult>>,
+    ) -> Result<Option<LoginResult>, color_eyre::eyre::Error> {
+        res.map(|v| {
+            v.map(|v| match v {
+                ControlFlow::Continue(_) => LoginResult::Data {
+                    server_url: self.inner.inner.inner.data.server_url.text.clone(),
+                    username: self.inner.inner.inner.data.username.text.clone(),
+                    password: self.inner.inner.inner.data.password.secret.clone(),
+                },
+                ControlFlow::Break(_) => LoginResult::Quit,
+            })
+        })
+    }
+
+    pub fn new(
+        server_url: String,
+        username: String,
+        password: String,
+        password_cmd_set: bool,
+        error: String,
+        config: &Config,
+    ) -> Self {
+        let server_unset = server_url.is_empty();
+        let data = LoginData {
+            server_url: TextField { text: server_url },
+            username: TextField { text: username },
+            password: SecretField { secret: password },
+            password_cmd: password_cmd_set,
+            password_set: Label,
+            submit: Button::new(Submit),
+            error: LabelBlock { text: error },
+        };
+        let data = data.make_state_with(if server_unset {
+            LoginDataSelection::ServerUrl(())
+        } else {
+            LoginDataSelection::Submit(())
+        });
+        let keybinds = KeybindWidget::new(
+            data.into_widget(),
+            config.help_prefixes.clone(),
+            config.keybinds.form.clone(),
+            FormCommandMapper,
+        );
+        Self {
+            inner: Flatten { inner: keybinds },
+        }
     }
 }

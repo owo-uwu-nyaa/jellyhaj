@@ -1,13 +1,12 @@
-use std::{cmp::min, convert::Infallible, sync::Arc};
+use std::{cmp::min, convert::Infallible};
 
-use jellyfin::{JellyfinClient, items::MediaItem};
-use jellyhaj_core::{Config, context::DB};
-use jellyhaj_entry_widget::{
-    Entry, EntryAction, EntryData, EntryResult, ImageProtocolCache, Picker, Stats,
-};
-use jellyhaj_item_list::{ItemList, ItemListAction, ItemListData};
+use jellyfin::items::MediaItem;
+use jellyhaj_core::state::Navigation;
+use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Rect, Wrapper, async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{HorizontalAlignment, Margin},
@@ -39,6 +38,33 @@ impl Overview {
             title,
             scroll: 0,
         }
+    }
+}
+
+impl JellyhajWidgetState for Overview {
+    type Action = OverviewAction;
+
+    type ActionResult = Infallible;
+
+    type Widget = Self;
+
+    const NAME: &str = "overview";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(
+        self,
+        _: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
+        self
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        JellyhajWidget::apply_action(self, task, action)
     }
 }
 
@@ -138,46 +164,88 @@ pub enum DisplayAction {
     Down,
 }
 
+#[derive(Debug)]
+pub struct ItemDisplayState {
+    entry: EntryState,
+    overview: Option<Overview>,
+}
+
+impl ItemDisplayState {
+    pub fn new(entry: EntryState, overview: Option<Overview>) -> Self {
+        Self { entry, overview }
+    }
+}
+
+impl JellyhajWidgetState for ItemDisplayState {
+    type Action = DisplayAction;
+
+    type ActionResult = Navigation;
+
+    type Widget = ItemDisplay;
+
+    const NAME: &str = "item-display";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<EntryState>();
+        visitor.visit::<Overview>();
+    }
+
+    fn into_widget(
+        self,
+        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
+        ItemDisplay {
+            entry: self.entry.into_widget(cx),
+            overview: self.overview,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            DisplayAction::Inner(action) => JellyhajWidgetState::apply_action(
+                &mut self.entry,
+                task.wrap_with(DisplayAction::Inner),
+                action,
+            ),
+            DisplayAction::Up => {
+                if let Some(o) = self.overview.as_mut() {
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unreachable!()),
+                        OverviewAction::Up,
+                    )?;
+                }
+                Ok(None)
+            }
+            DisplayAction::Down => {
+                if let Some(o) = self.overview.as_mut() {
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unreachable!()),
+                        OverviewAction::Down,
+                    )?;
+                }
+                Ok(None)
+            }
+        }
+    }
+}
+
 pub struct ItemDisplay {
     entry: Entry,
     overview: Option<Overview>,
 }
 
-impl ItemDisplay {
-    pub fn new(
-        item: MediaItem,
-        jellyfin: &JellyfinClient,
-        db: &DB,
-        cache: &ImageProtocolCache,
-        picker: &Arc<Picker>,
-        stats: &Stats,
-        config: &Config,
-    ) -> Self {
-        let overview = item
-            .overview
-            .as_ref()
-            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
-        Self {
-            entry: Entry::new(
-                EntryData::Item(item),
-                jellyfin,
-                db,
-                cache,
-                picker,
-                stats,
-                config,
-            ),
-            overview,
-        }
-    }
-}
-
 impl JellyhajWidget for ItemDisplay {
-    type State = MediaItem;
+    type State = ItemDisplayState;
 
     type Action = DisplayAction;
 
-    type ActionResult = EntryResult;
+    type ActionResult = Navigation;
 
     fn min_width(&self) -> Option<u16> {
         Some(self.entry.dimensions().width + 4)
@@ -188,9 +256,10 @@ impl JellyhajWidget for ItemDisplay {
     }
 
     fn into_state(self) -> Self::State {
-        JellyhajWidget::into_state(self.entry)
-            .into_item()
-            .expect("entry has been initialized with an item")
+        ItemDisplayState {
+            entry: ItemWidget::into_state(self.entry),
+            overview: self.overview,
+        }
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -218,13 +287,21 @@ impl JellyhajWidget for ItemDisplay {
             ),
             DisplayAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
-                    o.apply_action(task.wrap_with(|_| unreachable!()), OverviewAction::Up)?;
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unreachable!()),
+                        OverviewAction::Up,
+                    )?;
                 }
                 Ok(None)
             }
             DisplayAction::Down => {
                 if let Some(o) = self.overview.as_mut() {
-                    o.apply_action(task.wrap_with(|_| unreachable!()), OverviewAction::Down)?;
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unreachable!()),
+                        OverviewAction::Down,
+                    )?;
                 }
                 Ok(None)
             }
@@ -315,17 +392,85 @@ impl ItemListDisplay {
     }
 }
 
-pub struct ItemListState {
-    pub children: ItemListData<EntryData>,
+#[derive(Debug)]
+pub struct ItemListDisplayState {
+    pub children: ItemListState<Entry>,
     pub item: MediaItem,
+    pub overview: Option<Overview>,
+}
+
+impl JellyhajWidgetState for ItemListDisplayState {
+    type Action = DisplayListAction;
+
+    type ActionResult = Navigation;
+
+    type Widget = ItemListDisplay;
+
+    const NAME: &str = "item-list-details";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<ItemListState<Entry>>();
+        visitor.visit::<Overview>();
+    }
+
+    fn into_widget(
+        self,
+        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
+        ItemListDisplay {
+            children: self.children.into_widget(cx),
+            item: self.item,
+            overview: self.overview,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            DisplayListAction::Inner(action) => self
+                .children
+                .apply_action(task.wrap_with(DisplayListAction::Inner), action),
+            DisplayListAction::Up => {
+                if let Some(o) = self.overview.as_mut() {
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unimplemented!()),
+                        OverviewAction::Up,
+                    )?;
+                }
+                Ok(None)
+            }
+            DisplayListAction::Down => {
+                if let Some(o) = self.overview.as_mut() {
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unimplemented!()),
+                        OverviewAction::Down,
+                    )?;
+                }
+                Ok(None)
+            }
+            DisplayListAction::Left => self.children.apply_action(
+                task.wrap_with(DisplayListAction::Inner),
+                ItemListAction::Left,
+            ),
+            DisplayListAction::Right => self.children.apply_action(
+                task.wrap_with(DisplayListAction::Inner),
+                ItemListAction::Right,
+            ),
+        }
+    }
 }
 
 impl JellyhajWidget for ItemListDisplay {
-    type State = ItemListState;
+    type State = ItemListDisplayState;
 
     type Action = DisplayListAction;
 
-    type ActionResult = EntryResult;
+    type ActionResult = Navigation;
 
     fn min_width(&self) -> Option<u16> {
         Some(9)
@@ -336,9 +481,10 @@ impl JellyhajWidget for ItemListDisplay {
     }
 
     fn into_state(self) -> Self::State {
-        ItemListState {
-            children: self.children.into_state(),
+        ItemListDisplayState {
             item: self.item,
+            overview: self.overview,
+            children: self.children.into_state(),
         }
     }
 
@@ -365,13 +511,21 @@ impl JellyhajWidget for ItemListDisplay {
                 .apply_action(task.wrap_with(DisplayListAction::Inner), action),
             DisplayListAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
-                    o.apply_action(task.wrap_with(|_| unimplemented!()), OverviewAction::Up)?;
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unimplemented!()),
+                        OverviewAction::Up,
+                    )?;
                 }
                 Ok(None)
             }
             DisplayListAction::Down => {
                 if let Some(o) = self.overview.as_mut() {
-                    o.apply_action(task.wrap_with(|_| unimplemented!()), OverviewAction::Down)?;
+                    JellyhajWidget::apply_action(
+                        o,
+                        task.wrap_with(|_| unimplemented!()),
+                        OverviewAction::Down,
+                    )?;
                 }
                 Ok(None)
             }

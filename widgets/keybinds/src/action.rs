@@ -1,30 +1,24 @@
-use std::{iter, mem};
+use std::{mem, ops::ControlFlow};
 
 use color_eyre::Result;
-use itertools::Either;
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{Command, Key, KeyBinding};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tracing::{debug, warn};
 
-use crate::{
-    CommandAction, CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MappedCommand,
-};
+use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 
-fn if_non_empty<T>(v: &Vec<T>) -> Option<&Vec<T>> {
-    if v.is_empty() { None } else { Some(v) }
-}
-
-pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
+pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
     this: &mut KeybindWidget<T, W, M>,
     task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     action: KeybindAction<W::Action>,
-) -> Result<Option<CommandAction<M::U, W::ActionResult>>> {
+) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     match action {
         KeybindAction::Inner(a) => match this.inner.apply_action(task.wrap_with(KeybindWrapper), a)
         {
             Ok(None) => Ok(None),
-            Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
+            Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
             Err(e) => Err(e),
         },
         KeybindAction::Key(key_event) => match key_event {
@@ -56,7 +50,7 @@ pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
             } => {
                 if this.inner.accepts_text_input()
                     && let KeyCode::Char(c) = code
-                    && this.next_maps.is_empty()
+                    && this.next_maps.is_none()
                     && modifiers
                         .intersection(KeyModifiers::CONTROL | KeyModifiers::ALT)
                         .is_empty()
@@ -66,49 +60,39 @@ pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W:
                     Ok(None)
                 } else {
                     let current_map = mem::take(&mut this.next_maps);
-                    let (top, minor) = (&this.top, &this.minor);
                     debug!(?current_map, "matching on active keymaps");
-
-                    for c in if_non_empty(current_map.as_ref())
-                        .map(|v| Either::Right(v.iter()))
-                        .unwrap_or_else(|| Either::Left(iter::once(top).chain(minor)))
-                    {
-                        match c.get(&Key {
-                            inner: code,
-                            control: modifiers.contains(KeyModifiers::CONTROL),
-                            alt: modifiers.contains(KeyModifiers::ALT),
-                        }) {
-                            Some(KeyBinding::Command(c)) => {
-                                debug!("found matching command");
-                                this.next_maps = Vec::new();
-                                debug!("executing command {c:?}");
-                                let mapped = this.mapper.map(*c);
-                                debug!("triggering action {mapped:?}");
-                                return match mapped {
-                                    MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
-                                    MappedCommand::Down(a) => match this
-                                        .inner
-                                        .apply_action(task.wrap_with(KeybindWrapper), a)
+                    match current_map.as_ref().unwrap_or(&this.top).get(&Key {
+                        inner: code,
+                        control: modifiers.contains(KeyModifiers::CONTROL),
+                        alt: modifiers.contains(KeyModifiers::ALT),
+                    }) {
+                        Some(KeyBinding::Command(c)) => {
+                            debug!("found matching command");
+                            this.next_maps = None;
+                            debug!("executing command {c:?}");
+                            let mapped = this.mapper.map(*c);
+                            debug!("triggering action {mapped:?}");
+                            return match mapped {
+                                ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
+                                ControlFlow::Continue(a) => {
+                                    match this.inner.apply_action(task.wrap_with(KeybindWrapper), a)
                                     {
                                         Ok(None) => Ok(None),
-                                        Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
+                                        Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
                                         Err(e) => Err(e),
-                                    },
-                                };
-                            }
-                            Some(KeyBinding::Group { map, name }) => {
-                                debug!(name, "found matching group");
-                                this.next_maps.push(map.clone());
-                            }
-                            Some(KeyBinding::Invalid(name)) => {
-                                warn!("'{name}' is an invalid command");
-                                if !current_map.is_empty() {
-                                    this.next_maps = Vec::new();
+                                    }
                                 }
-                                break;
-                            }
-                            None => {}
+                            };
                         }
+                        Some(KeyBinding::Group { map, name }) => {
+                            debug!(name, "found matching group");
+                            this.next_maps = Some(map.clone());
+                        }
+                        Some(KeyBinding::Invalid(name)) => {
+                            warn!("'{name}' is an invalid command");
+                            this.next_maps = None;
+                        }
+                        None => {}
                     }
                     Ok(None)
                 }

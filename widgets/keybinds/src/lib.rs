@@ -2,101 +2,121 @@ mod action;
 mod click;
 mod render;
 
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, ops::ControlFlow, sync::Arc};
 
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_core::{CommandMapper, render::KeybindAction, state::Navigation};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, Wrapper, async_task::TaskSubmitter,
+};
 use keybinds::{BindingMap, Command};
-use ratatui::crossterm::event::KeyEvent;
 use tracing::instrument;
 
-#[derive(Debug)]
-pub enum MappedCommand<U: Debug + Send + 'static, D: Debug + Send + 'static> {
-    Up(U),
-    Down(D),
-}
-
-#[derive(Debug)]
-pub enum KeybindAction<A: Debug + Send + 'static> {
-    Inner(A),
-    Key(KeyEvent),
-}
-
-#[derive(Debug)]
-pub enum CommandAction<U: Debug + Send + 'static, A> {
-    Action(A),
-    Up(U),
-    Exit,
-}
-
-pub trait CommandMapper<T: Command> {
-    type U: Debug + Send + 'static;
-    type D: Debug + Send + 'static;
-    fn map(&self, command: T) -> MappedCommand<Self::U, Self::D>;
-}
-
-impl<
-    T: Command,
-    U: Debug + Send + 'static,
-    D: Debug + Send + 'static,
-    F: Fn(T) -> MappedCommand<U, D>,
-> CommandMapper<T> for F
-{
-    type U = U;
-    type D = D;
-    fn map(&self, command: T) -> MappedCommand<U, D> {
-        self(command)
-    }
-}
-
-pub struct KeybindWidget<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> {
-    inner: W,
+pub struct KeybindWidget<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>> {
+    pub inner: W,
     help_prefixes: Arc<[String]>,
     top: BindingMap<T>,
-    next_maps: Vec<BindingMap<T>>,
-    minor: Vec<BindingMap<T>>,
+    next_maps: Option<BindingMap<T>>,
     mapper: M,
     current_view: usize,
 }
 
-impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> KeybindWidget<T, W, M> {
+pub struct KeybindState<T: Command, S: JellyhajWidgetState, M: CommandMapper<T, A = S::Action>> {
+    pub inner: S,
+    help_prefixes: Arc<[String]>,
+    top: BindingMap<T>,
+    mapper: M,
+}
+
+impl<T: Command + Debug, S: JellyhajWidgetState + Debug, M: CommandMapper<T, A = S::Action>> Debug
+    for KeybindState<T, S, M>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeybindState")
+            .field("inner", &self.inner)
+            .field("help_prefixes", &self.help_prefixes)
+            .field("top", &self.top)
+            .finish()
+    }
+}
+
+impl<T: Command, S: JellyhajWidgetState, M: CommandMapper<T, A = S::Action>> KeybindState<T, S, M> {
+    pub fn new(inner: S, help_prefixes: Arc<[String]>, top: BindingMap<T>, mapper: M) -> Self {
+        Self {
+            inner,
+            help_prefixes,
+            top,
+            mapper,
+        }
+    }
+}
+
+impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>> KeybindWidget<T, W, M> {
     pub fn new(inner: W, help_prefixes: Arc<[String]>, top: BindingMap<T>, mapper: M) -> Self {
         Self {
             inner,
             help_prefixes,
             top,
-            next_maps: Vec::new(),
-            minor: Vec::new(),
-            mapper,
-            current_view: 0,
-        }
-    }
-    pub fn new_with_minor(
-        inner: W,
-        help_prefixes: Arc<[String]>,
-        top: BindingMap<T>,
-        minor: Vec<BindingMap<T>>,
-        mapper: M,
-    ) -> Self {
-        Self {
-            inner,
-            help_prefixes,
-            top,
-            next_maps: Vec::new(),
-            minor,
+            next_maps: None,
             mapper,
             current_view: 0,
         }
     }
 }
 
-impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> JellyhajWidget
+impl<T: Command, S: JellyhajWidgetState, M: CommandMapper<T, A = S::Action>> JellyhajWidgetState
+    for KeybindState<T, S, M>
+{
+    type Action = KeybindAction<S::Action>;
+
+    type ActionResult = ControlFlow<Navigation, S::ActionResult>;
+
+    type Widget = KeybindWidget<T, S::Widget, M>;
+
+    const NAME: &str = "keybinds";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<S>();
+    }
+
+    fn into_widget(
+        self,
+        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
+        KeybindWidget {
+            inner: self.inner.into_widget(cx),
+            help_prefixes: self.help_prefixes,
+            top: self.top,
+            next_maps: None,
+            mapper: self.mapper,
+            current_view: 0,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            KeybindAction::Inner(a) => {
+                Ok(
+                    S::apply_action(&mut self.inner, task.wrap_with(KeybindWrapper), a)?
+                        .map(ControlFlow::Continue),
+                )
+            }
+            KeybindAction::Key(_) => Ok(None),
+        }
+    }
+}
+
+impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>> JellyhajWidget
     for KeybindWidget<T, W, M>
 {
-    type State = W::State;
-
     type Action = KeybindAction<W::Action>;
 
-    type ActionResult = CommandAction<M::U, W::ActionResult>;
+    type ActionResult = ControlFlow<Navigation, W::ActionResult>;
+
+    type State = KeybindState<T, W::State, M>;
 
     fn min_width(&self) -> Option<u16> {
         Some(24)
@@ -107,7 +127,12 @@ impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jellyhaj
     }
 
     fn into_state(self) -> Self::State {
-        self.inner.into_state()
+        KeybindState {
+            inner: self.inner.into_state(),
+            help_prefixes: self.help_prefixes,
+            top: self.top,
+            mapper: self.mapper,
+        }
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -129,22 +154,6 @@ impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>> Jellyhaj
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         action::apply_key_event(self, task, action)
-    }
-
-    fn apply_action_to_state(
-        state: &mut Self::State,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-        action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        match action {
-            KeybindAction::Inner(a) => {
-                Ok(
-                    W::apply_action_to_state(state, task.wrap_with(KeybindWrapper), a)?
-                        .map(CommandAction::Action),
-                )
-            }
-            KeybindAction::Key(_) => Ok(None),
-        }
     }
 
     #[instrument(skip_all, name = "click_keybinds")]

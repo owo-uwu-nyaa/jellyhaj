@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use color_eyre::eyre::Report;
 use futures_util::future::BoxFuture;
 use jellyfin::{
@@ -42,7 +44,6 @@ pub enum NextScreen {
     FetchItemListDetails(MediaItem),
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),
-    UnsupportedItem,
     RefreshItem(String),
     SendRefreshItem(String, RefreshItemQuery),
     Stats,
@@ -58,6 +59,12 @@ pub enum Navigation {
     Replace(Next),
     Exit,
     PushWithoutTui(BoxFuture<'static, ()>),
+}
+
+impl From<Infallible> for Navigation{
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
 
 impl std::fmt::Debug for Navigation {

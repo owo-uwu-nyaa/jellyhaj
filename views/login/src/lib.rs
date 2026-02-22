@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     fs::{OpenOptions, create_dir_all},
     io::Write,
+    ops::ControlFlow,
     os::unix::fs::OpenOptionsExt,
 };
 
@@ -11,21 +12,28 @@ use color_eyre::{
 };
 use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth};
 use jellyhaj_core::{
-    Config,
-    keybinds::{Keybinds, LoginInfoCommand},
+    CommandMapper, Config,
+    keybinds::LoadingCommand,
+    render::{RenderResult, render_widget_bare},
+    state::Navigation,
 };
-use jellyhaj_fetch_view::render_fetch;
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_login_widget::{LoginAction, LoginInfo, LoginSelection, LoginWidget};
-use jellyhaj_render_widgets::TermExt;
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
+use jellyhaj_login_widget::{LoginResult, LoginWidget};
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
+use serde::{Deserialize, Serialize};
 use spawn::Spawner;
 use tokio::select;
 use tracing::{info, instrument};
 
-#[derive(Debug)]
-struct Quit;
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LoginInfo {
+    pub server_url: String,
+    pub username: String,
+    pub password: String,
+    pub password_cmd: Option<Vec<String>>,
+}
 
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
@@ -36,35 +44,78 @@ async fn edit_login_info(
     changed: &mut bool,
     error: Report,
     events: &mut KeybindEvents,
-    keybinds: &Keybinds,
-    help_prefixes: &[String],
+    config: &Config,
 ) -> Result<bool> {
-    let selection = if info.server_url.is_empty() {
-        LoginSelection::Server
-    } else {
-        LoginSelection::Password
-    };
     let error = error.to_string();
 
-    let mut widget = KeybindWidget::new(
-        LoginWidget::new(info, selection, error),
-        help_prefixes,
-        keybinds.login_info.clone(),
-        |login| match login {
-            LoginInfoCommand::Delete => MappedCommand::Down(LoginAction::Delete),
-            LoginInfoCommand::Submit => MappedCommand::Down(LoginAction::Submit),
-            LoginInfoCommand::Next => MappedCommand::Down(LoginAction::Next),
-            LoginInfoCommand::Prev => MappedCommand::Down(LoginAction::Prev),
-            LoginInfoCommand::Quit => MappedCommand::Up(Quit),
-        },
+    let widget = LoginWidget::new(
+        info.server_url.clone(),
+        info.username.clone(),
+        info.password.clone(),
+        info.password_cmd.is_some(),
+        error,
+        config,
     );
-    Ok(match term.render(&mut widget, events, spawn).await? {
-        CommandAction::Up(Quit) | CommandAction::Exit => false,
-        CommandAction::Action(e) => {
-            *changed = e.changed;
-            true
+    match render_widget_bare(term, events, spawn, widget).await {
+        RenderResult::Ok((LoginResult::Quit, _)) => Ok(false),
+        RenderResult::Ok((
+            LoginResult::Data {
+                server_url,
+                username,
+                password,
+            },
+            _,
+        )) => {
+            if server_url != info.server_url {
+                info.server_url = server_url;
+                *changed = true;
+            }
+            if username != info.username {
+                info.username = username;
+                *changed = true;
+            }
+            if password != info.password {
+                info.password = password;
+                *changed = true;
+            }
+            Ok(true)
         }
-    })
+        RenderResult::Err(report) => Err(report),
+        RenderResult::Exit => Ok(false),
+    }
+}
+
+struct LoadingMapper;
+
+impl CommandMapper<LoadingCommand> for LoadingMapper {
+    type A = AdvanceLoadingScreen;
+
+    fn map(
+        &self,
+        command: LoadingCommand,
+    ) -> std::ops::ControlFlow<jellyhaj_core::state::Navigation, Self::A> {
+        let LoadingCommand::Quit = command;
+        ControlFlow::Break(Navigation::PopContext)
+    }
+}
+
+async fn render_fetch(
+    term: &mut DefaultTerminal,
+    spawn: Spawner,
+    events: &mut KeybindEvents,
+    config: &Config,
+) -> Result<()> {
+    let widget = KeybindWidget::new(
+        Loading::new(Cow::Borrowed("Connecting to Server")),
+        config.help_prefixes.clone(),
+        config.keybinds.fetch.clone(),
+        LoadingMapper,
+    );
+    match render_widget_bare(term, events, spawn, widget).await {
+        RenderResult::Ok((ControlFlow::Break(_), _)) => Ok(()),
+        RenderResult::Err(report) => Err(report),
+        RenderResult::Exit => Ok(()),
+    }
 }
 
 #[instrument(skip_all)]
@@ -110,8 +161,7 @@ pub async fn login(
                 &mut info_changed,
                 e,
                 events,
-                &config.keybinds,
-                &config.help_prefixes,
+                config,
             )
             .await
             .context("getting login information")?
@@ -140,12 +190,10 @@ pub async fn login(
 
         select! {
             r = render_fetch(
-                "Connecting to Server",
-                events,
-                config.keybinds.fetch.clone(),
                 term,
-                &config.help_prefixes,
                 spawn.clone(),
+                events,
+                config,
             ) => {
                 r?;
                 return Ok(None);

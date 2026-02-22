@@ -2,7 +2,10 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, Result, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_core::state::Navigation;
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
+};
 use player_core::{
     Command, Events, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
@@ -17,6 +20,16 @@ pub struct PlayerWidget {
     handle: PlayerHandle,
     state: Option<SharedPlayerState>,
     send: bool,
+}
+
+impl std::fmt::Debug for PlayerWidget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlayerWidget")
+            .field("handle", &self.handle)
+            .field("state", &self.state)
+            .field("send", &self.send)
+            .finish()
+    }
 }
 
 impl PlayerWidget {
@@ -40,12 +53,36 @@ pub enum PlayerAction {
 #[derive(Debug)]
 pub struct PlayerQuit;
 
-impl JellyhajWidget for PlayerWidget {
-    type State = PlayerWidget;
-
+impl JellyhajWidgetState for PlayerWidget {
     type Action = PlayerAction;
 
-    type ActionResult = PlayerQuit;
+    type ActionResult = Navigation;
+
+    type Widget = Self;
+
+    const NAME: &str = "player";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        self
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        JellyhajWidget::apply_action(self, task, action)
+    }
+}
+
+impl JellyhajWidget for PlayerWidget {
+    type Action = PlayerAction;
+
+    type ActionResult = Navigation;
+
+    type State = Self;
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
@@ -78,7 +115,7 @@ impl JellyhajWidget for PlayerWidget {
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
-            PlayerAction::Quit => Ok(Some(PlayerQuit)),
+            PlayerAction::Quit => Ok(Some(Navigation::PopContext)),
             PlayerAction::TogglePause => {
                 self.handle.send(Command::TogglePause);
                 Ok(None)
@@ -119,15 +156,6 @@ impl JellyhajWidget for PlayerWidget {
                 Ok(None)
             }
         }
-    }
-
-    #[inline(always)]
-    fn apply_action_to_state(
-        state: &mut Self::State,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        state.apply_action(task, action)
     }
 
     fn click(

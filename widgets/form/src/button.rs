@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{MouseEventKind, Rect};
@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{FormAction, FormItem};
 
-pub trait ActionCreator {
+pub trait ActionCreator: Debug {
     type T;
     fn make_action(&self) -> Self::T;
 }
@@ -18,6 +18,14 @@ pub trait ActionCreator {
 pub struct Button<Creator: ActionCreator> {
     creator: Creator,
     width: u16,
+}
+
+impl<Creator: ActionCreator> std::fmt::Debug for Button<Creator> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Button")
+            .field("creator", &self.creator)
+            .finish()
+    }
 }
 
 impl<Creator: ActionCreator> Button<Creator> {

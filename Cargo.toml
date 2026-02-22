@@ -12,7 +12,7 @@ either = {workspace = true}
 futures-util = {workspace = true}
 image = {workspace = true}
 jellyfin = {path = "jellyfin-rs"}
-jellyhaj-core = {path = "jellyhaj-core"}
+jellyhaj-core = { path = "jellyhaj-core" }
 jellyhaj-error-view = {path = "views/error", version = "0.1.0"}
 jellyhaj-home-screen-view = {path = "views/home-screen", version = "0.1.0"}
 jellyhaj-image = {path = "widgets/image", version = "0.1.0"}
@@ -47,6 +47,7 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
 console-subscriber = { version = "0.5.0", optional = true }
+jellyhaj-widgets-core = { version = "0.1.0", path = "widgets/core" }
 
 [features]
 default = []
@@ -90,7 +91,7 @@ members = [
   "views/stats",
   "widgets/core",
   "widgets/entry",
-  "widgets/error",
+  "widgets/error", "widgets/fetch",
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl",
@@ -152,3 +153,4 @@ tracing-core = {default-features = false, version = "0.1.33"}
 tui-logger = {features = ["tracing-support"], version = "0.18.0"}
 whoami = {default-features = false, version = "2.0.2"}
 zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
+convert_case = "0.11.0"

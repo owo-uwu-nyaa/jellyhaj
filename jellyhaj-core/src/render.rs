@@ -17,7 +17,8 @@ use futures_util::future::BoxFuture;
 use jellyfin::Result;
 use jellyhaj_context::{KeybindEvents, TuiContext};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position, WidgetTreeVisitor,
+    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position, TreeVisitor,
+    WidgetTreeVisitor,
     async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter},
 };
 use ratatui::{
@@ -43,7 +44,7 @@ pub trait SuspendedWidget {
         self,
         cx: Pin<&'a mut TuiContext>,
     ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>>;
-    fn visit_widget_tree(&self, visitor: &mut dyn WidgetTreeVisitor);
+    fn visit_widget_tree(&self, visitor: &mut dyn TreeVisitor);
 }
 
 struct SuspendedWidgetImpl<
@@ -52,20 +53,6 @@ struct SuspendedWidgetImpl<
 > {
     task: tokio::task::JoinHandle<Hydrated<W::State>>,
     _stop: tokio_util::sync::DropGuard,
-}
-
-struct Visitor<'v> {
-    inner: &'v mut dyn WidgetTreeVisitor,
-}
-
-impl<'v> WidgetTreeVisitor for Visitor<'v> {
-    fn enter(&mut self, name: &'static str) {
-        self.inner.enter(name);
-    }
-
-    fn exit(&mut self) {
-        self.inner.exit();
-    }
 }
 
 impl<
@@ -88,8 +75,8 @@ impl<
         Box::pin(renderer)
     }
 
-    fn visit_widget_tree(&self, visitor: &mut dyn WidgetTreeVisitor) {
-        <W::State as JellyhajWidgetState>::visit_tree(&mut Visitor { inner: visitor });
+    fn visit_widget_tree(&self, mut visitor: &mut dyn TreeVisitor) {
+        visitor.visit::<W::State>();
     }
 }
 

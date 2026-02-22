@@ -1,26 +1,24 @@
 use std::{
     cmp::{max, min},
-    mem,
+    ops::ControlFlow,
 };
 
-use crate::{
-    CommandAction, CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MappedCommand,
-};
+use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 use color_eyre::Result;
-use itertools::Itertools;
+use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
 use keybinds::{Command, KeyBinding};
 use ratatui::layout::{Position, Size};
 use tracing::{debug, warn};
 
-pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Action>>(
+pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
     this: &mut KeybindWidget<T, W, M>,
     task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     mut position: ratatui::prelude::Position,
     size: ratatui::prelude::Size,
     kind: ratatui::crossterm::event::MouseEventKind,
     modifier: ratatui::crossterm::event::KeyModifiers,
-) -> Result<Option<CommandAction<M::U, W::ActionResult>>> {
+) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     let len: usize = this.next_maps.iter().map(|v| v.len()).sum();
     if len > 0 {
         let width = (size.width - 4) / 20;
@@ -42,7 +40,7 @@ pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Act
                 modifier,
             ) {
                 Ok(None) => Ok(None),
-                Ok(Some(action)) => Ok(Some(CommandAction::Action(action))),
+                Ok(Some(action)) => Ok(Some(ControlFlow::Continue(action))),
                 Err(e) => Err(e),
             };
         } else {
@@ -53,8 +51,7 @@ pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Act
             if let Some(c) = this
                 .next_maps
                 .iter()
-                .map(|v| v.iter())
-                .kmerge_by(|(a, _), (b, _)| a < b)
+                .flat_map(|m| m.iter())
                 .skip(items_per_screen * this.current_view)
                 .take(items_per_screen)
                 .zip(
@@ -67,20 +64,19 @@ pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Act
                 .map(|((_, v), _)| v.clone())
                 .next()
             {
-                let current_map = mem::take(&mut this.next_maps);
                 match c {
                     KeyBinding::Command(c) => {
                         debug!("found matching command");
-                        this.next_maps = Vec::new();
+                        this.next_maps = None;
                         debug!("executing command {c:?}");
                         let mapped = this.mapper.map(c);
                         debug!("triggering action {mapped:?}");
                         return match mapped {
-                            MappedCommand::Up(u) => Ok(Some(CommandAction::Up(u))),
-                            MappedCommand::Down(a) => {
+                            ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
+                            ControlFlow::Continue(a) => {
                                 match this.inner.apply_action(task.wrap_with(KeybindWrapper), a) {
                                     Ok(None) => Ok(None),
-                                    Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
+                                    Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
                                     Err(e) => Err(e),
                                 }
                             }
@@ -88,13 +84,11 @@ pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Act
                     }
                     KeyBinding::Group { map, name } => {
                         debug!(name, "found matching group");
-                        this.next_maps.push(map.clone());
+                        this.next_maps = Some(map.clone());
                     }
                     KeyBinding::Invalid(name) => {
                         warn!("'{name}' is an invalid command");
-                        if !current_map.is_empty() {
-                            this.next_maps = Vec::new();
-                        }
+                        this.next_maps = None;
                     }
                 }
             }
@@ -108,7 +102,7 @@ pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, D = W::Act
             modifier,
         ) {
             Ok(None) => Ok(None),
-            Ok(Some(r)) => Ok(Some(CommandAction::Action(r))),
+            Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
             Err(e) => Err(e),
         };
     }

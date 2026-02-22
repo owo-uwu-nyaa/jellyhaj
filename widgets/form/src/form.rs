@@ -5,7 +5,7 @@ use std::{
     ops::{ControlFlow, Index},
 };
 
-use jellyhaj_core::state::Navigation;
+use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
     Buffer, JellyhajWidget, JellyhajWidgetState, KeyModifiers, MouseEventKind, Position, Rect,
     Size, TuiContext, Wrapper, async_task::TaskSubmitter,
@@ -16,7 +16,7 @@ use tui_scrollview::{ScrollView, ScrollViewState};
 use crate::{FormAction, FormItem};
 use color_eyre::Result;
 
-pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug {
+pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug + 'static {
     type Selector: Debug + Send;
     type AR: Debug + From<Infallible>;
     fn with_selection<T, W: WithSelection<Self::AR, T>>(
@@ -41,26 +41,24 @@ pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug {
     fn index(sel: &Self::Selector) -> usize;
     const TITLE: &str;
 
-    fn make_widget_with(self, selection: Self::Selector) -> Form<{ TOTAL_SIZE }, Self> {
-        Form {
+    fn make_state_with(self, selection: Self::Selector) -> FormState<{ TOTAL_SIZE }, Self> {
+        FormState {
             sel: selection,
             data: self,
-            store: [0; TOTAL_SIZE],
-            offset: 0,
         }
     }
 }
 
-pub trait FormStateDefaultExt<const TOTAL_SIZE: usize>: FormData<TOTAL_SIZE> {
-    fn make_widget_with_default(self) -> Form<{ TOTAL_SIZE }, Self>;
+pub trait FormDataDefaultExt<const TOTAL_SIZE: usize>: FormData<TOTAL_SIZE> {
+    fn make_state_with_default(self) -> FormState<{ TOTAL_SIZE }, Self>;
 }
 
-impl<const TOTAL_SIZE: usize, F: FormData<TOTAL_SIZE>> FormStateDefaultExt<TOTAL_SIZE> for F
+impl<const TOTAL_SIZE: usize, F: FormData<TOTAL_SIZE>> FormDataDefaultExt<TOTAL_SIZE> for F
 where
     F::Selector: Default,
 {
-    fn make_widget_with_default<'s>(self) -> Form<{ TOTAL_SIZE }, Self> {
-        Self::make_widget_with(self, Self::Selector::default())
+    fn make_state_with_default<'s>(self) -> FormState<{ TOTAL_SIZE }, Self> {
+        Self::make_state_with(self, Self::Selector::default())
     }
 }
 
@@ -70,7 +68,18 @@ pub struct FormState<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> {
     pub data: Data,
 }
 
-impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE> + 'static> JellyhajWidgetState
+impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> FormState<TOTAL_SIZE, Data> {
+    pub fn into_widget(self) -> Form<{ TOTAL_SIZE }, Data> {
+        Form {
+            sel: self.sel,
+            data: self.data,
+            store: [0; TOTAL_SIZE],
+            offset: 0,
+        }
+    }
+}
+
+impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> JellyhajWidgetState
     for FormState<{ TOTAL_SIZE }, Data>
 {
     type Action = FormAction;
@@ -81,17 +90,10 @@ impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE> + 'static> JellyhajWidg
 
     const NAME: &str = Data::TITLE;
 
-    fn visit_tree(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        todo!()
-    }
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
     fn into_widget(self, cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
-        Form {
-            sel: self.sel,
-            data: self.data,
-            store: [0; TOTAL_SIZE],
-            offset: 0,
-        }
+        self.into_widget()
     }
 
     fn apply_action(
@@ -99,18 +101,18 @@ impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE> + 'static> JellyhajWidg
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        todo!()
+        Ok(None)
     }
 }
 
-pub struct Form<const TOTAL_SIZE: usize, State: FormData<{ TOTAL_SIZE }>> {
-    sel: State::Selector,
-    data: State,
+pub struct Form<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> {
+    pub sel: Data::Selector,
+    pub data: Data,
     store: [u16; TOTAL_SIZE],
     offset: u16,
 }
 
-impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }> + 'static> JellyhajWidget
+impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget
     for Form<{ TOTAL_SIZE }, Data>
 {
     type Action = FormAction;
@@ -618,5 +620,15 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<()>>
         this_area.height = I::HEIGHT;
         this_area.y += self.store[INDEX] - self.offset;
         I::render_pass_popup(state, this_area, self.area, self.buf, name, sel)
+    }
+}
+
+pub struct FormCommandMapper;
+
+impl CommandMapper<FormCommand> for FormCommandMapper {
+    type A = FormCommand;
+
+    fn map(&self, command: FormCommand) -> ControlFlow<Navigation, Self::A> {
+        ControlFlow::Continue(command)
     }
 }

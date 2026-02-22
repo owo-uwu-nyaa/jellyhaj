@@ -6,6 +6,7 @@ use ratatui::widgets::Widget;
 
 use crate::FormItem;
 
+#[derive(Debug)]
 pub struct Label;
 
 impl<AR: From<Infallible>> FormItem<AR> for Label {

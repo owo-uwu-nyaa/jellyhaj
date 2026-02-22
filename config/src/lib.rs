@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 
 use color_eyre::eyre::{Context, OptionExt, Result};
 use libmpv::MpvProfile;
@@ -21,7 +21,7 @@ pub struct Config {
     pub login_file: PathBuf,
     pub mpv_log_level: String,
     pub mpv_profile: MpvProfile,
-    pub help_prefixes: Vec<String>,
+    pub help_prefixes: Arc<[String]>,
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: u16,
 }
@@ -109,7 +109,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         keybinds,
         mpv_log_level: config.mpv_log_level,
         mpv_profile,
-        help_prefixes,
+        help_prefixes: help_prefixes.into(),
         mpv_config_file: config.mpv_config_file,
         entry_image_width: config.entry_image_width.unwrap_or(32),
     })

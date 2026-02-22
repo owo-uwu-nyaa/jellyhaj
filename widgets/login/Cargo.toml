@@ -4,6 +4,9 @@ jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 color-eyre.workspace = true
 ratatui.workspace = true
 serde.workspace = true
+jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
 
 [package]
 edition = "2024"

@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, BorderType, Widget};
 
 use crate::{FormAction, FormItem};
 
+#[derive(Debug)]
 pub struct TextField {
     pub text: String,
 }

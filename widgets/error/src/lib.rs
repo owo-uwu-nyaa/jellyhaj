@@ -2,7 +2,7 @@ use std::{cmp::min, convert::Infallible};
 
 use ansi_to_tui::IntoText;
 use color_eyre::eyre::Context;
-use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState};
 use ratatui::{
     layout::Margin,
     widgets::{
@@ -15,6 +15,14 @@ pub struct ErrorWidget {
     text: String,
     pos_x: usize,
     pos_y: usize,
+}
+
+impl std::fmt::Debug for ErrorWidget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ErrorWidget")
+            .field("text", &self.text)
+            .finish()
+    }
 }
 
 impl ErrorWidget {
@@ -35,8 +43,35 @@ pub enum ErrorAction {
     Right,
 }
 
+impl JellyhajWidgetState for ErrorWidget {
+    type Action = ErrorAction;
+
+    type ActionResult = Infallible;
+
+    type Widget = ErrorWidget;
+
+    const NAME: &str = "error";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, _: std::pin::Pin<&mut jellyhaj_widgets_core::TuiContext>) -> Self::Widget {
+        self
+    }
+
+    fn apply_action(
+        &mut self,
+        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
+            Self::Action,
+            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
+        >,
+        _: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        Ok(None)
+    }
+}
+
 impl JellyhajWidget for ErrorWidget {
-    type State = ();
+    type State = ErrorWidget;
 
     type Action = ErrorAction;
 
@@ -50,7 +85,9 @@ impl JellyhajWidget for ErrorWidget {
         Some(5)
     }
 
-    fn into_state(self) -> Self::State {}
+    fn into_state(self) -> Self::State {
+        self
+    }
 
     fn accepts_text_input(&self) -> bool {
         false

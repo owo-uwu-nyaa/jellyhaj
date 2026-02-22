@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, BorderType, Widget};
 
 use crate::FormItem;
 
+#[derive(Debug)]
 pub struct SecretField {
     pub secret: String,
 }

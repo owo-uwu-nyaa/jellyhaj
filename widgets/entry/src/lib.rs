@@ -1,15 +1,17 @@
+pub mod map;
+
 use color_eyre::Result;
 use jellyfin::{
-    JellyfinClient,
     image::select_images,
     items::{ItemType, MediaItem},
     user_views::UserView,
 };
+use jellyhaj_core::{keybinds::EntryCommand, state::Navigation};
 use jellyhaj_image::{JellyfinImage, JellyfinImageState};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageProtocolCache};
 use jellyhaj_widgets_core::{
-    Config, FontSize, ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper,
-    async_task::TaskSubmitter,
+    Config, FontSize, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState,
+    TuiContext, Wrapper, async_task::TaskSubmitter,
 };
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
@@ -18,7 +20,7 @@ use ratatui::{
     text::Span,
     widgets::{Block, BorderType, Paragraph, Widget},
 };
-use std::{borrow::Cow, fmt::Debug, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, pin::Pin};
 use tracing::instrument;
 
 #[derive(Debug, Clone)]
@@ -45,26 +47,6 @@ impl EntryData {
     }
 }
 
-pub struct Entry {
-    image: Option<JellyfinImage>,
-    title: String,
-    subtitle: Option<String>,
-    inner: EntryData,
-    watch_status: Option<Cow<'static, str>>,
-    size: Size,
-    active: bool,
-}
-
-impl Debug for Entry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Entry")
-            .field("title", &self.title)
-            .field("subtitle", &self.subtitle)
-            .field("watch_status", &self.watch_status)
-            .finish_non_exhaustive()
-    }
-}
-
 fn calc_dimensions(config: &Config, font_size: FontSize) -> Size {
     let image_width = config.entry_image_width;
     let image_height = {
@@ -80,27 +62,95 @@ fn calc_dimensions(config: &Config, font_size: FontSize) -> Size {
     }
 }
 
+#[derive(Debug)]
+pub struct EntryState {
+    image: Option<JellyfinImageState>,
+    title: String,
+    subtitle: Option<String>,
+    inner: EntryData,
+    watch_status: Option<Cow<'static, str>>,
+}
+
+impl JellyhajWidgetState for EntryState {
+    type Action = EntryAction;
+
+    type ActionResult = Navigation;
+
+    type Widget = Entry;
+
+    const NAME: &str = "entry";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<JellyfinImageState>();
+    }
+
+    fn into_widget(
+        self,
+        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
+    ) -> Self::Widget {
+        let size = calc_dimensions(&cx.config, cx.image_picker.font_size());
+        Entry {
+            image: self.image.map(move |i| i.into_widget(cx)),
+            title: self.title,
+            subtitle: self.subtitle,
+            inner: self.inner,
+            watch_status: self.watch_status,
+            size,
+            active: false,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        match action {
+            EntryAction::Inner(a) => {
+                if let Some(image) = self.image.as_mut() {
+                    let None = image.apply_action(task.wrap_with(EntryWrapper), a)?;
+                }
+                Ok(None)
+            }
+            EntryAction::Command(entry_command) => Ok(self.inner.apply_command(entry_command)),
+        }
+    }
+}
+
+pub struct Entry {
+    image: Option<JellyfinImage>,
+    title: String,
+    subtitle: Option<String>,
+    inner: EntryData,
+    watch_status: Option<Cow<'static, str>>,
+    size: Size,
+    active: bool,
+}
+
 impl Entry {
     pub fn data(&self) -> &EntryData {
         &self.inner
     }
-    pub fn new(
-        state: EntryData,
-        jellyfin: &JellyfinClient,
-        db: &Arc<tokio::sync::Mutex<SqliteConnection>>,
-        cache: &ImageProtocolCache,
-        picker: &Arc<Picker>,
-        stats: &Stats,
-        config: &Config,
-    ) -> Entry {
-        let size = calc_dimensions(config, picker.font_size());
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Entry")
+            .field("title", &self.title)
+            .field("subtitle", &self.subtitle)
+            .field("watch_status", &self.watch_status)
+            .finish_non_exhaustive()
+    }
+}
+
+impl EntryState {
+    pub fn data(&self) -> &EntryData {
+        &self.inner
+    }
+    pub fn new(state: EntryData, cx: Pin<&mut TuiContext>) -> EntryState {
         match state {
-            EntryData::Item(media_item) => {
-                from_media_item(media_item, jellyfin, db, cache, picker, stats, size)
-            }
-            EntryData::View(user_view) => {
-                from_user_view(user_view, jellyfin, db, cache, picker, stats, size)
-            }
+            EntryData::Item(media_item) => from_media_item(media_item, cx),
+            EntryData::View(user_view) => from_user_view(user_view, cx),
         }
     }
 }
@@ -108,24 +158,7 @@ impl Entry {
 #[derive(Debug)]
 pub enum EntryAction {
     Inner(<JellyfinImage as JellyhajWidget>::Action),
-    Activate,
-    Play,
-    Open,
-    OpenSeries,
-    OpenSeason,
-    OpenEpisode,
-    Refresh,
-}
-
-#[derive(Debug)]
-pub enum EntryResult {
-    Activate(EntryData),
-    Play(EntryData),
-    Open(EntryData),
-    OpenSeries(EntryData),
-    OpenSeason(EntryData),
-    OpenEpisode(EntryData),
-    Refresh(EntryData),
+    Command(EntryCommand),
 }
 
 #[derive(Clone, Copy)]
@@ -140,9 +173,9 @@ impl Wrapper<<JellyfinImage as JellyhajWidget>::Action> for EntryWrapper {
 }
 
 impl ItemWidget for Entry {
-    type State = EntryData;
+    type State = EntryState;
     type Action = EntryAction;
-    type ActionResult = EntryResult;
+    type ActionResult = Navigation;
 
     fn dimensions_static(par: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Size {
         calc_dimensions(par.config, par.font_size)
@@ -151,28 +184,28 @@ impl ItemWidget for Entry {
         self.size
     }
     fn into_state(self) -> Self::State {
-        self.inner
+        EntryState {
+            image: self.image.map(JellyfinImage::into_state),
+            title: self.title,
+            subtitle: self.subtitle,
+            inner: self.inner,
+            watch_status: self.watch_status,
+        }
     }
     fn apply_action(
         &mut self,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        Ok(Some(match action {
+        Ok(match action {
             EntryAction::Inner(action) => {
                 if let Some(image) = self.image.as_mut() {
                     let None = image.apply_action(task.wrap_with(EntryWrapper), action)?;
                 }
-                return Ok(None);
+                None
             }
-            EntryAction::Activate => EntryResult::Activate(self.inner.clone()),
-            EntryAction::Play => EntryResult::Play(self.inner.clone()),
-            EntryAction::Open => EntryResult::Open(self.inner.clone()),
-            EntryAction::OpenSeries => EntryResult::OpenSeries(self.inner.clone()),
-            EntryAction::OpenSeason => EntryResult::OpenSeason(self.inner.clone()),
-            EntryAction::OpenEpisode => EntryResult::OpenEpisode(self.inner.clone()),
-            EntryAction::Refresh => EntryResult::Refresh(self.inner.clone()),
-        }))
+            EntryAction::Command(entry_command) => self.inner.apply_command(entry_command),
+        })
     }
     fn click(
         &mut self,
@@ -183,7 +216,7 @@ impl ItemWidget for Entry {
         _: ratatui::crossterm::event::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
-            Ok(Some(EntryResult::Activate(self.inner.clone())))
+            Ok(self.inner.apply_command(EntryCommand::Activate))
         } else {
             Ok(None)
         }
@@ -243,15 +276,7 @@ impl ItemWidget for Entry {
     }
 }
 
-fn from_media_item(
-    item: MediaItem,
-    jellyfin: &JellyfinClient,
-    db: &Arc<tokio::sync::Mutex<SqliteConnection>>,
-    cache: &ImageProtocolCache,
-    picker: &Arc<Picker>,
-    stats: &Stats,
-    size: Size,
-) -> Entry {
+fn from_media_item(item: MediaItem, mut cx: Pin<&mut TuiContext>) -> EntryState {
     let (title, subtitle) = match &item.item_type {
         ItemType::Movie | ItemType::Unknown | ItemType::CollectionFolder => {
             (item.name.clone(), None)
@@ -272,19 +297,7 @@ fn from_media_item(
     };
     let image = select_images(&item)
         .map(|(image_type, tag)| {
-            let image = JellyfinImageState {
-                item_id: item.id.clone(),
-                tag: tag.to_string(),
-                image_type,
-            };
-            JellyfinImage::new(
-                image,
-                jellyfin.clone(),
-                db.clone(),
-                cache.clone(),
-                stats.clone(),
-                picker.clone(),
-            )
+            JellyfinImageState::new(item.id.clone(), tag.to_string(), image_type, cx.as_mut())
         })
         .next();
     let watch_status = if let Some(user_data) = item.user_data.as_ref() {
@@ -298,26 +311,16 @@ fn from_media_item(
     } else {
         None
     };
-    Entry {
+    EntryState {
         image,
         title,
         subtitle,
         inner: EntryData::Item(item),
         watch_status,
-        active: false,
-        size,
     }
 }
 
-fn from_user_view(
-    item: UserView,
-    jellyfin: &JellyfinClient,
-    db: &Arc<tokio::sync::Mutex<SqliteConnection>>,
-    cache: &ImageProtocolCache,
-    picker: &Arc<Picker>,
-    stats: &Stats,
-    size: Size,
-) -> Entry {
+fn from_user_view(item: UserView, cx: Pin<&mut TuiContext>) -> EntryState {
     let title = item.name.clone();
     let image = item
         .image_tags
@@ -325,27 +328,13 @@ fn from_user_view(
         .flat_map(|map| map.iter())
         .next()
         .map(|(image_type, tag)| {
-            let image = JellyfinImageState {
-                item_id: item.id.clone(),
-                tag: tag.to_string(),
-                image_type: *image_type,
-            };
-            JellyfinImage::new(
-                image,
-                jellyfin.clone(),
-                db.clone(),
-                cache.clone(),
-                stats.clone(),
-                picker.clone(),
-            )
+            JellyfinImageState::new(item.id.clone(), tag.clone(), *image_type, cx)
         });
-    Entry {
+    EntryState {
         image,
         title,
         subtitle: None,
         inner: EntryData::View(item),
         watch_status: None,
-        active: false,
-        size,
     }
 }

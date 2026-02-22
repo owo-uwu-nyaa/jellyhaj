@@ -1,6 +1,8 @@
 use std::convert::Infallible;
 
-use jellyhaj_widgets_core::{JellyhajWidget, Result, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
+};
 use ratatui::{
     style::{Color, Style},
     widgets::{Block, Padding, Widget},
@@ -13,6 +15,12 @@ pub struct LogWidget {
     state: TuiWidgetState,
 }
 
+impl std::fmt::Debug for LogWidget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LogWidget").finish()
+    }
+}
+
 impl LogWidget {
     pub fn new() -> Self {
         Self {
@@ -21,8 +29,33 @@ impl LogWidget {
     }
 }
 
+impl JellyhajWidgetState for LogWidget {
+    type Action = TuiWidgetEvent;
+
+    type ActionResult = Infallible;
+
+    type Widget = Self;
+
+    const NAME: &str = "log-view";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        self
+    }
+
+    fn apply_action(
+        &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        self.state.transition(action);
+        Ok(None)
+    }
+}
+
 impl JellyhajWidget for LogWidget {
-    type State = ();
+    type State = Self;
 
     type Action = TuiWidgetEvent;
 
@@ -36,7 +69,9 @@ impl JellyhajWidget for LogWidget {
         Some(15)
     }
 
-    fn into_state(self) -> Self::State {}
+    fn into_state(self) -> Self::State {
+        self
+    }
 
     fn accepts_text_input(&self) -> bool {
         false

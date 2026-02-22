@@ -2,14 +2,16 @@ mod fetch;
 
 pub use image_cache as cache;
 pub use image_cache::ImageSize;
-use std::{cmp::min, convert::Infallible, mem, sync::Arc};
+use std::{cmp::min, convert::Infallible, mem, pin::Pin, sync::Arc};
 
 use image_cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef};
 
 use crate::fetch::{ParsedImage, get_image};
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, TuiContext, Wrapper, async_task::TaskSubmitter,
+};
 use ratatui::{
     layout::{Rect, Size},
     widgets::Widget,
@@ -21,21 +23,36 @@ pub use stats_data::Stats;
 pub use tokio;
 use tracing::info_span;
 
-pub struct JellyfinImage {
+struct ImageCacher {
+    image: Option<(Protocol, ImageSize)>,
+    cache: ImageProtocolCache,
+    image_type: ImageType,
     item_id: String,
     tag: String,
-    image_type: ImageType,
+}
+
+impl std::fmt::Debug for ImageCacher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ImageCacher")
+            .field("image", &if self.image.is_some() { "Some" } else { "None" })
+            .field("image_type", &self.image_type)
+            .field("item_id", &self.item_id)
+            .field("tag", &self.tag)
+            .finish()
+    }
+}
+
+pub struct JellyfinImage {
     jellyfin: JellyfinClient,
     db: Arc<tokio::sync::Mutex<SqliteConnection>>,
-    image: Option<(Protocol, ImageSize)>,
     size: Size,
-    cache: ImageProtocolCache,
     stats: Stats,
     picker: Arc<Picker>,
     loading: bool,
+    image: ImageCacher,
 }
 
-impl Drop for JellyfinImage {
+impl Drop for ImageCacher {
     fn drop(&mut self) {
         if let Some((protocol, size)) = self.image.take() {
             let key = ImageProtocolKey {
@@ -50,53 +67,30 @@ impl Drop for JellyfinImage {
 }
 
 impl JellyfinImage {
-    pub fn new(
-        state: JellyfinImageState,
-        jellyfin: JellyfinClient,
-        db: Arc<tokio::sync::Mutex<SqliteConnection>>,
-        cache: ImageProtocolCache,
-        stats: Stats,
-        picker: Arc<Picker>,
-    ) -> Self {
-        Self {
-            item_id: state.item_id,
-            tag: state.tag,
-            image_type: state.image_type,
-            jellyfin,
-            db,
-            image: None,
-            size: Size::ZERO,
-            cache,
-            stats,
-            picker,
-            loading: false,
-        }
-    }
-
     fn get_image(
         &mut self,
         task_submitter: TaskSubmitter<ParsedImage, impl Wrapper<ParsedImage>>,
     ) -> Option<&Protocol> {
-        if self.image.is_some() {
-            self.image.as_ref().map(|(p, _)| p)
+        if self.image.image.is_some() {
+            self.image.image.as_ref().map(|(p, _)| p)
         } else {
             let p_height = (self.size.height as u32) * (self.picker.font_size().1 as u32);
             let p_width = (self.size.width as u32) * (self.picker.font_size().0 as u32);
             if !self.loading {
                 let image_size = ImageSize { p_width, p_height };
-                let cached = self.cache.remove(&ImageProtocolKeyRef::new(
-                    self.image_type,
-                    &self.item_id,
-                    &self.tag,
+                let cached = self.image.cache.remove(&ImageProtocolKeyRef::new(
+                    self.image.image_type,
+                    &self.image.item_id,
+                    &self.image.tag,
                     image_size,
                 ));
                 if let Some(image) = cached {
-                    Some(&self.image.insert((image, image_size)).0)
+                    Some(&self.image.image.insert((image, image_size)).0)
                 } else {
                     let key = ImageProtocolKey {
-                        image_type: self.image_type,
-                        item_id: self.item_id.clone(),
-                        tag: self.tag.clone(),
+                        image_type: self.image.image_type,
+                        item_id: self.image.item_id.clone(),
+                        tag: self.image.tag.clone(),
                         size: image_size,
                     };
                     let db = self.db.clone();
@@ -116,22 +110,121 @@ impl JellyfinImage {
     }
 }
 
+fn add_image(
+    loading: &mut bool,
+    size: Size,
+    image_out: &mut Option<(Protocol, ImageSize)>,
+    picker: &Picker,
+    action: ParsedImage,
+) -> Result<Option<Infallible>, color_eyre::eyre::Error> {
+    *loading = false;
+    if action.size == size {
+        let width = min(
+            size.width as u32,
+            action.image.width().div_ceil(picker.font_size().0 as u32),
+        ) as u16;
+        let height = min(
+            size.height as u32,
+            action.image.height().div_ceil(picker.font_size().1 as u32),
+        ) as u16;
+        let image = picker
+            .new_protocol(
+                action.image,
+                Rect {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                },
+                Resize::Fit(None),
+            )
+            .context("generating protocol")?;
+        *image_out = Some((image, action.image_size));
+    }
+    Ok(None)
+}
+
+#[derive(Debug)]
 pub struct JellyfinImageState {
-    pub item_id: String,
-    pub tag: String,
-    pub image_type: ImageType,
+    size: Size,
+    picker: Arc<Picker>,
+    loading: bool,
+    image: ImageCacher,
+}
+
+impl JellyfinImageState {
+    pub fn new(
+        item_id: String,
+        tag: String,
+        image_type: ImageType,
+        cx: Pin<&mut TuiContext>,
+    ) -> Self {
+        Self {
+            size: Size::ZERO,
+            picker: cx.image_picker.clone(),
+            loading: false,
+            image: ImageCacher {
+                image: None,
+                cache: cx.image_cache.clone(),
+                image_type,
+                item_id,
+                tag,
+            },
+        }
+    }
+}
+
+impl JellyhajWidgetState for JellyfinImageState {
+    type Action = ParsedImage;
+
+    type ActionResult = Infallible;
+
+    type Widget = JellyfinImage;
+
+    const NAME: &str = "image";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, cx: Pin<&mut TuiContext>) -> Self::Widget {
+        JellyfinImage {
+            jellyfin: cx.jellyfin.clone(),
+            db: cx.cache.clone(),
+            size: self.size,
+            stats: cx.stats.clone(),
+            picker: self.picker,
+            loading: self.loading,
+            image: self.image,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        add_image(
+            &mut self.loading,
+            self.size,
+            &mut self.image.image,
+            &self.picker,
+            action,
+        )
+    }
 }
 
 impl JellyhajWidget for JellyfinImage {
-    type State = JellyfinImageState;
     type Action = ParsedImage;
+
     type ActionResult = Infallible;
+
+    type State = JellyfinImageState;
 
     fn into_state(self) -> Self::State {
         JellyfinImageState {
-            item_id: self.item_id.clone(),
-            tag: self.tag.clone(),
-            image_type: self.image_type,
+            size: self.size,
+            picker: self.picker,
+            loading: self.loading,
+            image: self.image,
         }
     }
 
@@ -145,7 +238,7 @@ impl JellyhajWidget for JellyfinImage {
         let old_size = self.size;
         if new_size != old_size {
             self.size = new_size;
-            self.image = None;
+            self.image.image = None;
         }
         if let Some(image) = self.get_image(task) {
             area.x += (area.width - new_size.width) / 2;
@@ -162,38 +255,13 @@ impl JellyhajWidget for JellyfinImage {
         _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        self.loading = false;
-        if action.size == self.size {
-            let width = min(
-                self.size.width as u32,
-                action
-                    .image
-                    .width()
-                    .div_ceil(self.picker.font_size().0 as u32),
-            ) as u16;
-            let height = min(
-                self.size.height as u32,
-                action
-                    .image
-                    .height()
-                    .div_ceil(self.picker.font_size().1 as u32),
-            ) as u16;
-            let image = self
-                .picker
-                .new_protocol(
-                    action.image,
-                    Rect {
-                        x: 0,
-                        y: 0,
-                        width,
-                        height,
-                    },
-                    Resize::Fit(None),
-                )
-                .context("generating protocol")?;
-            self.image = Some((image, action.image_size))
-        }
-        Ok(None)
+        add_image(
+            &mut self.loading,
+            self.size,
+            &mut self.image.image,
+            &self.picker,
+            action,
+        )
     }
 
     fn click(

@@ -11,22 +11,61 @@ use std::{
 };
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, Rect, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetState, Rect, TuiContext, Wrapper, async_task::TaskSubmitter,
+};
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
+
+struct Stop(Arc<AtomicBool>);
 
 pub struct Loading {
     title: Cow<'static, str>,
     timeout: u8,
     lines: Vec<u16>,
     spawned: bool,
-    stop: Arc<AtomicBool>,
+    stop: Stop,
 }
 
-impl Drop for Loading {
+#[derive(Debug)]
+pub struct LoadingState {
+    title: Cow<'static, str>,
+}
+
+impl LoadingState {
+    pub fn new(title: Cow<'static, str>) -> Self {
+        Self { title }
+    }
+}
+
+impl JellyhajWidgetState for LoadingState {
+    type Action = AdvanceLoadingScreen;
+
+    type ActionResult = Infallible;
+
+    type Widget = Loading;
+
+    const NAME: &str = "loading";
+
+    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        Loading::new(self.title)
+    }
+
+    fn apply_action(
+        &mut self,
+        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        Ok(None)
+    }
+}
+
+impl Drop for Stop {
     fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
+        self.0.store(true, Ordering::Relaxed);
     }
 }
 
@@ -37,7 +76,7 @@ impl Loading {
             timeout: 0,
             lines: Vec::new(),
             spawned: false,
-            stop: Arc::new(AtomicBool::new(false)),
+            stop: Stop(Arc::new(AtomicBool::new(false))),
         }
     }
 }
@@ -50,7 +89,7 @@ const TICK_INTERVAL: Duration = Duration::from_millis(200);
 pub struct AdvanceLoadingScreen;
 
 impl JellyhajWidget for Loading {
-    type State = ();
+    type State = LoadingState;
     type Action = AdvanceLoadingScreen;
     type ActionResult = Infallible;
 
@@ -62,7 +101,7 @@ impl JellyhajWidget for Loading {
     }
 
     fn into_state(self) -> Self::State {
-        self.stop.store(true, Ordering::Relaxed);
+        LoadingState { title: self.title }
     }
 
     fn apply_action(
@@ -100,7 +139,7 @@ impl JellyhajWidget for Loading {
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
-            let stop = self.stop.clone();
+            let stop = self.stop.0.clone();
             let timer = unfold(interval(TICK_INTERVAL), move |mut interval| {
                 let stop = stop.load(Ordering::Relaxed);
                 async move {
@@ -184,13 +223,5 @@ impl JellyhajWidget for Loading {
 
     fn accept_text(&mut self, _: String) {
         unimplemented!()
-    }
-
-    fn apply_action_to_state(
-        _: &mut Self::State,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
-        _: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        Ok(None)
     }
 }

@@ -1,8 +1,9 @@
 [dependencies]
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-core = { path = "../../jellyhaj-core", version = "0.1.0" }
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-stats-widget = {path = "../../widgets/stats", version = "0.1.0"}
 color-eyre.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
 
 [package]
 edition = "2024"

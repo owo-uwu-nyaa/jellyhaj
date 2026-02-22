@@ -30,9 +30,20 @@ impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R>
     }
 }
 
-pub trait WidgetTreeVisitor {
-    fn enter(&mut self, name: &'static str);
-    fn exit(&mut self);
+pub trait TreeVisitor {
+    fn enter(&mut self, name: &'static str, visit_children: fn(&mut dyn TreeVisitor));
+}
+
+pub trait WidgetTreeVisitor: Sized {
+    fn visit<S: JellyhajWidgetState>(&mut self);
+}
+
+impl WidgetTreeVisitor for &mut dyn TreeVisitor {
+    fn visit<S: JellyhajWidgetState>(&mut self) {
+        self.enter(S::NAME, |mut this| {
+            S::visit_children(&mut this);
+        });
+    }
 }
 
 pub trait JellyhajWidgetState: Debug + Send + 'static {
@@ -42,7 +53,7 @@ pub trait JellyhajWidgetState: Debug + Send + 'static {
 
     const NAME: &str;
 
-    fn visit_tree(visitor: &mut impl WidgetTreeVisitor);
+    fn visit_children(visitor: &mut impl WidgetTreeVisitor);
 
     fn into_widget(self, cx: Pin<&mut jellyhaj_context::TuiContext>) -> Self::Widget;
     fn apply_action(

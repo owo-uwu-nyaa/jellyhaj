@@ -1,3 +1,5 @@
+use std::{borrow::Cow, ops::ControlFlow, pin::Pin};
+
 use color_eyre::{
     Result,
     eyre::{Context, OptionExt},
@@ -6,58 +8,46 @@ use jellyfin::{
     JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
 };
-use jellyhaj_core::{keybinds::LoadingCommand, state::Navigation};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_loading_widget::Loading;
-use jellyhaj_render_widgets::TermExt;
-use keybinds::{BindingMap, KeybindEvents};
-use ratatui::DefaultTerminal;
-use spawn::Spawner;
-use tokio::select;
+use jellyhaj_core::{
+    CommandMapper, keybinds::LoadingCommand, render::{NavigationResult, render_widget}, state::{Navigation, Next}
+};
+use jellyhaj_fetch_widget::{FetchAction, FetchState};
+use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_loading_widget::{AdvanceLoadingScreen, LoadingState};
+use jellyhaj_widgets_core::{
+    TuiContext, outer::{Named, OuterState}
+};
 use tracing::instrument;
 
-#[derive(Debug)]
-struct QuitAction;
+struct FetchMapper;
 
-#[derive(Debug)]
-pub struct Quit {
-    exit: bool,
-}
+impl CommandMapper<LoadingCommand> for FetchMapper {
+    type A = FetchAction<AdvanceLoadingScreen>;
 
-pub async fn render_fetch(
-    title: &str,
-    events: &mut KeybindEvents,
-    keybinds: BindingMap<LoadingCommand>,
-    term: &mut DefaultTerminal,
-    help_prefixes: &[String],
-    spawner: Spawner,
-) -> Result<Quit> {
-    let mut widget = KeybindWidget::new(
-        Loading::new(title),
-        help_prefixes,
-        keybinds,
-        |LoadingCommand::Quit| MappedCommand::Up(QuitAction),
-    );
-    Ok(match term.render(&mut widget, events, spawner).await? {
-        CommandAction::Up(QuitAction) => Quit { exit: false },
-        CommandAction::Exit => Quit { exit: true },
-    })
-}
-
-pub async fn render_fetch_future(
-    title: &str,
-    fetch: impl Future<Output = Result<Navigation>>,
-    events: &mut KeybindEvents,
-    keybinds: BindingMap<LoadingCommand>,
-    term: &mut DefaultTerminal,
-    help_prefixes: &[String],
-    spawner: Spawner,
-) -> Result<Navigation> {
-    select! {
-        v = fetch => v,
-        v = render_fetch(title, events, keybinds, term, help_prefixes, spawner) => {
-            Ok(if v?.exit {Navigation::Exit} else {Navigation::PopContext})}
+    fn map(&self, command: LoadingCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
+        match command {
+            LoadingCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+        }
     }
+}
+
+struct Name;
+impl Named for Name {
+    const NAME: &str = "fetch";
+}
+
+pub fn make_fetch(
+    cx: Pin<&mut TuiContext>,
+    title: Cow<'static, str>,
+    fut: impl Future<Output = Result<Next>> + Send + 'static,
+) -> impl Future<Output = NavigationResult>{
+    let state = OuterState::<Name, _, _>::new(KeybindState::new(
+        FetchState::new(fut, LoadingState::new(title)),
+        cx.config.help_prefixes.clone(),
+        cx.config.keybinds.fetch.clone(),
+        FetchMapper,
+    ));
+    render_widget(cx, state)
 }
 
 #[instrument(skip(jellyfin))]

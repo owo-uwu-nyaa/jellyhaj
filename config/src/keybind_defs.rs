@@ -13,8 +13,7 @@ pub struct Keybinds {
     pub error: BindingMap<ErrorCommand>,
     pub item_details: BindingMap<ItemDetailsCommand>,
     pub item_list_details: BindingMap<ItemListDetailsCommand>,
-    pub refresh_item: BindingMap<RefreshItemCommand>,
-    pub unsupported_item: BindingMap<UnsupportedItemCommand>,
+    pub form: BindingMap<FormCommand>,
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -40,11 +39,6 @@ pub enum StatsCommand {
 }
 
 #[derive(Debug, Clone, Copy, Command)]
-pub enum UnsupportedItemCommand {
-    Quit,
-}
-
-#[derive(Debug, Clone, Copy, Command)]
 pub enum LoadingCommand {
     Quit,
 }
@@ -55,12 +49,26 @@ pub enum MpvCommand {
     Pause,
 }
 
-#[derive(Debug, Clone, Copy, Command)]
-pub enum RefreshItemCommand {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
+pub enum FormCommand {
     Quit,
     Up,
     Down,
-    Select,
+    Left,
+    Right,
+    Delete,
+    Enter,
+}
+
+#[derive(Debug, Clone, Copy, Command)]
+pub enum EntryCommand {
+    Activate,
+    Play,
+    Open,
+    OpenSeries,
+    OpenSeason,
+    OpenEpisode,
+    RefreshItem,
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -71,12 +79,8 @@ pub enum UserViewCommand {
     Next,
     Up,
     Down,
-    Open,
-    Play,
-    OpenEpisode,
-    OpenSeason,
-    OpenSeries,
-    RefreshItem,
+    #[command(flatten)]
+    Entry(EntryCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -87,13 +91,8 @@ pub enum HomeScreenCommand {
     Right,
     Up,
     Down,
-    Open,
-    Play,
-    PlayOpen,
-    OpenEpisode,
-    OpenSeason,
-    OpenSeries,
-    RefreshItem,
+    #[command(flatten)]
+    Entry(EntryCommand),
     ShowStats,
     ShowLogs,
 }
@@ -123,9 +122,9 @@ pub enum ItemDetailsCommand {
     Quit,
     Up,
     Down,
-    Play,
     Reload,
-    RefreshItem,
+    #[command(flatten)]
+    Entry(EntryCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -136,11 +135,7 @@ pub enum ItemListDetailsCommand {
     Down,
     Left,
     Right,
-    Play,
-    Open,
-    OpenEpisode,
-    OpenSeason,
-    OpenSeries,
-    RefreshCurrentItem,
+    #[command(flatten)]
+    Entry(EntryCommand),
     RefreshParentItem,
 }

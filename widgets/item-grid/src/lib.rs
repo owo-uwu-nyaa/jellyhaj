@@ -1,10 +1,12 @@
 use std::{
     cmp::min,
+    fmt::Debug,
     ops::{Index, IndexMut},
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Wrapper, async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext, Wrapper,
+    async_task::TaskSubmitter,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -54,11 +56,88 @@ impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
     }
 }
 
-#[derive(Debug)]
-pub struct ItemGridData<T> {
-    pub items: Vec<T>,
+pub struct ItemGridData<W: ItemWidget> {
+    pub items: Vec<W::State>,
     pub title: String,
     pub current: usize,
+}
+
+impl<W: ItemWidget> std::fmt::Debug for ItemGridData<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ItemGridData")
+            .field("items", &self.items)
+            .field("title", &self.title)
+            .field("current", &self.current)
+            .finish()
+    }
+}
+
+impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
+    type Action = ItemGridAction<T::Action>;
+
+    type ActionResult = T::ActionResult;
+
+    type Widget = ItemGrid<T>;
+
+    const NAME: &str = "grid";
+
+    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<T::State>();
+    }
+
+    fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+        ItemGrid {
+            items: self
+                .items
+                .into_iter()
+                .map(|s| s.into_widget(cx.as_mut()))
+                .collect(),
+            current: self.current,
+            width: 1,
+            title: self.title,
+            item_size: <T as ItemWidget>::dimensions_static(DimensionsParameter {
+                config: &cx.config,
+                font_size: cx.image_picker.font_size(),
+            }),
+            skip_rows: 0,
+        }
+    }
+
+    fn apply_action(
+        &mut self,
+        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        action: Self::Action,
+    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        match action {
+            ItemGridAction::SpecificInner(index, action) => self
+                .items
+                .get_mut(index)
+                .and_then(|v| {
+                    JellyhajWidgetState::apply_action(
+                        v,
+                        task.wrap_with(GridWrapper { index }),
+                        action,
+                    )
+                    .transpose()
+                })
+                .transpose(),
+            ItemGridAction::CurrentInner(action) => self
+                .items
+                .get_mut(self.current)
+                .and_then(|v| {
+                    JellyhajWidgetState::apply_action(
+                        v,
+                        task.wrap_with(GridWrapper {
+                            index: self.current,
+                        }),
+                        action,
+                    )
+                    .transpose()
+                })
+                .transpose(),
+            _ => Ok(None),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -85,7 +164,7 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
-    type State = ItemGridData<<T as ItemWidget>::State>;
+    type State = ItemGridData<T>;
     type Action = ItemGridAction<<T as ItemWidget>::Action>;
     type ActionResult = <T as ItemWidget>::ActionResult;
 

@@ -1,6 +1,5 @@
-use std::char::ToUppercase;
-
-use proc_macro2::{Span, TokenStream};
+use convert_case::{Case, Casing};
+use proc_macro2::TokenStream;
 use quote::format_ident;
 
 use crate::form::{FormItem, ParseResult};
@@ -26,46 +25,6 @@ impl Parse for Args {
                 .map_err(|e| Error::new(e.span(), "Expected action_result type"))?,
         })
     }
-}
-
-enum Upper {
-    None,
-    Unchanged(char),
-    Changed(ToUppercase),
-}
-
-impl Iterator for Upper {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Upper::None => None,
-            Upper::Unchanged(c) => {
-                let c = *c;
-                *self = Upper::None;
-                Some(c)
-            }
-            Upper::Changed(to_uppercase) => to_uppercase.next(),
-        }
-    }
-}
-
-fn camel_case(snake: &str) -> String {
-    let mut up = true;
-    snake
-        .chars()
-        .flat_map(|c| {
-            if c == '_' {
-                up = true;
-                Upper::None
-            } else if up {
-                up = false;
-                Upper::Changed(c.to_uppercase())
-            } else {
-                Upper::Unchanged(c)
-            }
-        })
-        .collect()
 }
 
 pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
@@ -140,7 +99,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                     let name = name.to_string();
                     format_ident!("_show_if_{name}")
                 });
-                let selection_id = Ident::new(&camel_case(&name.to_string()), Span::call_site());
+                let selection_id = Ident::new(&name.to_string().to_case(Case::Pascal), name.span());
                 Ok(FormItem {
                     name,
                     ty: field.ty.clone(),
@@ -152,14 +111,23 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                 })
             })
             .collect();
-        let state_ty = input.ident.clone();
+        let data_ty = input.ident.clone();
+        let size_ident = Ident::new(
+            &format!("{}_SIZE", input.ident.to_string().to_case(Case::Constant)),
+            input.ident.span(),
+        );
+        let state_name = Ident::new(&format!("{}State", input.ident), input.ident.span());
+        let widget_name = Ident::new(&format!("{}Widget", input.ident), input.ident.span());
         Ok(ParseResult {
             full: input,
             fields: fields?,
             name: args.name,
             action_result: args.action_result,
-            state_ty,
+            data_ty,
             selection_ty,
+            size_ident,
+            state_name,
+            widget_name,
         })
     } else {
         Err(Error::new(input.span(), "Struct must have named fields"))

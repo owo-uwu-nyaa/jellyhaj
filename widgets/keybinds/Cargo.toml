@@ -5,6 +5,7 @@ color-eyre.workspace = true
 itertools.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 
 [package]
 edition = "2024"

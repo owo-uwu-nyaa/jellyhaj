@@ -10,8 +10,19 @@ pub trait Named: 'static {
 
 pub struct Outer<N: Named, T: Debug + 'static, W: JellyhajWidget<ActionResult = ControlFlow<T, T>>>
 {
-    inner: W,
+    pub inner: W,
     named: PhantomData<fn(N) -> N>,
+}
+
+impl<N: Named, T: Debug + 'static, W: JellyhajWidget<ActionResult = ControlFlow<T, T>>>
+    Outer<N, T, W>
+{
+    pub fn new(inner: W) -> Self {
+        Self {
+            inner,
+            named: PhantomData,
+        }
+    }
 }
 
 pub struct OuterState<
@@ -19,8 +30,19 @@ pub struct OuterState<
     T: Debug + 'static,
     S: JellyhajWidgetState<ActionResult = ControlFlow<T, T>>,
 > {
-    inner: S,
+    pub inner: S,
     named: PhantomData<fn(N) -> N>,
+}
+
+impl<N: Named, T: Debug + 'static, S: JellyhajWidgetState<ActionResult = ControlFlow<T, T>>>
+    OuterState<N, T, S>
+{
+    pub fn new(inner: S) -> Self {
+        Self {
+            inner,
+            named: PhantomData,
+        }
+    }
 }
 
 fn map_cf<T>(cf: Result<Option<ControlFlow<T, T>>>) -> Result<Option<T>> {
@@ -69,10 +91,8 @@ impl<N: Named, T: Debug + 'static, S: JellyhajWidgetState<ActionResult = Control
         map_cf(self.inner.apply_action(task, action))
     }
 
-    fn visit_tree(visitor: &mut impl crate::jellyhaj::WidgetTreeVisitor) {
-        visitor.enter(Self::NAME);
-        S::visit_tree(visitor);
-        visitor.exit();
+    fn visit_children(visitor: &mut impl crate::WidgetTreeVisitor) {
+        visitor.visit::<S>();
     }
 }
 

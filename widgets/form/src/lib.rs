@@ -4,6 +4,7 @@ pub mod button;
 pub mod checkbox;
 pub mod form;
 pub mod label;
+pub mod label_block;
 #[doc(hidden)]
 pub mod macro_impl;
 mod offset;
@@ -14,7 +15,7 @@ pub mod text_field;
 use std::{fmt::Debug, ops::ControlFlow};
 
 use color_eyre::Result;
-use jellyhaj_core::state::Navigation;
+use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
 pub use jellyhaj_form_derive::{Selection, form};
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};
 use ratatui::{
@@ -23,16 +24,7 @@ use ratatui::{
 };
 pub use selection::Selection;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FormAction {
-    Up,
-    Down,
-    Left,
-    Right,
-    Delete,
-    Enter,
-    Quit,
-}
+pub type FormAction = FormCommand;
 
 pub trait FormItem<AR> {
     const HEIGHT: u16;

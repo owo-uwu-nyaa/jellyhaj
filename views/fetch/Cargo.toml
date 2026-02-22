@@ -1,6 +1,6 @@
 [dependencies]
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-core = { path = "../../jellyhaj-core", version = "0.1.0" }
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-loading-widget = {path = "../../widgets/loading", version = "0.1.0"}
 keybinds = {path = "../../keybinds", version = "0.1.0"}
@@ -9,6 +9,8 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
+jellyhaj-fetch-widget = { version = "0.1.0", path = "../../widgets/fetch" }
 
 [package]
 edition = "2024"

@@ -15,7 +15,7 @@ use jellyhaj_form_widget::{
     FormAction, QuitForm, Selection,
     button::{ActionCreator, Button},
     form,
-    form::FormState,
+    form::FormData,
 };
 use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
 use jellyhaj_render_widgets::TermExt;
