@@ -35,7 +35,6 @@ pub enum FormAction {
     Enter,
 }
 
-
 pub trait FormItem<AR> {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;

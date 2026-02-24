@@ -18,7 +18,7 @@ impl CommandMapper<StatsCommand> for Mapper {
     fn map(&self, command: StatsCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
         match command {
             StatsCommand::Quit => ControlFlow::Break(Navigation::PopContext),
-            StatsCommand::Global(g) => ControlFlow::Break(g.into())
+            StatsCommand::Global(g) => ControlFlow::Break(g.into()),
         }
     }
 }

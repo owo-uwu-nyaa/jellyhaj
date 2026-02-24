@@ -84,7 +84,7 @@ impl CommandMapper<UserViewCommand> for Mapper {
             UserViewCommand::Entry(entry_command) => ControlFlow::Continue(
                 ItemGridAction::CurrentInner(EntryAction::Command(entry_command)),
             ),
-            UserViewCommand::Global(g) => ControlFlow::Break(g.into())
+            UserViewCommand::Global(g) => ControlFlow::Break(g.into()),
         }
     }
 }

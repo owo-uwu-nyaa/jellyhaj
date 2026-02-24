@@ -89,4 +89,3 @@ impl std::fmt::Debug for Navigation {
         }
     }
 }
-

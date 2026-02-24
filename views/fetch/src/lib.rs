@@ -31,7 +31,7 @@ impl CommandMapper<LoadingCommand> for FetchMapper {
     fn map(&self, command: LoadingCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
         match command {
             LoadingCommand::Quit => ControlFlow::Break(Navigation::PopContext),
-            LoadingCommand::Global(g) => ControlFlow::Break(g.into())
+            LoadingCommand::Global(g) => ControlFlow::Break(g.into()),
         }
     }
 }

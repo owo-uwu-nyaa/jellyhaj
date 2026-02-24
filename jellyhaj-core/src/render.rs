@@ -147,7 +147,7 @@ impl<
                     Ok(Hydrated::Finished(nav)) => {
                         debug!("suspended widget already finished");
                         nav
-                    },
+                    }
                     Ok(Hydrated::Widget {
                         state,
                         submitter,

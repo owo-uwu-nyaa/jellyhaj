@@ -25,7 +25,7 @@ in
     enable = mkEnableOption "enable jellyhaj tui";
     package = mkOption {
       type = types.package;
-      default = if cfg.useIncremental then  jellyhaj-incremental else jellyhaj;
+      default = if cfg.useIncremental then jellyhaj-incremental else jellyhaj;
       description = "package with jellyhaj";
     };
     useIncremental = mkEnableOption "use the incrementaly build of the jellyhaj package";

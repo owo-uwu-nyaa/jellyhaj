@@ -55,14 +55,13 @@ let
             rustPlatform.bindgenHook
           ];
         };
-        libsqlite3-sys =
-          {
-            buildInputs = [ sqlite ];
-            nativeBuildInputs = [
-              pkg-config
-              rustPlatform.bindgenHook
-            ];
-          };
+        libsqlite3-sys = {
+          buildInputs = [ sqlite ];
+          nativeBuildInputs = [
+            pkg-config
+            rustPlatform.bindgenHook
+          ];
+        };
       }).build
       {
         inherit src;
@@ -77,8 +76,8 @@ let
             inherit checkKeybinds;
           };
           postBuild = lib.optionalString stdenv.hostPlatform.isLinux ''
-          install -Dm644 $src/jellyhaj.desktop $out/share/applications/jellyhaj.desktop       
-'';
+            install -Dm644 $src/jellyhaj.desktop $out/share/applications/jellyhaj.desktop       
+          '';
           meta = (prev.meta or { }) // {
             mainProgramm = "jellyhaj";
           };

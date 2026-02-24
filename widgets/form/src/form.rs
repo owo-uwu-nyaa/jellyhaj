@@ -629,7 +629,7 @@ impl CommandMapper<FormCommand> for FormCommandMapper {
     type A = FormAction;
 
     fn map(&self, command: FormCommand) -> ControlFlow<Navigation, Self::A> {
-        ControlFlow::Continue( match command {
+        ControlFlow::Continue(match command {
             FormCommand::Quit => FormAction::Quit,
             FormCommand::Up => FormAction::Up,
             FormCommand::Down => FormAction::Down,

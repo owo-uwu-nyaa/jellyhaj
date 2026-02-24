@@ -61,9 +61,12 @@ pub struct PlayItem {
     pub playback_session_id: String,
 }
 
-impl From<(MediaItem, PlaybackInfo)> for PlayItem{
-    fn from((item,playback): (MediaItem, PlaybackInfo)) -> Self {
-        PlayItem { item , playback_session_id: playback.play_session_id }
+impl From<(MediaItem, PlaybackInfo)> for PlayItem {
+    fn from((item, playback): (MediaItem, PlaybackInfo)) -> Self {
+        PlayItem {
+            item,
+            playback_session_id: playback.play_session_id,
+        }
     }
 }
 
