@@ -3,17 +3,33 @@ use keybinds::{BindingMap, Command, keybind_config};
 #[derive(Debug)]
 #[keybind_config]
 pub struct Keybinds {
-    pub stats: BindingMap<StatsCommand>,
     pub logger: BindingMap<LoggerCommand>,
+    pub stats: BindingMap<StatsCommand>,
     pub fetch: BindingMap<LoadingCommand>,
     pub play_mpv: BindingMap<MpvCommand>,
+    pub form: BindingMap<FormCommand>,
     pub user_view: BindingMap<UserViewCommand>,
     pub home_screen: BindingMap<HomeScreenCommand>,
-    pub login_info: BindingMap<LoginInfoCommand>,
     pub error: BindingMap<ErrorCommand>,
     pub item_details: BindingMap<ItemDetailsCommand>,
     pub item_list_details: BindingMap<ItemListDetailsCommand>,
-    pub form: BindingMap<FormCommand>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
+pub enum GlobalCommand {
+    ShowStats,
+    ShowLogs,
+}
+
+#[derive(Debug, Clone, Copy, Command)]
+pub enum EntryCommand {
+    Activate,
+    Play,
+    Open,
+    OpenSeries,
+    OpenSeason,
+    OpenEpisode,
+    RefreshItem,
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -71,17 +87,6 @@ pub enum FormCommand {
 }
 
 #[derive(Debug, Clone, Copy, Command)]
-pub enum EntryCommand {
-    Activate,
-    Play,
-    Open,
-    OpenSeries,
-    OpenSeason,
-    OpenEpisode,
-    RefreshItem,
-}
-
-#[derive(Debug, Clone, Copy, Command)]
 pub enum UserViewCommand {
     Quit,
     Reload,
@@ -95,12 +100,6 @@ pub enum UserViewCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
-pub enum GlobalCommand {
-    ShowStats,
-    ShowLogs,
-}
-
 #[derive(Debug, Clone, Copy, Command)]
 pub enum HomeScreenCommand {
     Quit,
@@ -111,17 +110,6 @@ pub enum HomeScreenCommand {
     Down,
     #[command(flatten)]
     Entry(EntryCommand),
-    #[command(flatten)]
-    Global(GlobalCommand),
-}
-
-#[derive(Debug, Clone, Copy, Command)]
-pub enum LoginInfoCommand {
-    Delete,
-    Submit,
-    Next,
-    Prev,
-    Quit,
     #[command(flatten)]
     Global(GlobalCommand),
 }

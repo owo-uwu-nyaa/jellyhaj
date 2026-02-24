@@ -68,8 +68,12 @@ async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult
         NextScreen::FetchItemListDetailsRef(id) => {
             jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id).await
         }
-        NextScreen::FetchItemDetails(item) => jellyhaj_item_details_view::render_fetch_episode(cx, item).await,
-        NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id).await,
+        NextScreen::FetchItemDetails(item) => {
+            jellyhaj_item_details_view::render_fetch_episode(cx, item).await
+        }
+        NextScreen::RefreshItem(id) => {
+            jellyhaj_refresh_item_view::render_refresh_item_form(cx, id).await
+        }
         NextScreen::Stats => jellyhaj_stats_view::render_stats(cx).await,
         NextScreen::Logs => jellyhaj_log_view::render_log(cx).await,
     }
@@ -100,8 +104,10 @@ async fn run_state(mut cx: Pin<&mut TuiContext>) {
     info!("reached main application loop");
     loop {
         let res = if let Some(top) = top.take() {
+            debug!("running top next screen");
             show_screen(top, cx.as_mut()).await
         } else if let Some(mut suspended) = state.pop() {
+            debug!("resuming suspended widget: {}", suspended.name());
             suspended.resume(cx.as_mut()).await
         } else {
             jellyhaj_home_screen_view::render_fetch_home_screen(cx.as_mut()).await
@@ -119,10 +125,10 @@ async fn run_state(mut cx: Pin<&mut TuiContext>) {
                 without_tui,
             } => {
                 state.push(current);
-                if let Err(e) = jellyhaj_core::term::run_without(without_tui).await{
-                    top= Some(Box::new(NextScreen::Error(e)))
+                if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
+                    top = Some(Box::new(NextScreen::Error(e)))
                 }
-            },
+            }
         }
     }
 }
@@ -182,6 +188,12 @@ pub async fn run_app(
     config_file: Option<PathBuf>,
     use_builtin_config: bool,
 ) -> Result<()> {
+    let signal_cancel = cancel.clone();
+    tokio::spawn(async move {
+        let _ = tokio::signal::ctrl_c().await;
+        info!("interrupt received");
+        signal_cancel.cancel();
+    });
     let cache = config::cache().await?;
     let config = init_config(config_file, use_builtin_config)?;
     let image_picker =

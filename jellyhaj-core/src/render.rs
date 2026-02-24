@@ -27,6 +27,7 @@ use ratatui::{
 };
 use spawn::{CancellationToken, Spawner};
 use tokio::select;
+use tracing::debug;
 
 use crate::state::{Navigation, Next, NextScreen};
 
@@ -52,7 +53,7 @@ struct SuspendedWidgetImpl<
     W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
     task: Option<tokio::task::JoinHandle<Hydrated<W::State>>>,
-    _stop: tokio_util::sync::DropGuard,
+    stop: Option<tokio_util::sync::DropGuard>,
 }
 
 impl<
@@ -68,6 +69,7 @@ impl<
         &mut self,
         cx: Pin<&'a mut TuiContext>,
     ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>> {
+        self.stop = None;
         let renderer: HydrateRenderer<'_, A, W> = HydrateRenderer::Hydrating {
             task: self.task.take().expect("tried to hydrate twice"),
             context: cx,
@@ -142,12 +144,16 @@ impl<
                     Err(e) => {
                         panic!("suspended widget task paniced!\n{e:?}");
                     }
-                    Ok(Hydrated::Finished(nav)) => nav,
+                    Ok(Hydrated::Finished(nav)) => {
+                        debug!("suspended widget already finished");
+                        nav
+                    },
                     Ok(Hydrated::Widget {
                         state,
                         submitter,
                         receiver,
                     }) => {
+                        debug!("received suspended widget");
                         if let HydrateRenderer::Hydrating {
                             task: _,
                             mut context,
@@ -248,7 +254,7 @@ fn suspend<
                 }
             }
         })),
-        _stop: stop,
+        stop: Some(stop),
     })
 }
 

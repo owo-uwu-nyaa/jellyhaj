@@ -14,75 +14,8 @@
 #including Esc is useful as prefix for commands while text input mode is active
 help_prefixes = ["?", "esc"]
 
-[fetch]
-q = "quit"
-
-[play_mpv]
-q = "quit"
-space = "pause"
-enter = "pause"
-
-[user_view]
-template = ["ud", "q", "o"]
-r = "reload"
-left = "prev"
-back-tab = "prev"
-right = "next"
-tab = "next"
-enter = "play"
-R = "refresh-item"
-
-[home_screen]
-template = ["m", "o"]
-r = "reload"
-enter = "play-open"
-R = "refresh-item"
-s = {name="show-", s="show-stats", l="show-logs"}
-
-[item_list_details]
-template = ["m", "o"]
-enter = "play"
-r = "reload"
-R = "refresh-parent-item"
-"C-r" = "refresh-current-item"
-
-[login_info]
-backspace = "delete"
-enter = "submit"
-up = "next"
-tab = "next"
-down = "prev"
-back-tab = "prev"
-q = "quit"
-
-[error]
-template = ["m"]
-k = "kill"
-l = "show-logs"
-
-[item_details]
-template = ["ud", "q"]
-p = "play"
-enter = "play"
-r = "reload"
-R = "refresh-item"
-
-[refresh_item]
-up = "up"
-down = "down"
-tab = "down"
-enter = "select"
-space = "select"
-q = "quit"
-esc = "quit"
-
-[unsupported_item]
-q = "quit"
-
-[stats]
-q="quit"
-
 [logger]
+template = ["g"]
 space="space"
 up="messages-up"
 down="messages-down"
@@ -96,6 +29,57 @@ C-up="target-up"
 C-down="target-down"
 esc = "escape"
 q="quit"
+
+[stats]
+template = ["g"]
+q="quit"
+
+[fetch]
+template = ["g"]
+q = "quit"
+
+[play_mpv]
+template = ["g"]
+q = "quit"
+space = "pause"
+enter = "pause"
+
+[form]
+template = ["g", "m"]
+backspace = "delete"
+tab = "down"
+enter = "enter"
+space = "enter"
+q = "quit"
+
+[user_view]
+template = ["ud", "q", "e", "g"]
+r = "reload"
+left = "prev"
+back-tab = "prev"
+right = "next"
+tab = "next"
+
+[home_screen]
+template = ["m", "e", "g"]
+r = "reload"
+
+[error]
+template = ["m", "g", "q"]
+k = "kill"
+
+[item_details]
+template = ["ud", "q", "e", "g"]
+r = "reload"
+
+[item_list_details]
+template = ["m", "e", "g"]
+r = "reload"
+"C-r" = "refresh-parent-item"
+
+
+
+
 
 [template.q]
 q = "quit"
@@ -111,9 +95,14 @@ right = "right"
 [template.m]
 template = ["q", "ud", "lr"]
 
-[template.o]
+[template.e]
 o = "open"
 p = "play"
+enter = "activate"
 # sub maps have a name that is displayed in the keybind help / context view
 # all other key value combinations are normal keybinds (and can even be another sub map or an template)
 O = {name = "open-", e = "open-episode", S = "open-season", s = "open-series"}
+R = "refresh-item"
+
+[template.g]
+s = {name="show-", s="show-stats", l="show-logs"}
