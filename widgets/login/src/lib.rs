@@ -3,7 +3,7 @@ use std::{convert::Infallible, ops::ControlFlow};
 use jellyhaj_core::Config;
 use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
 use jellyhaj_form_widget::button::{ActionCreator, Button};
-use jellyhaj_form_widget::form;
+use jellyhaj_form_widget::form_widget;
 use jellyhaj_form_widget::label::Label;
 use jellyhaj_form_widget::{
     form::{FormCommandMapper, FormData},
@@ -11,9 +11,9 @@ use jellyhaj_form_widget::{
     secret_field::SecretField,
     text_field::TextField,
 };
-use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
 use jellyhaj_widgets_core::async_task::TaskSubmitter;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::Flatten};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::FlattenState};
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Result, Wrapper};
 use ratatui::prelude::{Buffer, Position, Rect, Size};
 
@@ -32,7 +32,7 @@ impl ActionCreator for Submit {
     }
 }
 
-#[form("Enter Jellyfin Server / Login Information", Submit)]
+#[form_widget("Enter Jellyfin Server / Login Information", Submit)]
 #[derive(Debug)]
 pub struct LoginData {
     #[descr("Jellyfin URL")]
@@ -60,8 +60,11 @@ pub struct LoginState {
     inner: InnerState,
 }
 
-type InnerWidget =
-    Flatten<Navigation, Submit, KeybindWidget<FormCommand, LoginDataWidget, FormCommandMapper>>;
+type InnerWidget = <FlattenState<
+    Navigation,
+    Submit,
+    KeybindState<FormCommand, LoginDataState, FormCommandMapper>,
+> as JellyhajWidgetState>::Widget;
 
 pub struct LoginWidget {
     inner: InnerWidget,
@@ -228,7 +231,7 @@ impl LoginWidget {
             FormCommandMapper,
         );
         Self {
-            inner: Flatten { inner: keybinds },
+            inner: InnerWidget::new(keybinds),
         }
     }
 }

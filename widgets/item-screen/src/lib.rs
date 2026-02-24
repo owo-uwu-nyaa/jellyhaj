@@ -64,11 +64,11 @@ pub struct ItemScreenState<T: ItemWidget> {
 }
 
 impl<T: ItemWidget> ItemScreenState<T> {
-    pub fn new(lists: Vec<ItemListState<T>>, title: String, current: usize) -> Self {
+    pub fn new(lists: Vec<ItemListState<T>>, title: String) -> Self {
         Self {
             lists,
             title,
-            current,
+            current: 0,
         }
     }
     pub fn get(&self, index: usize) -> Option<&ItemListState<T>> {

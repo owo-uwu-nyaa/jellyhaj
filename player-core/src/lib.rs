@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use jellyfin::items::MediaItem;
+use jellyfin::items::{MediaItem, PlaybackInfo};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
 
@@ -59,6 +59,12 @@ impl FromStr for PlaylistItemId {
 pub struct PlayItem {
     pub item: MediaItem,
     pub playback_session_id: String,
+}
+
+impl From<(MediaItem, PlaybackInfo)> for PlayItem{
+    fn from((item,playback): (MediaItem, PlaybackInfo)) -> Self {
+        PlayItem { item , playback_session_id: playback.play_session_id }
+    }
 }
 
 #[derive(Debug)]

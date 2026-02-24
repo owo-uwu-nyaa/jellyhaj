@@ -1,11 +1,11 @@
-use std::{cmp::min, convert::Infallible};
+use std::{cmp::min, convert::Infallible, pin::Pin};
 
 use jellyfin::items::MediaItem;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
 use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, Wrapper,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, TuiContext, Wrapper,
     async_task::TaskSubmitter,
 };
 use ratatui::{
@@ -52,10 +52,7 @@ impl JellyhajWidgetState for Overview {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(
-        self,
-        _: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, _: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
         self
     }
 
@@ -171,8 +168,15 @@ pub struct ItemDisplayState {
 }
 
 impl ItemDisplayState {
-    pub fn new(entry: EntryState, overview: Option<Overview>) -> Self {
-        Self { entry, overview }
+    pub fn new(item: MediaItem, cx: Pin<&mut TuiContext>) -> Self {
+        let overview = item
+            .overview
+            .as_ref()
+            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
+        Self {
+            entry: EntryState::new(item, cx),
+            overview,
+        }
     }
 }
 
@@ -190,10 +194,7 @@ impl JellyhajWidgetState for ItemDisplayState {
         visitor.visit::<Overview>();
     }
 
-    fn into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, cx: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
         ItemDisplay {
             entry: self.entry.into_widget(cx),
             overview: self.overview,
@@ -377,26 +378,32 @@ pub struct ItemListDisplay {
     overview: Option<Overview>,
 }
 
-impl ItemListDisplay {
-    pub fn new(item: MediaItem, mut children: ItemList<Entry>) -> Self {
+#[derive(Debug)]
+pub struct ItemListDisplayState {
+    pub children: ItemListState<Entry>,
+    pub item: MediaItem,
+    pub overview: Option<Overview>,
+}
+
+impl ItemListDisplayState {
+    pub fn new(children: Vec<MediaItem>, item: MediaItem, mut cx: Pin<&mut TuiContext>) -> Self {
         let overview = item
             .overview
             .as_ref()
             .map(|o| Overview::new(o.clone(), "Overview".to_string()));
-        children.active = true;
+        let title = item.name.clone();
+        let children = ItemListState::new(
+            children
+                .into_iter()
+                .map(|i| EntryState::new(i, cx.as_mut())),
+            title,
+        );
         Self {
             children,
             item,
             overview,
         }
     }
-}
-
-#[derive(Debug)]
-pub struct ItemListDisplayState {
-    pub children: ItemListState<Entry>,
-    pub item: MediaItem,
-    pub overview: Option<Overview>,
 }
 
 impl JellyhajWidgetState for ItemListDisplayState {
@@ -413,10 +420,7 @@ impl JellyhajWidgetState for ItemListDisplayState {
         visitor.visit::<Overview>();
     }
 
-    fn into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, cx: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
         ItemListDisplay {
             children: self.children.into_widget(cx),
             item: self.item,
@@ -573,6 +577,7 @@ impl JellyhajWidget for ItemListDisplay {
         buf: &mut ratatui::prelude::Buffer,
         task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
+        self.children.active = true;
         self.children.render_fallible(
             (
                 (area.x + 2, area.y + 2).into(),

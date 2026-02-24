@@ -9,13 +9,17 @@ use jellyfin::{
     items::{GetItemsQuery, MediaItem},
 };
 use jellyhaj_core::{
-    CommandMapper, keybinds::LoadingCommand, render::{NavigationResult, render_widget}, state::{Navigation, Next}
+    CommandMapper,
+    keybinds::LoadingCommand,
+    render::{NavigationResult, render_widget},
+    state::{Navigation, Next},
 };
 use jellyhaj_fetch_widget::{FetchAction, FetchState};
 use jellyhaj_keybinds_widget::KeybindState;
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, LoadingState};
 use jellyhaj_widgets_core::{
-    TuiContext, outer::{Named, OuterState}
+    TuiContext,
+    outer::{Named, OuterState},
 };
 use tracing::instrument;
 
@@ -27,6 +31,7 @@ impl CommandMapper<LoadingCommand> for FetchMapper {
     fn map(&self, command: LoadingCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
         match command {
             LoadingCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            LoadingCommand::Global(g) => ControlFlow::Break(g.into())
         }
     }
 }
@@ -38,11 +43,11 @@ impl Named for Name {
 
 pub fn make_fetch(
     cx: Pin<&mut TuiContext>,
-    title: Cow<'static, str>,
+    title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<Next>> + Send + 'static,
-) -> impl Future<Output = NavigationResult>{
-    let state = OuterState::<Name, _, _>::new(KeybindState::new(
-        FetchState::new(fut, LoadingState::new(title)),
+) -> impl Future<Output = NavigationResult> {
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
+        FetchState::new(fut, LoadingState::new(title.into())),
         cx.config.help_prefixes.clone(),
         cx.config.keybinds.fetch.clone(),
         FetchMapper,

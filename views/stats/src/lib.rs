@@ -1,35 +1,39 @@
 use std::{ops::ControlFlow, pin::Pin};
 
-use color_eyre::Result;
-use jellyhaj_core::{CommandMapper, context::TuiContext, keybinds::StatsCommand, state::Navigation};
+use jellyhaj_core::{
+    CommandMapper,
+    context::TuiContext,
+    keybinds::StatsCommand,
+    render::{NavigationResult, render_widget},
+    state::Navigation,
+};
 use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_stats_widget::{StatsState, StatsUpdate, StatsWidget};
+use jellyhaj_stats_widget::{StatsState, StatsUpdate};
 use jellyhaj_widgets_core::outer::{Named, OuterState};
 
 struct Mapper;
-impl CommandMapper<StatsCommand> for Mapper{
+impl CommandMapper<StatsCommand> for Mapper {
     type A = StatsUpdate;
 
     fn map(&self, command: StatsCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
         match command {
             StatsCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            StatsCommand::Global(g) => ControlFlow::Break(g.into())
         }
     }
 }
 
 struct Name;
-impl Named for Name{
+impl Named for Name {
     const NAME: &str = "stats";
 }
 
-pub async fn render_stats(cx: Pin<&mut TuiContext>) -> Result<Navigation> {
-    let cx = cx.project();
-
-    let mut state = OuterState::<Name,_,_>::new( KeybindState::new(
+pub fn render_stats(cx: Pin<&mut TuiContext>) -> impl Future<Output = NavigationResult> {
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
         StatsState,
         cx.config.help_prefixes.clone(),
         cx.config.keybinds.stats.clone(),
-        Mapper
+        Mapper,
     ));
-
-    }
+    render_widget(cx, state)
+}

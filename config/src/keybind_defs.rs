@@ -31,22 +31,30 @@ pub enum LoggerCommand {
     MessagesDown,
     Escape,
     Quit,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
 pub enum StatsCommand {
     Quit,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
 pub enum LoadingCommand {
     Quit,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
 pub enum MpvCommand {
     Quit,
     Pause,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
@@ -58,6 +66,8 @@ pub enum FormCommand {
     Right,
     Delete,
     Enter,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -81,6 +91,14 @@ pub enum UserViewCommand {
     Down,
     #[command(flatten)]
     Entry(EntryCommand),
+    #[command(flatten)]
+    Global(GlobalCommand),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
+pub enum GlobalCommand {
+    ShowStats,
+    ShowLogs,
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -93,8 +111,8 @@ pub enum HomeScreenCommand {
     Down,
     #[command(flatten)]
     Entry(EntryCommand),
-    ShowStats,
-    ShowLogs,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -104,6 +122,8 @@ pub enum LoginInfoCommand {
     Next,
     Prev,
     Quit,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -114,7 +134,8 @@ pub enum ErrorCommand {
     Down,
     Left,
     Right,
-    ShowLogs,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -125,6 +146,8 @@ pub enum ItemDetailsCommand {
     Reload,
     #[command(flatten)]
     Entry(EntryCommand),
+    #[command(flatten)]
+    Global(GlobalCommand),
 }
 
 #[derive(Debug, Clone, Copy, Command)]
@@ -138,4 +161,6 @@ pub enum ItemListDetailsCommand {
     #[command(flatten)]
     Entry(EntryCommand),
     RefreshParentItem,
+    #[command(flatten)]
+    Global(GlobalCommand),
 }

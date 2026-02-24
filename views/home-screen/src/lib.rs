@@ -1,19 +1,19 @@
 mod fetch;
 
-use color_eyre::Result;
+use jellyfin::{items::MediaItem, user_views::UserView};
 use jellyhaj_core::{
+    CommandMapper,
     context::TuiContext,
-    entries::EntryResultExt,
     keybinds::HomeScreenCommand,
+    render::{NavigationResult, render_widget},
     state::{Navigation, NextScreen},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryData};
-use jellyhaj_item_screen::{
-    DimensionsParameter, ItemList, ItemScreen, ItemScreenAction, ItemScreenData,
-};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_render_widgets::{JellyhajWidget, TermExt};
-use std::pin::Pin;
+use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyhaj_fetch_view::make_fetch;
+use jellyhaj_item_screen::{ItemListState, ItemScreenAction, ItemScreenState};
+use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_widgets_core::outer::{Named, OuterState};
+use std::{ops::ControlFlow, pin::Pin};
 
 #[derive(Debug)]
 pub enum Pass {
@@ -23,120 +23,80 @@ pub enum Pass {
     Quit,
 }
 
-pub async fn render_home_screen(
-    cx: Pin<&mut TuiContext>,
-    screen: ItemScreenData<EntryData>,
-) -> Result<Navigation> {
-    let cx = cx.project();
-    let mut widget = KeybindWidget::new(
-        ItemScreen::new(
-            screen.lists.into_iter().map(|l| -> ItemList<Entry> {
-                ItemList::new(
-                    l.items.into_iter().map(|i| {
-                        Entry::new(
-                            i,
-                            cx.jellyfin,
-                            cx.cache,
-                            cx.image_cache,
-                            cx.image_picker,
-                            cx.stats,
-                            cx.config,
-                        )
-                    }),
-                    l.current,
-                    l.title,
-                    DimensionsParameter {
-                        config: cx.config,
-                        font_size: cx.image_picker.font_size(),
-                    },
-                )
-            }),
-            screen.current,
-            screen.title,
-            DimensionsParameter {
-                config: cx.config,
-                font_size: cx.image_picker.font_size(),
-            },
-        ),
-        &cx.config.help_prefixes,
-        cx.config.keybinds.home_screen.clone(),
-        |command| match command {
-            HomeScreenCommand::Quit => MappedCommand::Up(Pass::Quit),
-            HomeScreenCommand::Reload => MappedCommand::Up(Pass::Reload),
-            HomeScreenCommand::Left => MappedCommand::Down(ItemScreenAction::Left),
-            HomeScreenCommand::Right => MappedCommand::Down(ItemScreenAction::Right),
-            HomeScreenCommand::Up => MappedCommand::Down(ItemScreenAction::Up),
-            HomeScreenCommand::Down => MappedCommand::Down(ItemScreenAction::Down),
-            HomeScreenCommand::Open => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::Open))
+struct Mapper;
+impl CommandMapper<HomeScreenCommand> for Mapper {
+    type A = ItemScreenAction<EntryAction>;
+
+    fn map(&self, command: HomeScreenCommand) -> ControlFlow<Navigation, Self::A> {
+        match command {
+            HomeScreenCommand::Quit => ControlFlow::Break(Navigation::Exit),
+            HomeScreenCommand::Reload => {
+                ControlFlow::Break(Navigation::Replace(Box::new(NextScreen::LoadHomeScreen)))
             }
-            HomeScreenCommand::Play => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::Play))
-            }
-            HomeScreenCommand::PlayOpen => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::Activate))
-            }
-            HomeScreenCommand::OpenEpisode => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::OpenEpisode))
-            }
-            HomeScreenCommand::OpenSeason => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::OpenSeason))
-            }
-            HomeScreenCommand::OpenSeries => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::OpenSeries))
-            }
-            HomeScreenCommand::RefreshItem => {
-                MappedCommand::Down(ItemScreenAction::CurrentInner(EntryAction::Refresh))
-            }
-            HomeScreenCommand::ShowStats => MappedCommand::Up(Pass::Stats),
-            HomeScreenCommand::ShowLogs => MappedCommand::Up(Pass::Logs),
-        },
-    );
-    Ok(loop {
-        match cx
-            .term
-            .render(&mut widget, cx.events, cx.spawn.clone())
-            .await?
-        {
-            CommandAction::Up(Pass::Reload) => {
-                break Navigation::Replace(NextScreen::LoadHomeScreen);
-            }
-            CommandAction::Up(Pass::Stats) => {
-                break Navigation::Push {
-                    current: NextScreen::HomeScreen(widget.into_state()),
-                    next: NextScreen::Stats,
-                };
-            }
-            CommandAction::Up(Pass::Logs) => {
-                break Navigation::Push {
-                    current: NextScreen::HomeScreen(widget.into_state()),
-                    next: NextScreen::Logs,
-                };
-            }
-            CommandAction::Up(Pass::Quit) => break Navigation::PopContext,
-            CommandAction::Action(action) => {
-                if let Some(next) = action.to_next_screen() {
-                    break Navigation::Push {
-                        current: NextScreen::HomeScreen(widget.into_state()),
-                        next,
-                    };
-                }
-            }
-            CommandAction::Exit => break Navigation::Exit,
+            HomeScreenCommand::Left => ControlFlow::Continue(ItemScreenAction::Left),
+            HomeScreenCommand::Right => ControlFlow::Continue(ItemScreenAction::Right),
+            HomeScreenCommand::Up => ControlFlow::Continue(ItemScreenAction::Up),
+            HomeScreenCommand::Down => ControlFlow::Continue(ItemScreenAction::Down),
+            HomeScreenCommand::Entry(entry_command) => ControlFlow::Continue(
+                ItemScreenAction::CurrentInner(EntryAction::Command(entry_command)),
+            ),
+            HomeScreenCommand::Global(global_show) => ControlFlow::Break(global_show.into()),
         }
-    })
+    }
 }
 
-pub async fn render_fetch_home_screen(cx: Pin<&mut TuiContext>) -> Result<Navigation> {
-    let cx = cx.project();
-    jellyhaj_fetch_view::render_fetch_future(
-        "Fetching Home Screen",
-        fetch::fetch(cx.jellyfin),
-        cx.events,
-        cx.config.keybinds.fetch.clone(),
-        cx.term,
-        &cx.config.help_prefixes,
-        cx.spawn.clone(),
-    )
-    .await
+struct Name;
+impl Named for Name {
+    const NAME: &str = "home-screen";
+}
+
+pub fn render_home_screen(
+    mut cx: Pin<&mut TuiContext>,
+    cont: Vec<MediaItem>,
+    next_up: Vec<MediaItem>,
+    libraries: Vec<UserView>,
+    library_latest: Vec<(String, Vec<MediaItem>)>,
+) -> impl Future<Output = NavigationResult> {
+    let screen = ItemScreenState::new(
+        [
+            ItemListState::<Entry>::new(
+                cont.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
+                "Continue Watching".to_string(),
+            ),
+            ItemListState::new(
+                next_up.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
+                "Next Up".to_string(),
+            ),
+            ItemListState::new(
+                libraries
+                    .into_iter()
+                    .map(|i| EntryState::new(i, cx.as_mut())),
+                "Continue Watching".to_string(),
+            ),
+        ]
+        .into_iter()
+        .chain(library_latest.into_iter().map(|(title, list)| {
+            ItemListState::new(
+                list.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
+                title,
+            )
+        }))
+        .filter(|l| !l.items.is_empty())
+        .collect(),
+        "Home".to_string(),
+    );
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
+        screen,
+        cx.config.help_prefixes.clone(),
+        cx.config.keybinds.home_screen.clone(),
+        Mapper,
+    ));
+    render_widget(cx, state)
+}
+
+pub fn render_fetch_home_screen(
+    cx: Pin<&mut TuiContext>,
+) -> impl Future<Output = NavigationResult> {
+    let fut = fetch::fetch(cx.jellyfin.clone());
+    make_fetch(cx, "Fetching Home Screen", fut)
 }

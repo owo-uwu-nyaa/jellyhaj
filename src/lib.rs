@@ -6,15 +6,15 @@ use std::{
 
 use color_eyre::{
     Result,
-    eyre::{Context, eyre},
+    eyre::{Context, OptionExt},
 };
 use config::{Config, init_config};
 use jellyfin::{JellyfinClient, socket::JellyfinWebSocket};
 use jellyhaj_core::{
     context::TuiContext,
-    state::{Navigation, NextScreen, State},
+    render::{NavigationResult, Suspended},
+    state::{Next, NextScreen},
 };
-use jellyhaj_error_view::ResultDisplayExt;
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -25,38 +25,42 @@ use sqlx::SqliteConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error_span, info, instrument};
 
-async fn show_screen(screen: NextScreen, cx: Pin<&mut TuiContext>) -> Result<Navigation> {
-    match screen {
+async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult {
+    match *screen {
         NextScreen::LoadHomeScreen => jellyhaj_home_screen_view::render_fetch_home_screen(cx).await,
-        NextScreen::HomeScreen(entry_screen) => {
-            jellyhaj_home_screen_view::render_home_screen(cx, entry_screen).await
+        NextScreen::HomeScreen {
+            cont,
+            next_up,
+            libraries,
+            library_latest,
+        } => {
+            jellyhaj_home_screen_view::render_home_screen(
+                cx,
+                cont,
+                next_up,
+                libraries,
+                library_latest,
+            )
+            .await
         }
         NextScreen::LoadUserView(user_view) => {
             jellyhaj_library_view::render_fetch_user_view(cx, user_view).await
         }
         NextScreen::UserView { view, items } => {
-            jellyhaj_library_view::render_user_view(cx, items, view).await
+            jellyhaj_library_view::render_user_view(cx, view, items).await
+        }
+        NextScreen::FetchPlay(load_play) => {
+            jellyhaj_player_view::render_fetch_play(cx, load_play).await
         }
         NextScreen::Play { items, index } => {
             jellyhaj_player_view::render_play(cx, items, index).await
         }
-        NextScreen::Error(report) => {
-            let cx = cx.project();
-            jellyhaj_error_view::render_error(
-                cx.term,
-                cx.events,
-                &cx.config.keybinds,
-                &cx.config.help_prefixes,
-                cx.spawn.clone(),
-                report,
-            )
-            .await
-        }
+        NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, report).await,
         NextScreen::ItemDetails(media_item) => {
             jellyhaj_item_details_view::render_item_details(cx, media_item).await
         }
-        NextScreen::ItemListDetails(media_item, entry_list) => {
-            jellyhaj_item_details_view::render_item_list_details(cx, media_item, entry_list).await
+        NextScreen::ItemListDetails(media_item, media_items) => {
+            jellyhaj_item_details_view::render_item_list_details(cx, media_item, media_items).await
         }
         NextScreen::FetchItemListDetails(media_item) => {
             jellyhaj_item_details_view::render_fetch_item_list(cx, media_item).await
@@ -64,30 +68,21 @@ async fn show_screen(screen: NextScreen, cx: Pin<&mut TuiContext>) -> Result<Nav
         NextScreen::FetchItemListDetailsRef(id) => {
             jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id).await
         }
-        NextScreen::FetchItemDetails(id) => {
-            jellyhaj_item_details_view::render_fetch_episode(cx, id).await
-        }
-        NextScreen::RefreshItem(item) => {
-            jellyhaj_refresh_item_view::render_refresh_item_form(cx, item).await
-        }
-        NextScreen::SendRefreshItem(item, refresh_item_query) => {
-            jellyhaj_refresh_item_view::render_send_refresh_item(cx, item, refresh_item_query).await
-        }
-        NextScreen::UnsupportedItem => Err(eyre!("Operation is not available for this item")),
+        NextScreen::FetchItemDetails(item) => jellyhaj_item_details_view::render_fetch_episode(cx, item).await,
+        NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id).await,
         NextScreen::Stats => jellyhaj_stats_view::render_stats(cx).await,
         NextScreen::Logs => jellyhaj_log_view::render_log(cx).await,
-        NextScreen::FetchPlay(load_play) => {
-            jellyhaj_player_view::render_fetch_play(cx, load_play).await
-        }
     }
 }
 
-async fn login_jellyfin(
+#[instrument(skip_all, level = "debug")]
+async fn login(
     term: &mut DefaultTerminal,
     spawner: &Spawner,
     events: &mut KeybindEvents,
     config: &Config,
 ) -> Result<Option<(JellyfinClient, JellyfinWebSocket)>> {
+    debug!("logging in to jellyfin");
     Ok(
         if let Some(client) = jellyhaj_login_view::login(term, spawner, config, events).await? {
             let socket = client.get_socket()?;
@@ -99,44 +94,36 @@ async fn login_jellyfin(
 }
 
 #[instrument(skip_all, level = "debug")]
-async fn login(
-    term: &mut DefaultTerminal,
-    spawner: &Spawner,
-    events: &mut KeybindEvents,
-    config: &Config,
-) -> Option<(JellyfinClient, JellyfinWebSocket)> {
-    debug!("logging in to jellyfin");
-    loop {
-        match login_jellyfin(term, spawner, events, config).await {
-            Ok(v) => break v,
-            Err(e) => {
-                match jellyhaj_error_view::render_error(
-                    term,
-                    events,
-                    &config.keybinds,
-                    &config.help_prefixes,
-                    spawner.clone(),
-                    e,
-                )
-                .await
-                {
-                    Err(_) | Ok(Navigation::Exit) => break None,
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
-#[instrument(skip_all, level = "debug")]
 async fn run_state(mut cx: Pin<&mut TuiContext>) {
-    let mut state = State::new();
+    let mut state: Vec<Suspended> = Vec::new();
+    let mut top: Option<Next> = None;
     info!("reached main application loop");
-    while let Some(screen) = state.pop() {
-        state.navigate(match show_screen(screen, cx.as_mut()).await {
-            Ok(nav) => nav,
-            Err(e) => Navigation::Replace(NextScreen::Error(e)),
-        });
+    loop {
+        let res = if let Some(top) = top.take() {
+            show_screen(top, cx.as_mut()).await
+        } else if let Some(mut suspended) = state.pop() {
+            suspended.resume(cx.as_mut()).await
+        } else {
+            jellyhaj_home_screen_view::render_fetch_home_screen(cx.as_mut()).await
+        };
+        match res {
+            NavigationResult::Exit => break,
+            NavigationResult::Pop => {}
+            NavigationResult::Replace(next_screen) => top = Some(next_screen),
+            NavigationResult::Push { current, next } => {
+                state.push(current);
+                top = Some(next);
+            }
+            NavigationResult::PushWithoutTui {
+                current,
+                without_tui,
+            } => {
+                state.push(current);
+                if let Err(e) = jellyhaj_core::term::run_without(without_tui).await{
+                    top= Some(Box::new(NextScreen::Error(e)))
+                }
+            },
+        }
     }
 }
 
@@ -147,10 +134,11 @@ async fn run_app_inner(
     config: Config,
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
-) {
+) -> Result<()> {
     if let Some((jellyfin, jellyfin_socket)) =
-        login(&mut term, &spawner, &mut events, &config).await
-        && let Some(mpv_handle) = OwnedPlayerHandle::new(
+        login(&mut term, &spawner, &mut events, &config).await?
+    {
+        let mpv_handle = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,
             config.mpv_profile,
@@ -158,16 +146,7 @@ async fn run_app_inner(
             config.mpv_config_file.as_deref(),
             true,
             &spawner,
-        )
-        .render_error(
-            &mut term,
-            &mut events,
-            &config.keybinds,
-            &config.help_prefixes,
-            spawner.clone(),
-        )
-        .await
-    {
+        )?;
         spawner.spawn(
             player_jellyfin(mpv_handle.clone(), jellyfin.clone(), spawner.clone()),
             error_span!("player_jellyfin"),
@@ -192,6 +171,7 @@ async fn run_app_inner(
         });
         run_state(cx).await
     }
+    Ok(())
 }
 
 #[instrument(skip_all, level = "debug")]
@@ -212,6 +192,6 @@ pub async fn run_app(
         cancel,
         error_span!("jellyhaj"),
     )
-    .await;
-    Ok(())
+    .await
+    .ok_or_eyre("app cancelled")?
 }

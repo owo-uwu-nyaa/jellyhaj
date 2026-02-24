@@ -7,10 +7,6 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, OptionExt, Result};
-use crossterm::{
-    event::{DisableBracketedPaste, EnableBracketedPaste},
-    execute,
-};
 use jellyhaj::run_app;
 use rayon::ThreadPoolBuilder;
 use tokio_util::sync::CancellationToken;
@@ -115,20 +111,9 @@ fn main() -> Result<()> {
                 .thread_name(|n| format!("tui-worker-{n}"))
                 .build_global()
                 .context("building global thread pool")?;
-            let term = ratatui::init();
-            let hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(move |panic| {
-                execute!(stdout(), DisableBracketedPaste).expect("resetting bracket paste failed");
-                hook(panic)
-            }));
-            execute!(stdout(), EnableBracketedPaste)
-                .context("enabling bracket paste")
-                .expect("failed to enable bracket paste");
-
-            let res = run_app(term, cancel, args.config, args.use_builtin_config);
-            execute!(stdout(), DisableBracketedPaste).expect("resetting bracket paste failed");
-            ratatui::restore();
-            res
+            jellyhaj_core::term::run_with(|term| {
+                run_app(term, cancel, args.config, args.use_builtin_config)
+            })
         }
     }
 }

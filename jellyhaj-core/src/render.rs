@@ -41,7 +41,7 @@ pub type Suspended = Box<dyn SuspendedWidget + Send>;
 pub trait SuspendedWidget {
     fn name(&self) -> &'static str;
     fn resume<'a>(
-        self,
+        &mut self,
         cx: Pin<&'a mut TuiContext>,
     ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>>;
     fn visit_widget_tree(&self, visitor: &mut dyn TreeVisitor);
@@ -51,7 +51,7 @@ struct SuspendedWidgetImpl<
     A: Debug + Send + 'static,
     W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
-    task: tokio::task::JoinHandle<Hydrated<W::State>>,
+    task: Option<tokio::task::JoinHandle<Hydrated<W::State>>>,
     _stop: tokio_util::sync::DropGuard,
 }
 
@@ -65,11 +65,11 @@ impl<
     }
 
     fn resume<'a>(
-        self,
+        &mut self,
         cx: Pin<&'a mut TuiContext>,
     ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>> {
         let renderer: HydrateRenderer<'_, A, W> = HydrateRenderer::Hydrating {
-            task: self.task,
+            task: self.task.take().expect("tried to hydrate twice"),
             context: cx,
         };
         Box::pin(renderer)
@@ -90,7 +90,7 @@ pub enum NavigationResult {
     },
     PushWithoutTui {
         current: Suspended,
-        without_tui: BoxFuture<'static, ()>,
+        without_tui: BoxFuture<'static, Result<()>>,
     },
 }
 enum Hydrated<S: JellyhajWidgetState> {
@@ -226,7 +226,7 @@ fn suspend<
     let stop_fut = stop.clone();
     let stop = stop.drop_guard();
     Box::new(SuspendedWidgetImpl::<A, W> {
-        task: tokio::spawn(async move {
+        task: Some(tokio::spawn(async move {
             let mut stop_fut = pin!(stop_fut.cancelled_owned());
             loop {
                 select! {
@@ -247,7 +247,7 @@ fn suspend<
                     }
                 }
             }
-        }),
+        })),
         _stop: stop,
     })
 }

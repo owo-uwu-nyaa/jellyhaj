@@ -15,8 +15,8 @@ pub mod text_field;
 use std::{fmt::Debug, ops::ControlFlow};
 
 use color_eyre::Result;
-use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
-pub use jellyhaj_form_derive::{Selection, form};
+use jellyhaj_core::state::Navigation;
+pub use jellyhaj_form_derive::{Selection, form_widget};
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};
 use ratatui::{
     buffer::Buffer,
@@ -24,7 +24,17 @@ use ratatui::{
 };
 pub use selection::Selection;
 
-pub type FormAction = FormCommand;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FormAction {
+    Quit,
+    Up,
+    Down,
+    Left,
+    Right,
+    Delete,
+    Enter,
+}
+
 
 pub trait FormItem<AR> {
     const HEIGHT: u16;

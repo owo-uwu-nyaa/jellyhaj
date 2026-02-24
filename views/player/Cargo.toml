@@ -8,6 +8,7 @@ player-core = {path = "../../player-core", version = "0.1.0"}
 color-eyre.workspace = true
 tracing.workspace = true
 futures-util.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
 
 [package]
 edition = "2024"

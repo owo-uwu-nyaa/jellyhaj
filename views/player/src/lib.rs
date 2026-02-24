@@ -1,22 +1,23 @@
-use std::{convert::Infallible, pin::Pin};
+use std::{ops::ControlFlow, pin::Pin};
 
 use futures_util::future::try_join_all;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
-    items::{GetItemsQuery, MediaItem},
+    items::{GetItemsQuery, MediaItem, PlaybackInfo},
     playlist::GetPlaylistItemsQuery,
     shows::GetEpisodesQuery,
 };
 use jellyhaj_core::{
+    CommandMapper,
     context::TuiContext,
     keybinds::MpvCommand,
-    state::{LoadPlay, Navigation, NextScreen},
+    render::{NavigationResult, render_widget},
+    state::{LoadPlay, Navigation, Next, NextScreen},
 };
-use jellyhaj_fetch_view::render_fetch_future;
-use jellyhaj_keybinds_widget::{KeybindWidget, MappedCommand};
-use jellyhaj_player_widget::{PlayerAction, PlayerQuit, PlayerWidget};
-use jellyhaj_render_widgets::TermExt;
-use player_core::{Command, PlayItem, PlayerHandle};
+use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
+use jellyhaj_widgets_core::outer::{Named, OuterState};
+use player_core::{Command, PlayItem};
 
 use color_eyre::{
     Report, Result,
@@ -24,78 +25,59 @@ use color_eyre::{
 };
 use tracing::warn;
 
-struct MinimizeGuard<'i> {
-    handle: &'i PlayerHandle,
-}
+struct Mapper;
 
-impl Drop for MinimizeGuard<'_> {
-    fn drop(&mut self) {
-        self.handle.send(Command::Stop);
+impl CommandMapper<MpvCommand> for Mapper {
+    type A = PlayerAction;
+
+    fn map(&self, command: MpvCommand) -> ControlFlow<Navigation, Self::A> {
+        match command {
+            MpvCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            MpvCommand::Pause => ControlFlow::Continue(PlayerAction::TogglePause),
+            MpvCommand::Global(g) => ControlFlow::Break(g.into()),
+        }
     }
 }
 
-pub async fn render_play(
+struct Name;
+
+impl Named for Name {
+    const NAME: &str = "player";
+}
+
+pub fn render_play(
     cx: Pin<&mut TuiContext>,
-    items: Vec<PlayItem>,
+    items: Vec<(MediaItem, PlaybackInfo)>,
     index: usize,
-) -> Result<Navigation> {
-    if items.is_empty() {
-        return Ok(Navigation::Replace(NextScreen::Error(eyre!(
-            "Unable to play, item is empty"
-        ))));
-    }
-    let cx = cx.project();
+) -> impl Future<Output = NavigationResult> {
     cx.mpv_handle.send(Command::Minimized(false));
     cx.mpv_handle.send(Command::Fullscreen(true));
     cx.mpv_handle.send(Command::ReplacePlaylist {
-        items,
+        items: items.into_iter().map(PlayItem::from).collect(),
         first: index,
     });
-    let minimize = MinimizeGuard {
-        handle: cx.mpv_handle,
-    };
-    let mut widget = KeybindWidget::new(
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
         PlayerWidget::new(cx.mpv_handle.clone()),
-        &cx.config.help_prefixes,
+        cx.config.help_prefixes.clone(),
         cx.config.keybinds.play_mpv.clone(),
-        |command| -> MappedCommand<Infallible, PlayerAction> {
-            match command {
-                MpvCommand::Quit => MappedCommand::Down(PlayerAction::Quit),
-                MpvCommand::Pause => MappedCommand::Down(PlayerAction::TogglePause),
-            }
-        },
-    );
-    let res = match cx
-        .term
-        .render(&mut widget, cx.events, cx.spawn.clone())
-        .await?
-    {
-        jellyhaj_keybinds_widget::CommandAction::Action(PlayerQuit) => Ok(Navigation::PopContext),
-        jellyhaj_keybinds_widget::CommandAction::Exit => Ok(Navigation::Exit),
-    };
-    drop(minimize);
-    res
+        Mapper,
+    ));
+    render_widget(cx, state)
 }
 
-pub async fn render_fetch_play(cx: Pin<&mut TuiContext>, item: LoadPlay) -> Result<Navigation> {
-    let cx = cx.project();
-    render_fetch_future(
-        "Loading related items for playlist",
-        fetch_items(cx.jellyfin, item),
-        cx.events,
-        cx.config.keybinds.fetch.clone(),
-        cx.term,
-        &cx.config.help_prefixes,
-        cx.spawn.clone(),
-    )
-    .await
+pub fn render_fetch_play(
+    cx: Pin<&mut TuiContext>,
+    item: LoadPlay,
+) -> impl Future<Output = NavigationResult> {
+    let fut = fetch_items(cx.jellyfin.clone(), item);
+    jellyhaj_fetch_view::make_fetch(cx, "Loading related items for playlist", fut)
 }
 
-async fn fetch_items(cx: &JellyfinClient, item: LoadPlay) -> Result<Navigation> {
+async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<Next> {
     let (items, index) = match item {
-        LoadPlay::Series { id } => (fetch_series(cx, &id).await?, 0),
+        LoadPlay::Series { id } => (fetch_series(&cx, &id).await?, 0),
         LoadPlay::Season { series_id, id } => {
-            let all = fetch_series(cx, &series_id).await?;
+            let all = fetch_series(&cx, &series_id).await?;
             let user_id = cx.get_auth().user.id.as_str();
             let season_items = cx
                 .get_episodes(
@@ -129,7 +111,7 @@ async fn fetch_items(cx: &JellyfinClient, item: LoadPlay) -> Result<Navigation> 
             }
         }
         LoadPlay::Episode { series_id, id } => {
-            let all = fetch_series(cx, &series_id).await?;
+            let all = fetch_series(&cx, &series_id).await?;
 
             if let Some(position) = item_position(&id, &all) {
                 (all, position)
@@ -168,11 +150,11 @@ async fn fetch_items(cx: &JellyfinClient, item: LoadPlay) -> Result<Navigation> 
         }
         LoadPlay::Movie(item) => (vec![item], 0),
         LoadPlay::Music { id, album_id } => {
-            let items = fetch_childs(cx, &album_id).await?;
+            let items = fetch_childs(&cx, &album_id).await?;
             let pos = item_position(&id, &items).unwrap_or(0);
             (items, pos)
         }
-        LoadPlay::MusicAlbum { id } => (fetch_childs(cx, &id).await?, 0),
+        LoadPlay::MusicAlbum { id } => (fetch_childs(&cx, &id).await?, 0),
     };
 
     let items = try_join_all(items.into_iter().map(|item| async {
@@ -183,13 +165,14 @@ async fn fetch_items(cx: &JellyfinClient, item: LoadPlay) -> Result<Navigation> 
             .deserialize()
             .await
             .context("parsing playback info")?;
-        Ok::<_, Report>(PlayItem {
-            item,
-            playback_session_id: info.play_session_id,
-        })
+        Ok::<_, Report>((item, info))
     }))
     .await?;
-    Ok(Navigation::Replace(NextScreen::Play { items, index }))
+    if items.is_empty() {
+        return Err(eyre!("Unable to play, item is empty"));
+    }
+
+    Ok(Box::new(NextScreen::Play { items, index }))
 }
 
 fn item_position(id: &str, items: &[MediaItem]) -> Option<usize> {

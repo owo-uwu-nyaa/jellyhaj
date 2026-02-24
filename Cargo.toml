@@ -104,7 +104,7 @@ members = [
   "widgets/loading",
   "widgets/log",
   "widgets/login",
-  "widgets/player",
+  "widgets/player", "widgets/refresh-item",
   "widgets/stats"
 ]
 

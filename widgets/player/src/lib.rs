@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
+use jellyfin::items::ItemType;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
     JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
@@ -20,6 +21,12 @@ pub struct PlayerWidget {
     handle: PlayerHandle,
     state: Option<SharedPlayerState>,
     send: bool,
+}
+
+impl Drop for PlayerWidget {
+    fn drop(&mut self) {
+        self.handle.send(Command::Stop);
+    }
 }
 
 impl std::fmt::Debug for PlayerWidget {
@@ -198,12 +205,12 @@ impl JellyhajWidget for PlayerWidget {
             if let Some(index) = state.current {
                 let media_item = &state.playlist[index].item;
                 match &media_item.item_type {
-                    jellyfin::items::ItemType::Movie => {
+                    ItemType::Movie => {
                         Paragraph::new(media_item.name.clone())
                             .centered()
                             .render(area, buf);
                     }
-                    jellyfin::items::ItemType::Episode {
+                    ItemType::Episode {
                         season_id: _,
                         season_name: None,
                         series_id: _,
@@ -231,7 +238,7 @@ impl JellyhajWidget for PlayerWidget {
                             .centered()
                             .render(episode, buf);
                     }
-                    jellyfin::items::ItemType::Episode {
+                    ItemType::Episode {
                         season_id: _,
                         season_name: Some(season_name),
                         series_id: _,

@@ -1,20 +1,25 @@
-use std::pin::Pin;
+use std::{ops::ControlFlow, pin::Pin};
 
 use color_eyre::{Result, eyre::Context};
-use jellyfin::{JellyfinClient, JellyfinVec, items::GetItemsQuery, user_views::UserView};
-use jellyhaj_core::{
-    context::TuiContext,
-    entries::EntryResultExt,
-    keybinds::UserViewCommand,
-    state::{Navigation, NextScreen},
+use jellyfin::{
+    JellyfinClient, JellyfinVec,
+    items::{GetItemsQuery, MediaItem},
+    user_views::UserView,
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryData};
-use jellyhaj_fetch_view::render_fetch_future;
-use jellyhaj_item_grid::{DimensionsParameter, ItemGrid, ItemGridAction, ItemGridData};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_render_widgets::{JellyhajWidget, TermExt};
+use jellyhaj_core::{
+    CommandMapper,
+    context::TuiContext,
+    keybinds::UserViewCommand,
+    render::{NavigationResult, render_widget},
+    state::{Navigation, Next, NextScreen},
+};
+use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyhaj_fetch_view::make_fetch;
+use jellyhaj_item_grid::{ItemGridAction, ItemGridData};
+use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_widgets_core::outer::{Named, OuterState};
 
-async fn fetch_user_view(jellyfin: &JellyfinClient, view: UserView) -> Result<Navigation> {
+async fn fetch_user_view(jellyfin: JellyfinClient, view: UserView) -> Result<Next> {
     let user_id = jellyfin.get_auth().user.id.as_str();
     let items = JellyfinVec::collect(async |start| {
         jellyfin
@@ -41,32 +46,16 @@ async fn fetch_user_view(jellyfin: &JellyfinClient, view: UserView) -> Result<Na
             .context("deserializing items")
     })
     .await?;
-    let title = view.name.clone();
-    Ok(Navigation::Replace(NextScreen::UserView {
-        view,
-        items: ItemGridData {
-            items: items.into_iter().map(EntryData::Item).collect(),
-            title,
-            current: 0,
-        },
-    }))
+    Ok(Box::new(NextScreen::UserView { view, items }))
 }
 
-pub async fn render_fetch_user_view(
+pub fn render_fetch_user_view(
     cx: Pin<&mut TuiContext>,
     view: UserView,
-) -> Result<Navigation> {
-    let cx = cx.project();
-    render_fetch_future(
-        &format!("Loading user view {}", view.name),
-        fetch_user_view(cx.jellyfin, view),
-        cx.events,
-        cx.config.keybinds.fetch.clone(),
-        cx.term,
-        &cx.config.help_prefixes,
-        cx.spawn.clone(),
-    )
-    .await
+) -> impl Future<Output = NavigationResult> {
+    let title = format!("Loading user view {}", view.name);
+    let inner = fetch_user_view(cx.jellyfin.clone(), view);
+    make_fetch(cx, title, inner)
 }
 
 #[derive(Debug)]
@@ -75,93 +64,54 @@ pub enum Pass {
     Quit,
 }
 
-pub async fn render_user_view(
-    cx: Pin<&mut TuiContext>,
-    library: ItemGridData<EntryData>,
+struct Mapper {
     view: UserView,
-) -> Result<Navigation> {
-    let cx = cx.project();
+}
 
-    let mut widget = KeybindWidget::new(
-        ItemGrid::new(
-            library
-                .items
-                .into_iter()
-                .map(|i| {
-                    Entry::new(
-                        i,
-                        cx.jellyfin,
-                        cx.cache,
-                        cx.image_cache,
-                        cx.image_picker,
-                        cx.stats,
-                        cx.config,
-                    )
-                })
-                .collect(),
-            library.current,
-            library.title,
-            DimensionsParameter {
-                config: cx.config,
-                font_size: cx.image_picker.font_size(),
-            },
-        ),
-        &cx.config.help_prefixes,
-        cx.config.keybinds.user_view.clone(),
-        |command| match command {
-            UserViewCommand::Quit => MappedCommand::Up(Pass::Quit),
-            UserViewCommand::Reload => MappedCommand::Up(Pass::Reload),
-            UserViewCommand::Prev => MappedCommand::Down(ItemGridAction::Left),
-            UserViewCommand::Next => MappedCommand::Down(ItemGridAction::Right),
-            UserViewCommand::Up => MappedCommand::Down(ItemGridAction::Up),
-            UserViewCommand::Down => MappedCommand::Down(ItemGridAction::Down),
-            UserViewCommand::Open => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::Open))
-            }
-            UserViewCommand::Play => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::Play))
-            }
-            UserViewCommand::OpenEpisode => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::OpenEpisode))
-            }
-            UserViewCommand::OpenSeason => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::OpenSeason))
-            }
-            UserViewCommand::OpenSeries => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::OpenSeries))
-            }
-            UserViewCommand::RefreshItem => {
-                MappedCommand::Down(ItemGridAction::CurrentInner(EntryAction::Refresh))
-            }
-        },
-    );
+impl CommandMapper<UserViewCommand> for Mapper {
+    type A = ItemGridAction<EntryAction>;
 
-    Ok(loop {
-        match cx
-            .term
-            .render(&mut widget, cx.events, cx.spawn.clone())
-            .await?
-        {
-            CommandAction::Up(Pass::Reload) => {
-                break Navigation::Replace(NextScreen::LoadUserView(view));
-            }
-            CommandAction::Up(Pass::Quit) => {
-                break Navigation::PopContext;
-            }
-            CommandAction::Action(action) => {
-                if let Some(next) = action.to_next_screen() {
-                    break Navigation::Push {
-                        current: NextScreen::UserView {
-                            view,
-                            items: widget.into_state(),
-                        },
-                        next,
-                    };
-                }
-            }
-            CommandAction::Exit => {
-                break Navigation::Exit;
-            }
+    fn map(&self, command: UserViewCommand) -> ControlFlow<Navigation, Self::A> {
+        match command {
+            UserViewCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            UserViewCommand::Reload => ControlFlow::Break(Navigation::Replace(Box::new(
+                NextScreen::LoadUserView(self.view.clone()),
+            ))),
+            UserViewCommand::Prev => ControlFlow::Continue(ItemGridAction::Left),
+            UserViewCommand::Next => ControlFlow::Continue(ItemGridAction::Right),
+            UserViewCommand::Up => ControlFlow::Continue(ItemGridAction::Up),
+            UserViewCommand::Down => ControlFlow::Continue(ItemGridAction::Down),
+            UserViewCommand::Entry(entry_command) => ControlFlow::Continue(
+                ItemGridAction::CurrentInner(EntryAction::Command(entry_command)),
+            ),
+            UserViewCommand::Global(g) => ControlFlow::Break(g.into())
         }
-    })
+    }
+}
+struct Name;
+impl Named for Name {
+    const NAME: &str = "library";
+}
+
+pub fn render_user_view(
+    mut cx: Pin<&mut TuiContext>,
+    view: UserView,
+    items: Vec<MediaItem>,
+) -> impl Future<Output = NavigationResult> {
+    let inner = ItemGridData::<Entry>::new(
+        items
+            .into_iter()
+            .map(|i| EntryState::new(i, cx.as_mut()))
+            .collect(),
+        view.name.clone(),
+        0,
+    );
+    let inner = KeybindState::new(
+        inner,
+        cx.config.help_prefixes.clone(),
+        cx.config.keybinds.user_view.clone(),
+        Mapper { view },
+    );
+    let state = OuterState::<Name, _, _, _>::new(inner);
+    render_widget(cx, state)
 }

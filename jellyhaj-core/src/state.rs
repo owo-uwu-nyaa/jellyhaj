@@ -1,9 +1,11 @@
 use std::convert::Infallible;
 
+use color_eyre::Result;
 use color_eyre::eyre::Report;
+use config::keybind_defs::GlobalCommand;
 use futures_util::future::BoxFuture;
 use jellyfin::{
-    items::{MediaItem, PlaybackInfo, RefreshItemQuery},
+    items::{MediaItem, PlaybackInfo},
     user_views::UserView,
 };
 
@@ -19,14 +21,15 @@ pub enum LoadPlay {
     MusicAlbum { id: String },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum NextScreen {
+    #[default]
     LoadHomeScreen,
     HomeScreen {
         cont: Vec<MediaItem>,
         next_up: Vec<MediaItem>,
         libraries: Vec<UserView>,
-        library_latext: Vec<(String, Vec<MediaItem>)>,
+        library_latest: Vec<(String, Vec<MediaItem>)>,
     },
     LoadUserView(UserView),
     UserView {
@@ -45,7 +48,6 @@ pub enum NextScreen {
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),
     RefreshItem(String),
-    SendRefreshItem(String, RefreshItemQuery),
     Stats,
     Logs,
 }
@@ -58,12 +60,21 @@ pub enum Navigation {
     Push(Next),
     Replace(Next),
     Exit,
-    PushWithoutTui(BoxFuture<'static, ()>),
+    PushWithoutTui(BoxFuture<'static, Result<()>>),
 }
 
-impl From<Infallible> for Navigation{
+impl From<Infallible> for Navigation {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<GlobalCommand> for Navigation {
+    fn from(value: GlobalCommand) -> Self {
+        match value {
+            GlobalCommand::ShowStats => Navigation::Push(Box::new(NextScreen::Stats)),
+            GlobalCommand::ShowLogs => Navigation::Push(Box::new(NextScreen::Logs)),
+        }
     }
 }
 
@@ -78,3 +89,4 @@ impl std::fmt::Debug for Navigation {
         }
     }
 }
+

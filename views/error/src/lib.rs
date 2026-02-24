@@ -1,85 +1,49 @@
-use color_eyre::eyre::{Report, Result};
+use std::{ops::ControlFlow, pin::Pin};
+
+use color_eyre::eyre::Report;
 use jellyhaj_core::{
-    context::{DefaultTerminal, KeybindEvents, Spawner},
-    keybinds::{ErrorCommand, Keybinds},
-    state::{Navigation, NextScreen},
+    CommandMapper, keybinds::ErrorCommand, render::render_widget, state::Navigation,
 };
 use jellyhaj_error_widget::{ErrorAction, ErrorWidget};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
-use jellyhaj_render_widgets::TermExt;
+use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_widgets_core::{
+    TuiContext,
+    outer::{Named, OuterState},
+};
 
-#[derive(Debug)]
-enum Pass {
-    Quit,
-    Kill,
-    Logs,
-}
+struct Mapper;
 
-pub trait ResultDisplayExt<T> {
-    fn render_error(
-        self,
-        term: &mut DefaultTerminal,
-        events: &mut KeybindEvents,
-        keybinds: &Keybinds,
-        help_prefixes: &[String],
-        spawn: Spawner,
-    ) -> impl Future<Output = Option<T>>;
-}
+impl CommandMapper<ErrorCommand> for Mapper {
+    type A = ErrorAction;
 
-impl<T> ResultDisplayExt<T> for Result<T> {
-    async fn render_error(
-        self,
-        term: &mut DefaultTerminal,
-        events: &mut KeybindEvents,
-        keybinds: &Keybinds,
-        help_prefixes: &[String],
-        spawn: Spawner,
-    ) -> Option<T> {
-        match self {
-            Err(e) => {
-                if let Some(e) = render_error(term, events, keybinds, help_prefixes, spawn, e)
-                    .await
-                    .err()
-                {
-                    tracing::error!("Error displaying error: {e:?}");
-                }
-                None
-            }
-            Ok(v) => Some(v),
+    fn map(&self, command: ErrorCommand) -> ControlFlow<Navigation, Self::A> {
+        match command {
+            ErrorCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            ErrorCommand::Kill => ControlFlow::Break(Navigation::Exit),
+            ErrorCommand::Up => ControlFlow::Continue(ErrorAction::Up),
+            ErrorCommand::Down => ControlFlow::Continue(ErrorAction::Down),
+            ErrorCommand::Left => ControlFlow::Continue(ErrorAction::Left),
+            ErrorCommand::Right => ControlFlow::Continue(ErrorAction::Right),
+            ErrorCommand::Global(g) => ControlFlow::Break(g.into()),
         }
     }
 }
 
-pub async fn render_error(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    keybinds: &Keybinds,
-    help_prefixes: &[String],
-    spawn: Spawner,
+struct Name;
+impl Named for Name {
+    const NAME: &str = "error";
+}
+
+pub fn render_error(
+    cx: Pin<&mut TuiContext>,
     e: Report,
-) -> Result<Navigation> {
+) -> impl Future<Output = jellyhaj_core::render::NavigationResult> {
     tracing::error!("Error encountered: {e:?}");
-    let mut widget = KeybindWidget::new(
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
         ErrorWidget::new(format!("{e:?}")),
-        help_prefixes,
-        keybinds.error.clone(),
-        |command| match command {
-            ErrorCommand::Quit => MappedCommand::Up(Pass::Quit),
-            ErrorCommand::Kill => MappedCommand::Up(Pass::Kill),
-            ErrorCommand::Up => MappedCommand::Down(ErrorAction::Up),
-            ErrorCommand::Down => MappedCommand::Down(ErrorAction::Down),
-            ErrorCommand::Left => MappedCommand::Down(ErrorAction::Left),
-            ErrorCommand::Right => MappedCommand::Down(ErrorAction::Right),
-            ErrorCommand::ShowLogs => MappedCommand::Up(Pass::Logs),
-        },
-    );
-    Ok(match term.render(&mut widget, events, spawn).await? {
-        CommandAction::Up(Pass::Quit) => Navigation::PopContext,
-        CommandAction::Up(Pass::Kill) => Navigation::Exit,
-        CommandAction::Up(Pass::Logs) => Navigation::Push {
-            current: NextScreen::Error(e),
-            next: NextScreen::Logs,
-        },
-        CommandAction::Exit => Navigation::Exit,
-    })
+        cx.config.help_prefixes.clone(),
+        cx.config.keybinds.error.clone(),
+        Mapper,
+    ));
+    render_widget(cx, state)
 }

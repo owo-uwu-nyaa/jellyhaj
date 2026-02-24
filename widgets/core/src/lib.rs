@@ -2,6 +2,7 @@ pub mod async_task;
 pub mod flatten;
 mod item;
 mod jellyhaj;
+pub mod mapper;
 pub mod outer;
 pub use color_eyre::Result;
 pub use config::Config;

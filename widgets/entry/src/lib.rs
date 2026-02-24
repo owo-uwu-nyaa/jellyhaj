@@ -30,6 +30,17 @@ pub enum EntryData {
     View(UserView),
 }
 
+impl From<MediaItem> for EntryData {
+    fn from(value: MediaItem) -> Self {
+        EntryData::Item(value)
+    }
+}
+impl From<UserView> for EntryData {
+    fn from(value: UserView) -> Self {
+        EntryData::View(value)
+    }
+}
+
 impl EntryData {
     pub fn item(&self) -> Option<&MediaItem> {
         if let EntryData::Item(i) = self {
@@ -147,8 +158,8 @@ impl EntryState {
     pub fn data(&self) -> &EntryData {
         &self.inner
     }
-    pub fn new(state: EntryData, cx: Pin<&mut TuiContext>) -> EntryState {
-        match state {
+    pub fn new(state: impl Into<EntryData>, cx: Pin<&mut TuiContext>) -> EntryState {
+        match state.into() {
             EntryData::Item(media_item) => from_media_item(media_item, cx),
             EntryData::View(user_view) => from_user_view(user_view, cx),
         }

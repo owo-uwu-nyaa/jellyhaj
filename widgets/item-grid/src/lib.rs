@@ -62,6 +62,16 @@ pub struct ItemGridData<W: ItemWidget> {
     pub current: usize,
 }
 
+impl<W: ItemWidget> ItemGridData<W> {
+    pub fn new(items: Vec<W::State>, title: String, current: usize) -> Self {
+        Self {
+            items,
+            title,
+            current,
+        }
+    }
+}
+
 impl<W: ItemWidget> std::fmt::Debug for ItemGridData<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemGridData")

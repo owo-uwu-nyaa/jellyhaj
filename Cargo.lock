@@ -1920,6 +1920,7 @@ dependencies = [
  "jellyhaj-core",
  "jellyhaj-error-widget",
  "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
  "tracing",
 ]
 
@@ -2005,6 +2006,7 @@ dependencies = [
  "jellyhaj-fetch-view",
  "jellyhaj-item-screen",
  "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
  "tokio",
 ]
 
@@ -2040,6 +2042,7 @@ dependencies = [
  "jellyhaj-item-details-widget",
  "jellyhaj-item-list",
  "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
  "tokio",
  "tracing",
 ]
@@ -2111,6 +2114,7 @@ dependencies = [
  "jellyhaj-fetch-view",
  "jellyhaj-item-grid",
  "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
 ]
 
 [[package]]
@@ -2133,6 +2137,7 @@ dependencies = [
  "jellyhaj-core",
  "jellyhaj-keybinds-widget",
  "jellyhaj-log-widget",
+ "jellyhaj-widgets-core",
 ]
 
 [[package]]
@@ -2189,6 +2194,7 @@ dependencies = [
  "jellyhaj-fetch-view",
  "jellyhaj-keybinds-widget",
  "jellyhaj-player-widget",
+ "jellyhaj-widgets-core",
  "player-core",
  "tracing",
 ]
@@ -2217,6 +2223,20 @@ dependencies = [
  "jellyhaj-fetch-view",
  "jellyhaj-form-widget",
  "jellyhaj-keybinds-widget",
+ "jellyhaj-refresh-item-widget",
+ "jellyhaj-widgets-core",
+]
+
+[[package]]
+name = "jellyhaj-refresh-item-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-form-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
 ]
 
 [[package]]

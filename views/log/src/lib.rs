@@ -1,44 +1,53 @@
-use std::pin::Pin;
+use std::{ops::ControlFlow, pin::Pin};
 
-use color_eyre::Result;
-use jellyhaj_core::{context::TuiContext, keybinds::LoggerCommand, state::Navigation};
-use jellyhaj_keybinds_widget::{CommandAction, KeybindWidget, MappedCommand};
+use jellyhaj_core::{
+    CommandMapper,
+    context::TuiContext,
+    keybinds::LoggerCommand,
+    render::{NavigationResult, render_widget},
+    state::Navigation,
+};
+use jellyhaj_keybinds_widget::KeybindState;
 use jellyhaj_log_widget::{LogWidget, TuiWidgetEvent};
-use jellyhaj_render_widgets::TermExt;
+use jellyhaj_widgets_core::outer::{Named, OuterState};
 
-#[derive(Debug)]
-struct Quit;
+struct Mapper;
 
-pub async fn render_log(cx: Pin<&mut TuiContext>) -> Result<Navigation> {
-    let cx = cx.project();
-    let mut widget = KeybindWidget::new(
+impl CommandMapper<LoggerCommand> for Mapper {
+    type A = TuiWidgetEvent;
+
+    fn map(&self, command: LoggerCommand) -> ControlFlow<Navigation, Self::A> {
+        let event = match command {
+            LoggerCommand::Space => TuiWidgetEvent::SpaceKey,
+            LoggerCommand::TargetUp => TuiWidgetEvent::UpKey,
+            LoggerCommand::TargetDown => TuiWidgetEvent::DownKey,
+            LoggerCommand::Left => TuiWidgetEvent::LeftKey,
+            LoggerCommand::Right => TuiWidgetEvent::RightKey,
+            LoggerCommand::Plus => TuiWidgetEvent::PlusKey,
+            LoggerCommand::Minus => TuiWidgetEvent::MinusKey,
+            LoggerCommand::Hide => TuiWidgetEvent::HideKey,
+            LoggerCommand::Focus => TuiWidgetEvent::FocusKey,
+            LoggerCommand::MessagesUp => TuiWidgetEvent::PrevPageKey,
+            LoggerCommand::MessagesDown => TuiWidgetEvent::NextPageKey,
+            LoggerCommand::Escape => TuiWidgetEvent::EscapeKey,
+            LoggerCommand::Quit => return ControlFlow::Break(Navigation::PopContext),
+            LoggerCommand::Global(g) => return ControlFlow::Break(g.into()),
+        };
+        ControlFlow::Continue(event)
+    }
+}
+
+struct Name;
+impl Named for Name {
+    const NAME: &str = "log-view";
+}
+
+pub fn render_log(cx: Pin<&mut TuiContext>) -> impl Future<Output = NavigationResult> {
+    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
         LogWidget::new(),
-        &cx.config.help_prefixes,
+        cx.config.help_prefixes.clone(),
         cx.config.keybinds.logger.clone(),
-        |c| match c {
-            LoggerCommand::Space => MappedCommand::Down(TuiWidgetEvent::SpaceKey),
-            LoggerCommand::TargetUp => MappedCommand::Down(TuiWidgetEvent::UpKey),
-            LoggerCommand::TargetDown => MappedCommand::Down(TuiWidgetEvent::DownKey),
-            LoggerCommand::Left => MappedCommand::Down(TuiWidgetEvent::LeftKey),
-            LoggerCommand::Right => MappedCommand::Down(TuiWidgetEvent::RightKey),
-            LoggerCommand::Plus => MappedCommand::Down(TuiWidgetEvent::PlusKey),
-            LoggerCommand::Minus => MappedCommand::Down(TuiWidgetEvent::MinusKey),
-            LoggerCommand::Hide => MappedCommand::Down(TuiWidgetEvent::HideKey),
-            LoggerCommand::Focus => MappedCommand::Down(TuiWidgetEvent::FocusKey),
-            LoggerCommand::MessagesUp => MappedCommand::Down(TuiWidgetEvent::PrevPageKey),
-            LoggerCommand::MessagesDown => MappedCommand::Down(TuiWidgetEvent::NextPageKey),
-            LoggerCommand::Escape => MappedCommand::Down(TuiWidgetEvent::EscapeKey),
-            LoggerCommand::Quit => MappedCommand::Up(Quit),
-        },
-    );
-    Ok(
-        match cx
-            .term
-            .render(&mut widget, cx.events, cx.spawn.clone())
-            .await?
-        {
-            CommandAction::Up(Quit) => Navigation::PopContext,
-            CommandAction::Exit => Navigation::Exit,
-        },
-    )
+        Mapper,
+    ));
+    render_widget(cx, state)
 }

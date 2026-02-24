@@ -94,8 +94,10 @@ impl CommandMapper<LoadingCommand> for LoadingMapper {
         &self,
         command: LoadingCommand,
     ) -> std::ops::ControlFlow<jellyhaj_core::state::Navigation, Self::A> {
-        let LoadingCommand::Quit = command;
-        ControlFlow::Break(Navigation::PopContext)
+        match command {
+            LoadingCommand::Quit => ControlFlow::Break(Navigation::PopContext),
+            LoadingCommand::Global(g) => ControlFlow::Break(g.into())
+        }
     }
 }
 

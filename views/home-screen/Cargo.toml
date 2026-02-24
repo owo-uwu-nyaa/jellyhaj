@@ -8,6 +8,7 @@ jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
 
 [package]
 edition = "2024"

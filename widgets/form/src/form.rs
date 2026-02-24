@@ -626,9 +626,18 @@ impl<'s, const TOTAL_SIZE: usize, AR> WithSelectionMut<AR, Result<()>>
 pub struct FormCommandMapper;
 
 impl CommandMapper<FormCommand> for FormCommandMapper {
-    type A = FormCommand;
+    type A = FormAction;
 
     fn map(&self, command: FormCommand) -> ControlFlow<Navigation, Self::A> {
-        ControlFlow::Continue(command)
+        ControlFlow::Continue( match command {
+            FormCommand::Quit => FormAction::Quit,
+            FormCommand::Up => FormAction::Up,
+            FormCommand::Down => FormAction::Down,
+            FormCommand::Left => FormAction::Left,
+            FormCommand::Right => FormAction::Right,
+            FormCommand::Delete => FormAction::Delete,
+            FormCommand::Enter => FormAction::Enter,
+            FormCommand::Global(g) => return ControlFlow::Break(g.into()),
+        })
     }
 }

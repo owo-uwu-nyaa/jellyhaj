@@ -6,9 +6,7 @@ use jellyfin::{
     user_library::GetLatestQuery,
     user_views::{CollectionType, GetUserViewsQuery, UserView, UserViewType},
 };
-use jellyhaj_core::state::{Navigation, NextScreen};
-use jellyhaj_entry_widget::EntryData;
-use jellyhaj_item_screen::{ItemListData, ItemScreenData};
+use jellyhaj_core::state::{Next, NextScreen};
 use tokio::try_join;
 
 async fn user_views(client: &JellyfinClient) -> Result<Vec<UserView>> {
@@ -127,35 +125,16 @@ async fn latest_user_views(
     Ok((user_view, latest))
 }
 
-pub async fn fetch(client: &JellyfinClient) -> Result<Navigation> {
-    let (resume, next_up, (user_views, latest)) =
-        try_join!(resume(client), next_up(client), latest_user_views(client))?;
-    let first = [
-        ItemListData {
-            items: resume.into_iter().map(EntryData::Item).collect(),
-            title: "Continue Watching".to_string(),
-            current: 0,
-        },
-        ItemListData {
-            items: next_up.into_iter().map(EntryData::Item).collect(),
-            title: "Next Up".to_string(),
-            current: 0,
-        },
-        ItemListData {
-            items: user_views.into_iter().map(EntryData::View).collect(),
-            title: "User Views".to_string(),
-            current: 0,
-        },
-    ];
-    let latest = latest.into_iter().map(|(name, items)| ItemListData {
-        items: items.into_iter().map(EntryData::Item).collect(),
-        title: name,
-        current: 0,
-    });
-    let screen = ItemScreenData {
-        lists: first.into_iter().chain(latest).collect(),
-        title: "Home".to_string(),
-        current: 0,
-    };
-    Ok(Navigation::Replace(NextScreen::HomeScreen(screen)))
+pub async fn fetch(client: JellyfinClient) -> Result<Next> {
+    let (resume, next_up, (user_views, latest)) = try_join!(
+        resume(&client),
+        next_up(&client),
+        latest_user_views(&client)
+    )?;
+    Ok(Box::new(NextScreen::HomeScreen {
+        cont: resume,
+        next_up,
+        libraries: user_views,
+        library_latest: latest,
+    }))
 }

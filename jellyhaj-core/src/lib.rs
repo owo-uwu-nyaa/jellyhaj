@@ -1,5 +1,6 @@
 pub mod render;
 pub mod state;
+pub mod term;
 
 use std::fmt::Debug;
 use std::ops::ControlFlow;
