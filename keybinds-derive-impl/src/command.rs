@@ -311,7 +311,7 @@ mod tests {
                     }
                 }
                 fn all() -> &'static [&'static str] {
-                    static S: ::std::sync::LazyLock<&'static [&'static str]> = LazyLock::new(
+                    static S: ::std::sync::LazyLock<&'static [&'static str]> = ::std::sync::LazyLock::new(
                         || ::keybinds::__macro_support::collect_all_names(
                             &[
                                 &["name", "val-b"],
