@@ -1,8 +1,8 @@
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
-use color_eyre::eyre::{Context, OptionExt, Result};
+use color_eyre::eyre::{Context, OptionExt, Result, eyre};
 use libmpv::MpvProfile;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
 
 pub use cache::cache;
@@ -35,6 +35,48 @@ struct ParseConfig {
     pub mpv_log_level: String,
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: Option<u16>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LoginInfo {
+    pub server_url: String,
+    pub username: String,
+    pub password: String,
+    pub password_cmd: Option<Vec<String>>,
+}
+
+impl LoginInfo {
+    pub async fn get_password(&self) -> Result<String> {
+        if let Some(cmd) = self.password_cmd.as_ref() {
+            let mut command = if let Some(cmd) = cmd.first() {
+                tokio::process::Command::new(cmd)
+            } else {
+                return Err(eyre!("Password cmd is empty"));
+            };
+            for arg in cmd[1..].iter() {
+                command.arg(arg);
+            }
+            let output = command
+                .kill_on_drop(true)
+                .output()
+                .await
+                .context("Executing password cmd failed")?;
+            if output.status.success() {
+                Ok(String::from_utf8(output.stdout)
+                    .context("password cmd output is not utf-8")?
+                    .trim()
+                    .to_string())
+            } else {
+                Err(eyre!(
+                    "command failed with:\n{}",
+                    String::from_utf8(output.stderr)
+                        .context("password cmd error output is not utf-8")?
+                ))
+            }
+        } else {
+            Ok(self.password.clone())
+        }
+    }
 }
 
 #[instrument]

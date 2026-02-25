@@ -131,7 +131,7 @@ pub struct ClientInfo {
     pub version: Cow<'static, str>,
 }
 
-impl<AuthS: AuthStatus> JellyfinClient<AuthS> {
+impl JellyfinClient {
     /// Creates a new `JellyfinConnection`
     /// * `url` The base jellyfin server url, without a trailing "/"
     pub fn new(
@@ -190,7 +190,9 @@ impl<AuthS: AuthStatus> JellyfinClient<AuthS> {
     ) -> Result<JellyfinClient<KeyAuth>> {
         Ok(Self::new(url, client_info, device_name)?.auth_key(key, username))
     }
+}
 
+impl<AuthS: AuthStatus> JellyfinClient<AuthS> {
     pub fn get_auth(&self) -> &AuthS {
         &self.inner.auth
     }

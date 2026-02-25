@@ -88,7 +88,16 @@ async fn login(
 ) -> Result<Option<(JellyfinClient, JellyfinWebSocket)>> {
     debug!("logging in to jellyfin");
     Ok(
-        if let Some(client) = jellyhaj_login_view::login(term, spawner, config, events).await? {
+        if let Some(client) = jellyhaj_login_view::login(
+            clap::crate_name!(),
+            clap::crate_version!(),
+            term,
+            spawner,
+            config,
+            events,
+        )
+        .await?
+        {
             let socket = client.get_socket()?;
             Some((client, socket))
         } else {
@@ -110,6 +119,7 @@ async fn run_state(mut cx: Pin<&mut TuiContext>) {
             debug!("resuming suspended widget: {}", suspended.name());
             suspended.resume(cx.as_mut()).await
         } else {
+            debug!("defaulting to displaying home screen");
             jellyhaj_home_screen_view::render_fetch_home_screen(cx.as_mut()).await
         };
         match res {

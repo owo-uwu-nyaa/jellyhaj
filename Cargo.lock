@@ -1066,6 +1066,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "event-socket"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "config",
+ "futures-util",
+ "jellyfin",
+ "serde_json",
+ "tokio",
+ "toml",
+ "whoami 2.1.1",
+]
+
+[[package]]
 name = "eyre"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2174,6 +2189,7 @@ name = "jellyhaj-login-view"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "config",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-keybinds-widget",
@@ -2181,7 +2197,6 @@ dependencies = [
  "jellyhaj-login-widget",
  "keybinds",
  "ratatui",
- "serde",
  "spawn",
  "tokio",
  "toml",

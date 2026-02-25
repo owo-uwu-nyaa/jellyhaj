@@ -11,8 +11,8 @@ ratatui.workspace = true
 toml.workspace = true
 tracing.workspace = true
 whoami.workspace = true
-serde.workspace = true
 jellyhaj-loading-widget = { version = "0.1.0", path = "../../widgets/loading" }
+config = { version = "0.1.0", path = "../../config" }
 
 [package]
 edition = "2024"

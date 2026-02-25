@@ -10,6 +10,7 @@ use color_eyre::{
     Report, Result,
     eyre::{Context, OptionExt, eyre},
 };
+use config::LoginInfo;
 use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth};
 use jellyhaj_core::{
     CommandMapper, Config,
@@ -22,18 +23,9 @@ use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
 use jellyhaj_login_widget::{LoginResult, LoginWidget};
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
-use serde::{Deserialize, Serialize};
 use spawn::Spawner;
 use tokio::select;
 use tracing::{info, instrument};
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct LoginInfo {
-    pub server_url: String,
-    pub username: String,
-    pub password: String,
-    pub password_cmd: Option<Vec<String>>,
-}
 
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
@@ -122,6 +114,8 @@ async fn render_fetch(
 
 #[instrument(skip_all)]
 pub async fn login(
+    name: &'static str,
+    version: &'static str,
     term: &mut DefaultTerminal,
     spawn: &Spawner,
     config: &Config,
@@ -175,11 +169,11 @@ pub async fn login(
                 continue;
             }
         }
-        let client = match JellyfinClient::<NoAuth>::new(
+        let client = match JellyfinClient::new(
             &login_info.server_url,
             ClientInfo {
-                name: "jellyhaj".into(),
-                version: "0.2.0".into(),
+                name: name.into(),
+                version: version.into(),
             },
             device_name.clone(),
         ) {
@@ -202,9 +196,7 @@ pub async fn login(
             }
             v = jellyfin_login(
                 client,
-                &login_info.username,
-                &login_info.password,
-                login_info.password_cmd.as_deref(),
+                &login_info,
             ) => {
                 match v {
                     Ok(v) => break v,
@@ -242,49 +234,16 @@ pub async fn login(
 
 async fn jellyfin_login(
     client: JellyfinClient<NoAuth>,
-    username: &str,
-    password: &str,
-    password_cmd: Option<&[String]>,
+    info: &LoginInfo,
 ) -> std::result::Result<JellyfinClient<Auth>, (JellyfinClient<NoAuth>, Report)> {
     info!("connecting to server");
-    let password = if let Some(cmd) = password_cmd {
-        match get_password_from_cmd(cmd).await {
-            Ok(v) => v,
-            Err(e) => return Err((client, e)),
-        }
-    } else {
-        password.to_string()
+    let password = match info.get_password().await {
+        Ok(v) => v,
+        Err(e) => return Err((client, e)),
     };
-    let client = match client.auth_user_name(username, password).await {
+    let client = match client.auth_user_name(&info.username, password).await {
         Ok(v) => v,
         Err((client, e)) => return Err((client, e)),
     };
     Ok(client)
-}
-
-async fn get_password_from_cmd(cmd: &[String]) -> Result<String> {
-    let mut command = if let Some(cmd) = cmd.first() {
-        tokio::process::Command::new(cmd)
-    } else {
-        return Err(eyre!("Password cmd is empty"));
-    };
-    for arg in cmd[1..].iter() {
-        command.arg(arg);
-    }
-    let output = command
-        .kill_on_drop(true)
-        .output()
-        .await
-        .context("Executing password cmd failed")?;
-    if output.status.success() {
-        Ok(String::from_utf8(output.stdout)
-            .context("password cmd output is not utf-8")?
-            .trim()
-            .to_string())
-    } else {
-        Err(eyre!(
-            "command failed with:\n{}",
-            String::from_utf8(output.stderr).context("password cmd error output is not utf-8")?
-        ))
-    }
 }

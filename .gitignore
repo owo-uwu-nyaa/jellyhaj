@@ -8,3 +8,4 @@
 /aarch-shell
 /run_debugging
 /.gdbinit
+/events.json

@@ -1,0 +1,15 @@
+[package]
+name = "event-socket"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.60", features = ["cargo", "derive"] }
+color-eyre.workspace = true
+config = { version = "0.1.0", path = "../config" }
+futures-util.workspace = true
+jellyfin = { version = "0.1.4", path = "../jellyfin-rs" }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "signal"] }
+toml.workspace = true
+whoami.workspace = true

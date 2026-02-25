@@ -196,44 +196,7 @@ fn poll_websocket_normal(
                                 socket: None,
                             });
                         }
-                        Ok(JellyfinMessageInternal::RefreshProgress { item_id, progress }) => {
-                            let message = match progress.parse::<f64>() {
-                                Ok(progress) => {
-                                    Ok(JellyfinMessage::RefreshProgress { item_id, progress })
-                                }
-                                Err(e) => Err(e.into()),
-                            };
-                            return Poll::Ready(WebsocketResult {
-                                parent: Some(OpResult {
-                                    state_change: None,
-                                    output: Some(Some(message)),
-                                }),
-                                socket: None,
-                            });
-                        }
-                        Ok(JellyfinMessageInternal::UserDataChanged { user_data_list }) => {
-                            return Poll::Ready(WebsocketResult {
-                                parent: Some(OpResult {
-                                    state_change: None,
-                                    output: Some(Some(Ok(JellyfinMessage::UserDataChanged {
-                                        user_data_list,
-                                    }))),
-                                }),
-                                socket: None,
-                            });
-                        }
                     }
-                } else if message.as_payload().is_empty() {
-                } else {
-                    return Poll::Ready(WebsocketResult {
-                        parent: Some(OpResult {
-                            state_change: None,
-                            output: Some(Some(Ok(JellyfinMessage::Binary(
-                                message.as_payload().to_vec(),
-                            )))),
-                        }),
-                        socket: None,
-                    });
                 }
             }
         }
@@ -356,14 +319,6 @@ impl Stream for JellyfinWebSocket {
 
 #[derive(Debug)]
 pub enum JellyfinMessage {
-    Binary(Vec<u8>),
-    RefreshProgress {
-        item_id: String,
-        progress: f64,
-    },
-    UserDataChanged {
-        user_data_list: Vec<ChangedUserData>,
-    },
     Unknown {
         message_type: String,
         data: serde_json::Value,
@@ -386,15 +341,6 @@ enum JellyfinMessageInternal {
     #[serde(rename_all = "PascalCase")]
     ForceKeepAlive {
         data: u64,
-    },
-    #[serde(rename_all = "PascalCase")]
-    RefreshProgress {
-        item_id: String,
-        progress: String,
-    },
-    #[serde(rename_all = "PascalCase")]
-    UserDataChanged {
-        user_data_list: Vec<ChangedUserData>,
     },
     #[serde(untagged)]
     #[serde(rename_all = "PascalCase")]
