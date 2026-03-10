@@ -1,0 +1,16 @@
+[package]
+name = "jellyhaj-event-listener"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+futures-channel.workspace=true
+futures-intrusive.workspace=true
+jellyfin = { path = "../jellyfin-rs" }
+jellyhaj-async-task = { path = "../async-task" }
+parking_lot.workspace = true
+spawn = { path = "../spawn" }
+tokio = { workspace = true, features = ["macros"] }
+tracing.workspace = true
+

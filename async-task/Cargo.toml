@@ -1,0 +1,13 @@
+[package]
+name = "jellyhaj-async-task"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
+futures-channel.workspace=true
+futures-intrusive.workspace=true
+pin-project-lite.workspace = true
+spawn = { version = "0.1.0", path = "../spawn" }
+tracing.workspace = true

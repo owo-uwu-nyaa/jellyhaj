@@ -68,8 +68,8 @@ impl<Auth: AuthStatus> JellyfinClient<Auth> {
         query: &GetImageQuery<'_>,
     ) -> Result<Uri> {
         Uri::builder()
-            .scheme(if self.tls() { "https" } else { "http" })
-            .authority(self.authority().to_owned())
+            .scheme(if self.config.tls { "https" } else { "http" })
+            .authority(self.config.authority.to_owned())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/Items/");

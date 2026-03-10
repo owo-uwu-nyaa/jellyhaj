@@ -12,7 +12,7 @@ use std::{
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Rect, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, Rect, TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
@@ -56,7 +56,7 @@ impl JellyhajWidgetState for LoadingState {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -106,7 +106,7 @@ impl JellyhajWidget for Loading {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         for v in &mut self.lines {
@@ -121,7 +121,7 @@ impl JellyhajWidget for Loading {
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _position: ratatui::prelude::Position,
         _size: ratatui::prelude::Size,
         _kind: ratatui::crossterm::event::MouseEventKind,
@@ -135,7 +135,7 @@ impl JellyhajWidget for Loading {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
@@ -151,7 +151,8 @@ impl JellyhajWidget for Loading {
                     }
                 }
             });
-            task.spawn_stream(timer, info_span!("update"))
+            cx.submitter
+                .spawn_stream(timer, info_span!("update-loading"), "update-loading")
         }
         let outer = Block::bordered().title(self.title.deref());
         let main = outer.inner(area);

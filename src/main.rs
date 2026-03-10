@@ -14,6 +14,10 @@ use tracing::{error, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn log_stdout() -> Result<()> {
     let format = tracing_subscriber::fmt::format();
     let filter = tracing_subscriber::EnvFilter::builder()

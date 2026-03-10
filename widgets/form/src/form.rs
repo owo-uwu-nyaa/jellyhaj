@@ -8,7 +8,7 @@ use std::{
 use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
     Buffer, JellyhajWidget, JellyhajWidgetState, KeyModifiers, MouseEventKind, Position, Rect,
-    Size, TuiContext, Wrapper, async_task::TaskSubmitter,
+    Size, TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use tui_scrollview::{ScrollView, ScrollViewState};
@@ -98,7 +98,7 @@ impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> JellyhajWidgetState
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -150,7 +150,7 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         fn inner<const TOTAL_SIZE: usize, S: FormData<{ TOTAL_SIZE }>>(
@@ -206,7 +206,7 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         mut position: Position,
         mut size: Size,
         kind: MouseEventKind,
@@ -263,7 +263,7 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget
         &mut self,
         area: Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title(Data::TITLE)

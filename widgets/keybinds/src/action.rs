@@ -2,7 +2,7 @@ use std::{mem, ops::ControlFlow};
 
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{JellyhajWidget, Wrapper, async_task::TaskSubmitter};
+use jellyhaj_widgets_core::{JellyhajWidget, WidgetContext, Wrapper};
 use keybinds::{Command, Key, KeyBinding};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tracing::{debug, warn};
@@ -11,12 +11,11 @@ use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 
 pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
     this: &mut KeybindWidget<T, W, M>,
-    task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
+    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
     action: KeybindAction<W::Action>,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     match action {
-        KeybindAction::Inner(a) => match this.inner.apply_action(task.wrap_with(KeybindWrapper), a)
-        {
+        KeybindAction::Inner(a) => match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
             Ok(None) => Ok(None),
             Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
             Err(e) => Err(e),
@@ -75,8 +74,7 @@ pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W:
                             return match mapped {
                                 ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
                                 ControlFlow::Continue(a) => {
-                                    match this.inner.apply_action(task.wrap_with(KeybindWrapper), a)
-                                    {
+                                    match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
                                         Ok(None) => Ok(None),
                                         Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
                                         Err(e) => Err(e),

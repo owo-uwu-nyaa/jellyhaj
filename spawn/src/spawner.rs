@@ -1,30 +1,44 @@
-use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
-use tracing::{Instrument, Span, warn};
+use std::sync::Arc;
 
-pub type JoinSetCallback = Box<dyn FnOnce(&mut JoinSet<()>) + Send + 'static>;
+use parking_lot::Mutex;
+use tokio::task::JoinSet;
+use tracing::{Instrument, Span, warn};
 
 #[derive(Clone)]
 pub struct Spawner {
-    pub(crate) sender: UnboundedSender<JoinSetCallback>,
+    pub(crate) pool: Arc<Mutex<JoinSet<()>>>,
 }
 
 impl Spawner {
-    pub fn raw(&self, f: impl FnOnce(&mut JoinSet<()>) + Send + 'static) {
-        let _ = self.sender.send(Box::new(f));
+    #[track_caller]
+    fn spawn_bare(&self, fut: impl Future<Output = ()> + Send + 'static, name: &'static str) {
+        #[cfg(not(tokio_unstable))]
+        let _ = name;
+        let mut join_set = self.pool.lock();
+        #[cfg(tokio_unstable)]
+        join_set
+            .build_task()
+            .name(name)
+            .spawn(fut)
+            .expect("spawning future should not fail");
+        #[cfg(not(tokio_unstable))]
+        join_set.spawn(fut);
     }
-
-    pub fn spawn_bare(&self, fut: impl Future<Output = ()> + Send + 'static) {
-        self.raw(move |join_set| {
-            join_set.spawn(fut);
-        });
+    #[track_caller]
+    pub fn spawn(
+        &self,
+        fut: impl Future<Output = ()> + Send + 'static,
+        span: Span,
+        name: &'static str,
+    ) {
+        self.spawn_bare(fut.instrument(span), name);
     }
-    pub fn spawn(&self, fut: impl Future<Output = ()> + Send + 'static, span: Span) {
-        self.spawn_bare(fut.instrument(span));
-    }
+    #[track_caller]
     pub fn spawn_res<T>(
         &self,
         fut: impl Future<Output = color_eyre::Result<T>> + Send + 'static,
         span: Span,
+        name: &'static str,
     ) {
         self.spawn(
             async move {
@@ -33,6 +47,7 @@ impl Spawner {
                 }
             },
             span,
+            name,
         );
     }
 }

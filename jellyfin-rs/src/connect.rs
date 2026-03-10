@@ -1,11 +1,15 @@
 use std::{
+    cell::UnsafeCell,
     fmt::Debug,
     future::Future,
     marker::PhantomData,
     net::IpAddr,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     pin::pin,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Poll, ready},
 };
 
@@ -18,13 +22,17 @@ use http::{
     response::Parts,
     uri::Authority,
 };
-use hyper::body::{Body, Incoming};
+use hyper::{
+    body::{Body, Incoming},
+    client::conn::http1,
+};
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use pin_project_lite::pin_project;
 use serde::de::DeserializeOwned;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpStream,
-    sync::Mutex,
+    sync::Semaphore,
 };
 use tokio_rustls::{
     TlsConnector,
@@ -35,59 +43,17 @@ use tracing::{Instrument, error, error_span, info_span, warn};
 
 use crate::Result;
 
-pub struct Connection {
-    authority: Authority,
-    host: ServerName<'static>,
-    port: u16,
-    tls: bool,
-    inner: Mutex<ConnectionInner>,
-    general_config: TlsConnector,
-    http1_config: TlsConnector,
+#[derive(Clone)]
+pub struct ConnectionConfig {
+    pub authority: Authority,
+    pub host: ServerName<'static>,
+    pub port: u16,
+    pub tls: bool,
+    pub general_config: TlsConnector,
+    pub http1_config: TlsConnector,
 }
 
-impl Debug for Connection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Connection")
-            .field("authority", &self.authority)
-            .field("host", &self.host)
-            .field("port", &self.port)
-            .field("tls", &self.tls)
-            .finish()
-    }
-}
-
-enum ConnectionInner {
-    Disconnected,
-    H2(hyper::client::conn::http2::SendRequest<String>),
-    H1(hyper::client::conn::http1::SendRequest<String>),
-}
-
-impl Connection {
-    pub fn clone_new(&self) -> Self {
-        Self {
-            authority: self.authority.clone(),
-            host: self.host.clone(),
-            port: self.port,
-            tls: self.tls,
-            inner: Mutex::new(ConnectionInner::Disconnected),
-            general_config: self.general_config.clone(),
-            http1_config: self.http1_config.clone(),
-        }
-    }
-
-    pub fn authority(&self) -> &Authority {
-        &self.authority
-    }
-    pub fn host(&self) -> &ServerName<'static> {
-        &self.host
-    }
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-    pub fn tls(&self) -> bool {
-        self.tls
-    }
-
+impl ConnectionConfig {
     pub fn new(authority: Authority, tls: bool) -> Result<Self> {
         let host = ServerName::try_from(authority.host())?.to_owned();
         let port = authority.port_u16().unwrap_or(if tls { 443 } else { 80 });
@@ -108,12 +74,11 @@ impl Connection {
         general_config
             .alpn_protocols
             .push("http/1.1".as_bytes().to_vec());
-        Ok(Connection {
+        Ok(ConnectionConfig {
             authority,
             host,
             port,
             tls,
-            inner: Mutex::new(ConnectionInner::Disconnected),
             general_config: Arc::new(general_config).into(),
             http1_config: Arc::new(http1_config).into(),
         })
@@ -131,6 +96,142 @@ impl Connection {
         Ok(stream)
     }
 
+    async fn connection(&self) -> Result<ConnectionInner> {
+        let stream = get_stream(&self.host, self.port).await?;
+        Ok(if self.tls {
+            let stream = self
+                .general_config
+                .connect(self.host.clone(), stream)
+                .await?;
+            if let Some(b"h2") = stream.get_ref().1.alpn_protocol() {
+                let (send, con) = hyper::client::conn::http2::handshake(
+                    TokioExecutor::new(),
+                    TokioIo::new(stream),
+                )
+                .await?;
+                spawn_con(con);
+                ConnectionInner::H2(send)
+            } else {
+                let (send, con) = http1::handshake(TokioIo::new(stream)).await?;
+                spawn_con(con);
+                ConnectionInner::H1(send)
+            }
+        } else {
+            let (send, con) = http1::handshake(TokioIo::new(stream)).await?;
+            spawn_con(con);
+            ConnectionInner::H1(send)
+        })
+    }
+}
+
+pub struct Connection {
+    pub config: ConnectionConfig,
+    guard: Semaphore,
+    inner: Vec<Exclusive<ConnectionInner>>,
+}
+
+struct Exclusive<T> {
+    inner: UnsafeCell<T>,
+    in_use: AtomicBool,
+}
+
+unsafe impl<T: Send> Send for Exclusive<T> {}
+unsafe impl<T: Send> Sync for Exclusive<T> {}
+
+impl<T> Exclusive<T> {
+    fn new(v: T) -> Self {
+        Exclusive {
+            inner: UnsafeCell::new(v),
+            in_use: AtomicBool::new(false),
+        }
+    }
+    fn get(&self) -> Option<Guard<'_, T>> {
+        if self
+            .in_use
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
+            Some(Guard {
+                inner: unsafe { &mut *self.inner.get() },
+                in_use: &self.in_use,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+struct Guard<'v, T> {
+    inner: &'v mut T,
+    in_use: &'v AtomicBool,
+}
+
+impl<'v, T> Drop for Guard<'v, T> {
+    fn drop(&mut self) {
+        self.in_use.store(false, Ordering::Release);
+    }
+}
+
+impl<'v, T> Deref for Guard<'v, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl<'v, T> DerefMut for Guard<'v, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
+
+impl Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Connection")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
+impl Debug for ConnectionConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectionConfig")
+            .field("authority", &self.authority)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("tls", &self.tls)
+            .finish()
+    }
+}
+
+enum ConnectionInner {
+    Disconnected,
+    H2(hyper::client::conn::http2::SendRequest<String>),
+    H1(http1::SendRequest<String>),
+}
+
+impl Connection {
+    pub fn new(authority: Authority, tls: bool, concurrency: usize) -> Result<Self> {
+        Ok(Self {
+            config: ConnectionConfig::new(authority, tls)?,
+            guard: Semaphore::const_new(concurrency),
+            inner: (0..concurrency)
+                .map(|_| Exclusive::new(ConnectionInner::Disconnected))
+                .collect(),
+        })
+    }
+
+    pub(crate) fn with_same_config(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            guard: Semaphore::const_new(self.inner.len()),
+            inner: (0..self.inner.len())
+                .map(|_| Exclusive::new(ConnectionInner::Disconnected))
+                .collect(),
+        }
+    }
+
     pub async fn send_request_json<T: DeserializeOwned>(
         &self,
         req: Request<String>,
@@ -145,46 +246,24 @@ impl Connection {
         }
     }
 
+    #[allow(clippy::await_holding_lock)]
     pub async fn send_request(&self, req: Request<String>) -> Result<(BytesMut, Parts)> {
         let uri = req.uri().to_string();
         let span = info_span!("send_request", uri);
         async move {
-            loop {
-                let mut state = self.inner.lock().await;
+            let permit = self.guard.acquire().await.expect("should never be closed");
+            let mut state = 'outer: {
+                for s in &self.inner {
+                    if let Some(s) = s.get() {
+                        break 'outer s;
+                    }
+                }
+                panic!("all states are currently locked")
+            };
+            let res = loop {
                 let resp = loop {
                     let inner = match state.deref_mut() {
-                        ConnectionInner::Disconnected => {
-                            let stream = get_stream(&self.host, self.port).await?;
-                            if self.tls {
-                                let stream = self
-                                    .general_config
-                                    .connect(self.host.clone(), stream)
-                                    .await?;
-                                if let Some(b"h2") = stream.get_ref().1.alpn_protocol() {
-                                    let (send, con) = hyper::client::conn::http2::handshake(
-                                        hyper_util::rt::TokioExecutor::new(),
-                                        hyper_util::rt::TokioIo::new(stream),
-                                    )
-                                    .await?;
-                                    spawn_con(con);
-                                    ConnectionInner::H2(send)
-                                } else {
-                                    let (send, con) = hyper::client::conn::http1::handshake(
-                                        hyper_util::rt::TokioIo::new(stream),
-                                    )
-                                    .await?;
-                                    spawn_con(con);
-                                    ConnectionInner::H1(send)
-                                }
-                            } else {
-                                let (send, con) = hyper::client::conn::http1::handshake(
-                                    hyper_util::rt::TokioIo::new(stream),
-                                )
-                                .await?;
-                                spawn_con(con);
-                                ConnectionInner::H1(send)
-                            }
-                        }
+                        ConnectionInner::Disconnected => self.config.connection().await?,
                         ConnectionInner::H2(send_request) => {
                             if let Err(e) = send_request.ready().await {
                                 error!("error sending request: {e:?}");
@@ -204,15 +283,17 @@ impl Connection {
                     };
                     *state = inner;
                 };
-                drop(state);
                 match resp.await {
-                    Ok(resp) => return recv_response(check_status(resp)?).await,
+                    Ok(resp) => break recv_response(check_status(resp)?).await,
                     Err(e) => {
                         warn!("received connection error: {e:?}");
                         warn!("retrying request");
                     }
                 }
-            }
+            };
+            drop(state);
+            drop(permit);
+            res
         }
         .instrument(span)
         .await

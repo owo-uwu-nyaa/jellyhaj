@@ -2,7 +2,7 @@
 color-eyre = {workspace = true}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
-tokio = {features = ["rt"], workspace = true}
+tokio = {features = ["rt", "tracing"], workspace = true}
 tokio-util = {workspace = true}
 tracing = {workspace = true}
 
@@ -10,3 +10,6 @@ tracing = {workspace = true}
 edition = "2024"
 name = "spawn"
 version = "0.1.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }

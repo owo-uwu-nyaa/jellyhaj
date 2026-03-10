@@ -7,7 +7,6 @@ use spawn::Spawner;
 use tracing::{error_span, info, instrument};
 
 fn send_playing(id: Arc<String>, jellyfin: JellyfinClient, spawner: &Spawner) {
-    let span = error_span!("send_playing");
     spawner.spawn_res(
         async move {
             jellyfin
@@ -15,7 +14,8 @@ fn send_playing(id: Arc<String>, jellyfin: JellyfinClient, spawner: &Spawner) {
                 .await
                 .context("Sending start playback request")
         },
-        span,
+        error_span!("send_playing"),
+        "send_playing",
     );
 }
 
@@ -26,7 +26,6 @@ fn send_progress(
     jellyfin: JellyfinClient,
     spawner: &Spawner,
 ) {
-    let span = error_span!("send_progress");
     spawner.spawn_res(
         async move {
             jellyfin
@@ -38,7 +37,8 @@ fn send_progress(
                 .await
                 .context("Sending playback progress request")
         },
-        span,
+        error_span!("send_progress"),
+        "send_progress",
     );
 }
 
@@ -48,7 +48,6 @@ fn send_playing_stopped(
     jellyfin: JellyfinClient,
     spawner: &Spawner,
 ) {
-    let span = error_span!("send_playing_stopped");
     spawner.spawn_res(
         async move {
             jellyfin
@@ -59,7 +58,8 @@ fn send_playing_stopped(
                 })
                 .await
         },
-        span,
+        error_span!("send_playing_stopped"),
+        "send_playing_stopped",
     );
 }
 

@@ -4,6 +4,7 @@ use std::{
     io::Write,
     mem,
     pin::{Pin, pin},
+    sync::Arc,
     task::{
         Context,
         Poll::{self, Ready},
@@ -12,12 +13,15 @@ use std::{
 };
 
 use color_eyre::Report;
+use config::Config;
 use either::Either;
 use futures_util::future::BoxFuture;
 use jellyfin::Result;
-use jellyhaj_context::{KeybindEvents, TuiContext};
+use jellyhaj_context::{
+    DB, ImageProtocolCache, JellyfinEventInterests, KeybindEvents, Picker, TuiContext,
+};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position, TreeVisitor,
+    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position, TreeVisitor, WidgetContext,
     WidgetTreeVisitor,
     async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter},
 };
@@ -26,7 +30,8 @@ use ratatui::{
     crossterm::event::{Event, KeyEvent, MouseEvent},
 };
 use spawn::{CancellationToken, Spawner};
-use tokio::select;
+use stats_data::Stats;
+use tokio::{select, task::JoinHandle};
 use tracing::debug;
 
 use crate::state::{Navigation, Next, NextScreen};
@@ -52,7 +57,7 @@ struct SuspendedWidgetImpl<
     A: Debug + Send + 'static,
     W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
-    task: Option<tokio::task::JoinHandle<Hydrated<W::State>>>,
+    task: Option<JoinHandle<Hydrated<W::State>>>,
     stop: Option<tokio_util::sync::DropGuard>,
 }
 
@@ -110,7 +115,7 @@ enum HydrateRenderer<
     W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
     Hydrating {
-        task: tokio::task::JoinHandle<Hydrated<W::State>>,
+        task: JoinHandle<Hydrated<W::State>>,
         context: Pin<&'t mut TuiContext>,
     },
     Rendering(WidgetRenderer<'t, A, Navigation, W>),
@@ -171,6 +176,12 @@ impl<
                                 widget,
                                 task: submitter,
                                 render: true,
+                                config: context.config.clone(),
+                                image_picker: context.image_picker.clone(),
+                                cache: context.cache.clone(),
+                                image_cache: context.image_cache.clone(),
+                                jellyfin_events: context.jellyfin_events.clone(),
+                                stats: context.stats.clone(),
                             };
                             let res = rendering.poll(cx);
                             *this = HydrateRenderer::Rendering(rendering);
@@ -219,20 +230,52 @@ fn with_suspend_current<
     }
 }
 
+fn spawn<
+    A: Debug + Send + 'static,
+    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+>(
+    fut: impl Future<Output = Hydrated<W::State>> + Send + 'static,
+) -> JoinHandle<Hydrated<W::State>> {
+    #[cfg(tokio_unstable)]
+    {
+        tokio::task::Builder::new()
+            .name(W::State::NAME)
+            .spawn(fut)
+            .expect("spawning future should not fail")
+    }
+    #[cfg(not(tokio_unstable))]
+    {
+        tokio::task::spawn(fut)
+    }
+}
+
 fn suspend<
     A: Debug + Send + 'static,
     W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 >(
     renderer: WidgetRenderer<'_, A, Navigation, W>,
 ) -> Box<SuspendedWidgetImpl<A, W>> {
-    let task = renderer.task;
-    let mut receiver = renderer.events.receiver;
-    let mut state = renderer.widget.into_state();
+    let WidgetRenderer {
+        term: _,
+        events,
+        widget,
+        task,
+        render: _,
+        config,
+        image_picker,
+        cache,
+        image_cache,
+        stats,
+        jellyfin_events,
+    } = renderer;
+    let mut receiver = events.receiver;
+    let mut state = widget.into_state();
     let stop = CancellationToken::new();
     let stop_fut = stop.clone();
     let stop = stop.drop_guard();
+
     Box::new(SuspendedWidgetImpl::<A, W> {
-        task: Some(tokio::spawn(async move {
+        task: Some(spawn::<A, W>(async move {
             let mut stop_fut = pin!(stop_fut.cancelled_owned());
             loop {
                 select! {
@@ -244,7 +287,17 @@ fn suspend<
                         match res {
                             None => return Hydrated::Finished(Ok(Navigation::Exit)),
                             Some(Err(e)) => return Hydrated::Finished(Err(e)),
-                            Some(Ok(a)) => match state.apply_action(task.clone(), a) {
+                            Some(Ok(a)) => match state.apply_action(
+                                WidgetContext{
+                                    config: &config,
+                                    image_picker: &image_picker,
+                                    cache: &cache,
+                                    image_cache: &image_cache,
+                                    stats: &stats,
+                                    jellyfin_events: &jellyfin_events,
+                                    submitter: task.as_ref()
+                                }, a
+                            ) {
                                 Err(e) => return Hydrated::Finished(Err(e)),
                                 Ok(None) => {}
                                 Ok(Some(n)) => return Hydrated::Finished(Ok(n)),
@@ -315,8 +368,15 @@ struct WidgetRenderer<
     widget: W,
     task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
     render: bool,
+    config: Arc<Config>,
+    image_picker: Arc<Picker>,
+    cache: DB,
+    image_cache: ImageProtocolCache,
+    stats: Stats,
+    jellyfin_events: JellyfinEventInterests,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn render_widget_bare<
     A: Debug + Send + 'static,
     T: Debug,
@@ -326,6 +386,12 @@ pub async fn render_widget_bare<
     events: &mut KeybindEvents,
     spawner: Spawner,
     widget: W,
+    config: Arc<Config>,
+    image_picker: Arc<Picker>,
+    cache: DB,
+    image_cache: ImageProtocolCache,
+    stats: Stats,
+    jellyfin_events: JellyfinEventInterests,
 ) -> RenderResult<(T, W)> {
     let (task, receiver) = jellyhaj_widgets_core::async_task::new_task_pair(spawner);
     let mut renderer = WidgetRenderer {
@@ -338,6 +404,12 @@ pub async fn render_widget_bare<
         widget,
         task,
         render: true,
+        config,
+        image_picker,
+        cache,
+        image_cache,
+        stats,
+        jellyfin_events,
     };
     match poll_fn(|cx| renderer.poll(cx)).await {
         RenderResult::Ok(v) => RenderResult::Ok((v, renderer.widget)),
@@ -366,6 +438,12 @@ pub async fn render_widget<
         widget,
         task,
         render: true,
+        config: cx.config.clone(),
+        image_picker: cx.image_picker.clone(),
+        cache: cx.cache.clone(),
+        image_cache: cx.image_cache.clone(),
+        stats: cx.stats.clone(),
+        jellyfin_events: cx.jellyfin_events.clone(),
     };
     let res = poll_fn(|cx| renderer.poll(cx)).await.transform();
     with_suspend_current(res, renderer)
@@ -381,8 +459,19 @@ impl<
     fn render_widget(&mut self) -> Result<()> {
         self.term.autoresize()?;
         let mut frame = self.term.get_frame();
-        self.widget
-            .render_fallible(frame.area(), frame.buffer_mut(), self.task.clone())?;
+        self.widget.render_fallible(
+            frame.area(),
+            frame.buffer_mut(),
+            WidgetContext {
+                config: &self.config,
+                image_picker: &self.image_picker,
+                cache: &self.cache,
+                image_cache: &self.image_cache,
+                stats: &self.stats,
+                jellyfin_events: &self.jellyfin_events,
+                submitter: self.task.as_ref(),
+            },
+        )?;
         self.term.flush()?;
         self.term.hide_cursor()?;
         self.term.swap_buffers();
@@ -403,8 +492,18 @@ impl<
                 Some(Err(e)) => break RenderResult::Err(e),
                 Some(Ok(Either::Left(Event::Key(key)))) => {
                     self.render = true;
-                    self.widget
-                        .apply_action(self.task.clone(), KeybindAction::Key(key))
+                    self.widget.apply_action(
+                        WidgetContext {
+                            config: &self.config,
+                            image_picker: &self.image_picker,
+                            cache: &self.cache,
+                            image_cache: &self.image_cache,
+                            stats: &self.stats,
+                            jellyfin_events: &self.jellyfin_events,
+                            submitter: self.task.as_ref(),
+                        },
+                        KeybindAction::Key(key),
+                    )
                 }
                 Some(Ok(Either::Left(Event::Mouse(MouseEvent {
                     kind,
@@ -414,7 +513,15 @@ impl<
                 })))) => {
                     self.render = true;
                     self.widget.click(
-                        self.task.clone(),
+                        WidgetContext {
+                            config: &self.config,
+                            image_picker: &self.image_picker,
+                            cache: &self.cache,
+                            image_cache: &self.image_cache,
+                            stats: &self.stats,
+                            jellyfin_events: &self.jellyfin_events,
+                            submitter: self.task.as_ref(),
+                        },
                         Position::new(column, row),
                         self.term.get_frame().area().as_size(),
                         kind,
@@ -433,7 +540,18 @@ impl<
                 Some(Ok(Either::Left(_))) => continue,
                 Some(Ok(Either::Right(v))) => {
                     self.render = true;
-                    self.widget.apply_action(self.task.clone(), v)
+                    self.widget.apply_action(
+                        WidgetContext {
+                            config: &self.config,
+                            image_picker: &self.image_picker,
+                            cache: &self.cache,
+                            image_cache: &self.image_cache,
+                            stats: &self.stats,
+                            jellyfin_events: &self.jellyfin_events,
+                            submitter: self.task.as_ref(),
+                        },
+                        v,
+                    )
                 }
             };
             match action_result {

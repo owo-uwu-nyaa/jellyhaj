@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use config::Config;
+use jellyhaj_async_task::Wrapper;
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyModifiers, MouseEventKind},
@@ -11,23 +12,11 @@ use std::fmt::Debug;
 use std::{any::type_name, pin::Pin};
 use tracing::warn;
 
-use crate::async_task::TaskSubmitter;
+use crate::WidgetContext;
 
 pub struct DimensionsParameter<'c> {
     pub config: &'c Config,
     pub font_size: FontSize,
-}
-
-pub trait Wrapper<C>: Clone + Copy + Send + Sync + 'static {
-    type F: Send + 'static;
-    fn wrap(&self, val: C) -> Self::F;
-}
-
-impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R> Wrapper<A> for F {
-    type F = R;
-    fn wrap(&self, val: A) -> Self::F {
-        self(val)
-    }
 }
 
 pub trait TreeVisitor {
@@ -58,7 +47,7 @@ pub trait JellyhajWidgetState: Debug + Send + 'static {
     fn into_widget(self, cx: Pin<&mut jellyhaj_context::TuiContext>) -> Self::Widget;
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
 }
@@ -79,13 +68,13 @@ pub trait JellyhajWidget: Send + Sized + 'static {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
@@ -96,7 +85,7 @@ pub trait JellyhajWidget: Send + Sized + 'static {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()>;
 }
 
@@ -105,7 +94,7 @@ pub trait JellyhajWidgetExt: JellyhajWidget {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         fn size_ok(
             widget: &'static str,
@@ -149,7 +138,7 @@ pub trait JellyhajWidgetExt: JellyhajWidget {
         if (min_width.is_none() && min_height.is_none())
             || size_ok(type_name::<Self>(), min_width, min_height, area, buf)
         {
-            self.render_fallible_inner(area, buf, task)
+            self.render_fallible_inner(area, buf, cx)
         } else {
             Ok(())
         }

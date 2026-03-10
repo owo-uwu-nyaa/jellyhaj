@@ -2,7 +2,7 @@ mod fetch;
 
 pub use image_cache as cache;
 pub use image_cache::ImageSize;
-use std::{cmp::min, convert::Infallible, mem, pin::Pin, sync::Arc};
+use std::{cmp::min, convert::Infallible, mem, pin::Pin};
 
 use image_cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef};
 
@@ -10,7 +10,7 @@ use crate::fetch::{ParsedImage, get_image};
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Rect, Size},
@@ -44,10 +44,7 @@ impl std::fmt::Debug for ImageCacher {
 
 pub struct JellyfinImage {
     jellyfin: JellyfinClient,
-    db: Arc<tokio::sync::Mutex<SqliteConnection>>,
     size: Size,
-    stats: Stats,
-    picker: Arc<Picker>,
     loading: bool,
     image: ImageCacher,
 }
@@ -69,13 +66,13 @@ impl Drop for ImageCacher {
 impl JellyfinImage {
     fn get_image(
         &mut self,
-        task_submitter: TaskSubmitter<ParsedImage, impl Wrapper<ParsedImage>>,
+        cx: WidgetContext<'_, ParsedImage, impl Wrapper<ParsedImage>>,
     ) -> Option<&Protocol> {
         if self.image.image.is_some() {
             self.image.image.as_ref().map(|(p, _)| p)
         } else {
-            let p_height = (self.size.height as u32) * (self.picker.font_size().1 as u32);
-            let p_width = (self.size.width as u32) * (self.picker.font_size().0 as u32);
+            let p_height = (self.size.height as u32) * (cx.image_picker.font_size().1 as u32);
+            let p_width = (self.size.width as u32) * (cx.image_picker.font_size().0 as u32);
             if !self.loading {
                 let image_size = ImageSize { p_width, p_height };
                 let cached = self.image.cache.remove(&ImageProtocolKeyRef::new(
@@ -93,13 +90,14 @@ impl JellyfinImage {
                         tag: self.image.tag.clone(),
                         size: image_size,
                     };
-                    let db = self.db.clone();
+                    let db = cx.cache.clone();
                     let jellyfin = self.jellyfin.clone();
                     let size = self.size;
-                    let stats = self.stats.clone();
-                    task_submitter.spawn_task(
+                    let stats = cx.stats.clone();
+                    cx.submitter.spawn_task(
                         async move { get_image(key, db, jellyfin, size, stats).await },
                         info_span!("get_image"),
+                        "get_image",
                     );
                     None
                 }
@@ -114,20 +112,27 @@ fn add_image(
     loading: &mut bool,
     size: Size,
     image_out: &mut Option<(Protocol, ImageSize)>,
-    picker: &Picker,
+    cx: WidgetContext<'_, ParsedImage, impl Wrapper<ParsedImage>>,
     action: ParsedImage,
 ) -> Result<Option<Infallible>, color_eyre::eyre::Error> {
     *loading = false;
     if action.size == size {
         let width = min(
             size.width as u32,
-            action.image.width().div_ceil(picker.font_size().0 as u32),
+            action
+                .image
+                .width()
+                .div_ceil(cx.image_picker.font_size().0 as u32),
         ) as u16;
         let height = min(
             size.height as u32,
-            action.image.height().div_ceil(picker.font_size().1 as u32),
+            action
+                .image
+                .height()
+                .div_ceil(cx.image_picker.font_size().1 as u32),
         ) as u16;
-        let image = picker
+        let image = cx
+            .image_picker
             .new_protocol(
                 action.image,
                 Rect {
@@ -147,7 +152,6 @@ fn add_image(
 #[derive(Debug)]
 pub struct JellyfinImageState {
     size: Size,
-    picker: Arc<Picker>,
     loading: bool,
     image: ImageCacher,
 }
@@ -161,7 +165,6 @@ impl JellyfinImageState {
     ) -> Self {
         Self {
             size: Size::ZERO,
-            picker: cx.image_picker.clone(),
             loading: false,
             image: ImageCacher {
                 image: None,
@@ -188,10 +191,7 @@ impl JellyhajWidgetState for JellyfinImageState {
     fn into_widget(self, cx: Pin<&mut TuiContext>) -> Self::Widget {
         JellyfinImage {
             jellyfin: cx.jellyfin.clone(),
-            db: cx.cache.clone(),
             size: self.size,
-            stats: cx.stats.clone(),
-            picker: self.picker,
             loading: self.loading,
             image: self.image,
         }
@@ -199,14 +199,14 @@ impl JellyhajWidgetState for JellyfinImageState {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         add_image(
             &mut self.loading,
             self.size,
             &mut self.image.image,
-            &self.picker,
+            cx,
             action,
         )
     }
@@ -222,7 +222,6 @@ impl JellyhajWidget for JellyfinImage {
     fn into_state(self) -> Self::State {
         JellyfinImageState {
             size: self.size,
-            picker: self.picker,
             loading: self.loading,
             image: self.image,
         }
@@ -232,7 +231,7 @@ impl JellyhajWidget for JellyfinImage {
         &mut self,
         mut area: Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let new_size = area.as_size();
         let old_size = self.size;
@@ -240,7 +239,7 @@ impl JellyhajWidget for JellyfinImage {
             self.size = new_size;
             self.image.image = None;
         }
-        if let Some(image) = self.get_image(task) {
+        if let Some(image) = self.get_image(cx) {
             area.x += (area.width - new_size.width) / 2;
             area.y += (area.height - new_size.height) / 2;
             area.width = new_size.width;
@@ -252,21 +251,21 @@ impl JellyhajWidget for JellyfinImage {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         add_image(
             &mut self.loading,
             self.size,
             &mut self.image.image,
-            &self.picker,
+            cx,
             action,
         )
     }
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: Size,
         _: ratatui::crossterm::event::MouseEventKind,

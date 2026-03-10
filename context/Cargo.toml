@@ -7,6 +7,7 @@ edition = "2024"
 config = { version = "0.1.0", path = "../config" }
 image-cache = { version = "0.1.0", path = "../image-cache" }
 jellyfin = { version = "0.1.4", path = "../jellyfin-rs" }
+jellyhaj-event-listener = { version = "0.1.0", path = "../event-listener" }
 keybinds = { version = "0.1.0", path = "../keybinds" }
 player-core = { version = "0.1.0", path = "../player-core" }
 ratatui.workspace = true

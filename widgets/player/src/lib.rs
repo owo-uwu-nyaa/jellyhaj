@@ -5,7 +5,7 @@ use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
 };
 use player_core::{
     Command, Events, PlayerHandle,
@@ -77,10 +77,10 @@ impl JellyhajWidgetState for PlayerWidget {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        JellyhajWidget::apply_action(self, task, action)
+        JellyhajWidget::apply_action(self, cx, action)
     }
 }
 
@@ -118,7 +118,7 @@ impl JellyhajWidget for PlayerWidget {
     #[instrument(name = "apply_action_player", skip_all)]
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
@@ -131,7 +131,7 @@ impl JellyhajWidget for PlayerWidget {
             PlayerAction::Events(event_receiver) => {
                 let receiver = event_receiver.with_shared_state();
                 self.state = Some(SharedPlayerState::clone(&receiver));
-                task.spawn_stream(
+                cx.submitter.spawn_stream(
                     unfold(receiver, |mut receiver| async {
                         loop {
                             let action = receiver
@@ -158,7 +158,8 @@ impl JellyhajWidget for PlayerWidget {
                             }
                         }
                     }),
-                    info_span!("recv_state"),
+                    info_span!("recv_player_state"),
+                    "recv_player_state",
                 );
                 Ok(None)
             }
@@ -167,7 +168,7 @@ impl JellyhajWidget for PlayerWidget {
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
@@ -181,18 +182,19 @@ impl JellyhajWidget for PlayerWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         if !self.send {
             self.send = true;
             let res = self.handle.get_state();
-            task.spawn_task(
+            cx.submitter.spawn_task(
                 async move {
                     Ok(PlayerAction::Events(
                         res.await.context("receiving player event receiver")?,
                     ))
                 },
                 info_span!("get_event_receiver"),
+                "get_event_receiver",
             )
         }
         let block = Block::bordered()

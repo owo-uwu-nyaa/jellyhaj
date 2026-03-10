@@ -24,7 +24,7 @@ use tokio::{
     time::{MissedTickBehavior, interval},
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, instrument};
+use tracing::{debug, error_span, instrument};
 
 use crate::{
     OwnedPlayerHandle, PlayItem, PlayerHandle, PlaylistItem, PlaylistItemIdGen,
@@ -53,7 +53,7 @@ impl OwnedPlayerHandle {
         let (send_events, _) = broadcast::channel(32);
         let stop = CancellationToken::new();
 
-        spawn.spawn_bare(
+        spawn.spawn(
             PollState {
                 idle: true,
                 closed: false,
@@ -73,8 +73,9 @@ impl OwnedPlayerHandle {
                 minimized,
                 seeked: false,
                 send_events,
-            }
-            .instrument(),
+            },
+            error_span!("mpv-player"),
+            "mpv-player",
         );
         Ok(Self {
             inner: PlayerHandle {

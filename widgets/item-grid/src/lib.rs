@@ -5,8 +5,8 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext, Wrapper,
-    async_task::TaskSubmitter,
+    ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -56,14 +56,14 @@ impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
     }
 }
 
-pub struct ItemGridData<W: ItemWidget> {
-    pub items: Vec<W::State>,
+pub struct ItemGridData<W: ItemState> {
+    pub items: Vec<W>,
     pub title: String,
     pub current: usize,
 }
 
-impl<W: ItemWidget> ItemGridData<W> {
-    pub fn new(items: Vec<W::State>, title: String, current: usize) -> Self {
+impl<W: ItemState> ItemGridData<W> {
+    pub fn new(items: Vec<W>, title: String, current: usize) -> Self {
         Self {
             items,
             title,
@@ -72,7 +72,7 @@ impl<W: ItemWidget> ItemGridData<W> {
     }
 }
 
-impl<W: ItemWidget> std::fmt::Debug for ItemGridData<W> {
+impl<W: ItemState> std::fmt::Debug for ItemGridData<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemGridData")
             .field("items", &self.items)
@@ -82,17 +82,17 @@ impl<W: ItemWidget> std::fmt::Debug for ItemGridData<W> {
     }
 }
 
-impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
-    type Action = ItemGridAction<T::Action>;
+impl<T: ItemState> JellyhajWidgetState for ItemGridData<T> {
+    type Action = ItemGridAction<T::IAction>;
 
-    type ActionResult = T::ActionResult;
+    type ActionResult = T::IActionResult;
 
-    type Widget = ItemGrid<T>;
+    type Widget = ItemGrid<T::IWidget>;
 
     const NAME: &str = "grid";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<T::State>();
+        visitor.visit::<T>();
     }
 
     fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
@@ -105,7 +105,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
             current: self.current,
             width: 1,
             title: self.title,
-            item_size: <T as ItemWidget>::dimensions_static(DimensionsParameter {
+            item_size: T::IWidget::dimensions_static(DimensionsParameter {
                 config: &cx.config,
                 font_size: cx.image_picker.font_size(),
             }),
@@ -115,7 +115,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -125,7 +125,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
                 .and_then(|v| {
                     JellyhajWidgetState::apply_action(
                         v,
-                        task.wrap_with(GridWrapper { index }),
+                        cx.wrap_with(GridWrapper { index }),
                         action,
                     )
                     .transpose()
@@ -137,7 +137,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemGridData<T> {
                 .and_then(|v| {
                     JellyhajWidgetState::apply_action(
                         v,
-                        task.wrap_with(GridWrapper {
+                        cx.wrap_with(GridWrapper {
                             index: self.current,
                         }),
                         action,
@@ -174,13 +174,17 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
-    type State = ItemGridData<T>;
-    type Action = ItemGridAction<<T as ItemWidget>::Action>;
-    type ActionResult = <T as ItemWidget>::ActionResult;
+    type State = ItemGridData<T::IState>;
+    type Action = ItemGridAction<<T as ItemWidget>::IAction>;
+    type ActionResult = <T as ItemWidget>::IActionResult;
 
     fn into_state(self) -> Self::State {
         ItemGridData {
-            items: self.items.into_iter().map(ItemWidget::into_state).collect(),
+            items: self
+                .items
+                .into_iter()
+                .map(ItemWidget::item_into_state)
+                .collect(),
             title: self.title,
             current: self.current,
         }
@@ -188,7 +192,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -196,7 +200,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    ItemWidget::apply_action(v, task.wrap_with(GridWrapper { index }), action)
+                    v.item_apply_action(cx.wrap_with(GridWrapper { index }), action)
                         .transpose()
                 })
                 .transpose(),
@@ -204,9 +208,8 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
                 .items
                 .get_mut(self.current)
                 .and_then(|v| {
-                    ItemWidget::apply_action(
-                        v,
-                        task.wrap_with(GridWrapper {
+                    v.item_apply_action(
+                        cx.wrap_with(GridWrapper {
                             index: self.current,
                         }),
                         action,
@@ -238,7 +241,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -263,9 +266,8 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
                 && y_position < self.item_size.height
                 && let Some(item) = self.items.get_mut(index)
             {
-                ItemWidget::click(
-                    item,
-                    task.wrap_with(GridWrapper { index }),
+                item.item_click(
+                    cx.wrap_with(GridWrapper { index }),
                     Position {
                         x: x_position,
                         y: y_position,
@@ -284,7 +286,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -320,7 +322,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
             item.render_fallible(
                 Rect::from((position, self.item_size)),
                 buf,
-                TaskSubmitter::clone(&task).wrap_with(GridWrapper { index }),
+                cx.wrap_with(GridWrapper { index }),
             )?
         }
         outer.render(area, buf);

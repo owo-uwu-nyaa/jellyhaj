@@ -14,7 +14,7 @@ use jellyhaj_form_widget::{
 };
 use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
     spawn::tracing::info_span,
 };
 
@@ -153,10 +153,10 @@ impl JellyhajWidgetState for RefreshState {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        Ok(match self.inner.apply_action(task.clone(), action)? {
+        Ok(match self.inner.apply_action(cx, action)? {
             None => None,
             Some(ControlFlow::Break(b)) => Some(b),
             Some(ControlFlow::Continue(ControlFlow::Break(b))) => Some(b),
@@ -164,14 +164,15 @@ impl JellyhajWidgetState for RefreshState {
                 let jellyfin = self.jellyfin.clone();
                 let id = self.id.clone();
                 let query = self.inner.inner.data.to_query();
-                task.spawn_res(
+                cx.submitter.spawn_res(
                     async move {
                         jellyfin
                             .refresh_item(&id, &query)
                             .await
                             .context("refreshing jellyfin item")
                     },
-                    info_span!(""),
+                    info_span!("send_refresh_item"),
+                    "send_refresh_item",
                 );
                 Some(Navigation::PopContext)
             }
@@ -199,7 +200,8 @@ fn map(
                         .await
                         .context("refreshing jellyfin item")
                 },
-                info_span!(""),
+                info_span!("send_refresh_item"),
+                "send_refresh_item",
             );
             Some(Navigation::PopContext)
         }
@@ -243,33 +245,31 @@ impl JellyhajWidget for RefreshWidget {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self.inner.apply_action(task.clone(), action);
-        map(self, res, &task)
+        let res = self.inner.apply_action(cx, action);
+        map(self, res, &cx.submitter)
     }
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: jellyhaj_widgets_core::Position,
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self
-            .inner
-            .click(task.clone(), position, size, kind, modifier);
-        map(self, res, &task)
+        let res = self.inner.click(cx, position, size, kind, modifier);
+        map(self, res, &cx.submitter)
     }
 
     fn render_fallible_inner(
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
-        self.inner.render_fallible_inner(area, buf, task)
+        self.inner.render_fallible_inner(area, buf, cx)
     }
 }

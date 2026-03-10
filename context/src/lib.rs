@@ -1,9 +1,10 @@
 use std::{pin::Pin, sync::Arc};
 
 pub use ::keybinds::KeybindEvents;
-use config::Config;
-use image_cache::ImageProtocolCache;
-use jellyfin::{Auth, JellyfinClient, socket::JellyfinWebSocket};
+pub use config::Config;
+pub use image_cache::ImageProtocolCache;
+pub use jellyfin::{Auth, JellyfinClient};
+pub use jellyhaj_event_listener::JellyfinEventInterests;
 pub use player_core::{OwnedPlayerHandle, PlayerHandle};
 pub use ratatui::DefaultTerminal;
 pub use ratatui_image::picker::Picker;
@@ -17,9 +18,9 @@ pub type ImagePicker = Arc<Picker>;
 
 pub struct TuiContext {
     pub jellyfin: JellyfinClient<Auth>,
-    pub jellyfin_socket: JellyfinWebSocket,
+    pub jellyfin_events: JellyfinEventInterests,
     pub term: DefaultTerminal,
-    pub config: Config,
+    pub config: Arc<Config>,
     pub events: KeybindEvents,
     pub image_picker: ImagePicker,
     pub cache: DB,
@@ -31,9 +32,9 @@ pub struct TuiContext {
 
 pub struct TuiContextProj<'p> {
     pub jellyfin: &'p JellyfinClient<Auth>,
-    pub jellyfin_socket: Pin<&'p mut JellyfinWebSocket>,
+    pub jellyfin_events: &'p JellyfinEventInterests,
     pub term: &'p mut DefaultTerminal,
-    pub config: &'p Config,
+    pub config: &'p Arc<Config>,
     pub events: &'p mut KeybindEvents,
     pub image_picker: &'p Arc<Picker>,
     pub cache: &'p DB,
@@ -50,7 +51,7 @@ impl TuiContext {
         unsafe {
             let Self {
                 jellyfin,
-                jellyfin_socket,
+                jellyfin_events,
                 term,
                 config,
                 events,
@@ -63,7 +64,7 @@ impl TuiContext {
             } = self.get_unchecked_mut();
             TuiContextProj {
                 jellyfin,
-                jellyfin_socket: Pin::new_unchecked(jellyfin_socket),
+                jellyfin_events,
                 term,
                 config,
                 events,

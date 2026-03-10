@@ -5,8 +5,8 @@ use std::{
 
 pub use jellyhaj_item_list::{DimensionsParameter, ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Result, TuiContext,
-    Wrapper, async_task::TaskSubmitter,
+    ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Result,
+    TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -57,13 +57,13 @@ pub enum ItemScreenAction<T> {
     Down,
 }
 
-pub struct ItemScreenState<T: ItemWidget> {
+pub struct ItemScreenState<T: ItemState> {
     pub lists: Vec<ItemListState<T>>,
     pub title: String,
     pub current: usize,
 }
 
-impl<T: ItemWidget> ItemScreenState<T> {
+impl<T: ItemState> ItemScreenState<T> {
     pub fn new(lists: Vec<ItemListState<T>>, title: String) -> Self {
         Self {
             lists,
@@ -79,7 +79,7 @@ impl<T: ItemWidget> ItemScreenState<T> {
     }
 }
 
-impl<T: ItemWidget> std::fmt::Debug for ItemScreenState<T> {
+impl<T: ItemState> std::fmt::Debug for ItemScreenState<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemScreenState")
             .field("lists", &self.lists)
@@ -89,12 +89,12 @@ impl<T: ItemWidget> std::fmt::Debug for ItemScreenState<T> {
     }
 }
 
-impl<T: ItemWidget> JellyhajWidgetState for ItemScreenState<T> {
-    type Action = ItemScreenAction<T::Action>;
+impl<T: ItemState> JellyhajWidgetState for ItemScreenState<T> {
+    type Action = ItemScreenAction<T::IAction>;
 
-    type ActionResult = T::ActionResult;
+    type ActionResult = T::IActionResult;
 
-    type Widget = ItemScreen<T>;
+    type Widget = ItemScreen<T::IWidget>;
 
     const NAME: &str = "item-screen";
 
@@ -103,7 +103,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemScreenState<T> {
     }
 
     fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
-        let item_size = <T as ItemWidget>::dimensions_static(DimensionsParameter {
+        let item_size = T::IWidget::dimensions_static(DimensionsParameter {
             config: &cx.config,
             font_size: cx.image_picker.font_size(),
         });
@@ -122,38 +122,36 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemScreenState<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        fn apply<T: ItemWidget>(
+        fn apply<T: ItemState>(
             this: &mut ItemScreenState<T>,
-            task: TaskSubmitter<
-                ItemScreenAction<T::Action>,
-                impl Wrapper<ItemScreenAction<T::Action>>,
+            cx: WidgetContext<
+                '_,
+                ItemScreenAction<T::IAction>,
+                impl Wrapper<ItemScreenAction<T::IAction>>,
             >,
             index: usize,
-            action: ItemListAction<<T as ItemWidget>::Action>,
-        ) -> Result<Option<<T as ItemWidget>::ActionResult>> {
+            action: ItemListAction<T::IAction>,
+        ) -> Result<Option<T::IActionResult>> {
             this.lists
                 .get_mut(index)
                 .and_then(|r| {
-                    r.apply_action(task.wrap_with(ScreenWrapper { index }), action)
+                    r.apply_action(cx.wrap_with(ScreenWrapper { index }), action)
                         .transpose()
                 })
                 .transpose()
         }
         match action {
             ItemScreenAction::SpecificInner { row, item, action } => {
-                apply(self, task, row, ItemListAction::SpecificInner(item, action))
+                apply(self, cx, row, ItemListAction::SpecificInner(item, action))
             }
-            ItemScreenAction::CurrentInner(action) => apply(
-                self,
-                task,
-                self.current,
-                ItemListAction::CurrentInner(action),
-            ),
-            ItemScreenAction::Left => apply(self, task, self.current, ItemListAction::Left),
-            ItemScreenAction::Right => apply(self, task, self.current, ItemListAction::Right),
+            ItemScreenAction::CurrentInner(action) => {
+                apply(self, cx, self.current, ItemListAction::CurrentInner(action))
+            }
+            ItemScreenAction::Left => apply(self, cx, self.current, ItemListAction::Left),
+            ItemScreenAction::Right => apply(self, cx, self.current, ItemListAction::Right),
             ItemScreenAction::Up => {
                 self.current = self.current.saturating_sub(1);
                 Ok(None)
@@ -181,15 +179,15 @@ impl<T: Send + 'static> Wrapper<ItemListAction<T>> for ScreenWrapper {
                 item,
                 action,
             },
-            _ => unreachable!(),
+            _ => unimplemented!(),
         }
     }
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
-    type State = ItemScreenState<T>;
-    type Action = ItemScreenAction<<T as ItemWidget>::Action>;
-    type ActionResult = <T as ItemWidget>::ActionResult;
+    type State = ItemScreenState<T::IState>;
+    type Action = ItemScreenAction<<T as ItemWidget>::IAction>;
+    type ActionResult = <T as ItemWidget>::IActionResult;
 
     fn into_state(self) -> Self::State {
         ItemScreenState {
@@ -205,38 +203,36 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         fn apply<T: ItemWidget>(
             this: &mut ItemScreen<T>,
-            task: TaskSubmitter<
-                ItemScreenAction<T::Action>,
-                impl Wrapper<ItemScreenAction<T::Action>>,
+            cx: WidgetContext<
+                '_,
+                ItemScreenAction<T::IAction>,
+                impl Wrapper<ItemScreenAction<T::IAction>>,
             >,
             index: usize,
-            action: ItemListAction<<T as ItemWidget>::Action>,
-        ) -> Result<Option<<T as ItemWidget>::ActionResult>> {
+            action: ItemListAction<<T as ItemWidget>::IAction>,
+        ) -> Result<Option<<T as ItemWidget>::IActionResult>> {
             this.lists
                 .get_mut(index)
                 .and_then(|r| {
-                    r.apply_action(task.wrap_with(ScreenWrapper { index }), action)
+                    r.apply_action(cx.wrap_with(ScreenWrapper { index }), action)
                         .transpose()
                 })
                 .transpose()
         }
         match action {
             ItemScreenAction::SpecificInner { row, item, action } => {
-                apply(self, task, row, ItemListAction::SpecificInner(item, action))
+                apply(self, cx, row, ItemListAction::SpecificInner(item, action))
             }
-            ItemScreenAction::CurrentInner(action) => apply(
-                self,
-                task,
-                self.current,
-                ItemListAction::CurrentInner(action),
-            ),
-            ItemScreenAction::Left => apply(self, task, self.current, ItemListAction::Left),
-            ItemScreenAction::Right => apply(self, task, self.current, ItemListAction::Right),
+            ItemScreenAction::CurrentInner(action) => {
+                apply(self, cx, self.current, ItemListAction::CurrentInner(action))
+            }
+            ItemScreenAction::Left => apply(self, cx, self.current, ItemListAction::Left),
+            ItemScreenAction::Right => apply(self, cx, self.current, ItemListAction::Right),
             ItemScreenAction::Up => {
                 self.current = self.current.saturating_sub(1);
                 Ok(None)
@@ -250,7 +246,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -273,7 +269,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
             {
                 JellyhajWidget::click(
                     list,
-                    task.wrap_with(ScreenWrapper { index }),
+                    cx.wrap_with(ScreenWrapper { index }),
                     Position {
                         x: position.x,
                         y: y_position,
@@ -295,7 +291,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -331,11 +327,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
                 width: main.width,
                 height: self.item_size.height + 4,
             };
-            list.render_fallible(
-                area,
-                buf,
-                TaskSubmitter::clone(&task).wrap_with(ScreenWrapper { index: i }),
-            )?
+            list.render_fallible(area, buf, cx.wrap_with(ScreenWrapper { index: i }))?
         }
         if visible < self.lists.len() {
             Scrollbar::new(HorizontalBottom).render(

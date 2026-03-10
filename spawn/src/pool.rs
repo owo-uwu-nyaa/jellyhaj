@@ -1,15 +1,18 @@
-use std::task::{Poll, ready};
+use std::{
+    sync::Arc,
+    task::{Poll, ready},
+};
 
-use crate::{Spawner, spawner::JoinSetCallback};
+use crate::Spawner;
+use parking_lot::Mutex;
 use pin_project_lite::pin_project;
-use tokio::{sync::mpsc::UnboundedReceiver, task::JoinSet};
+use tokio::task::JoinSet;
 use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
-use tracing::{Instrument, Span};
+use tracing::Span;
 
 pin_project! {
     pub struct Pool<T> where T: Send {
-        recv: UnboundedReceiver<JoinSetCallback>,
-        pool: JoinSet<()>,
+        pool: Arc<Mutex<JoinSet<()>>>,
         closed: bool,
         cancellation: CancellationToken,
         #[pin]
@@ -27,10 +30,10 @@ impl<T: Send> Future for Pool<T> {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         let mut this = self.as_mut().project();
-        loop {
+        'poll: loop {
             if *this.closed {
                 loop {
-                    match this.pool.poll_join_next(cx) {
+                    match this.pool.lock().poll_join_next(cx) {
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(None) => {
                             break;
@@ -41,54 +44,56 @@ impl<T: Send> Future for Pool<T> {
                 let res = ready!(this.res.poll(cx));
                 break Poll::Ready(res.ok());
             } else if this.cancellation_fut.as_mut().poll(cx).is_ready() {
-                this.pool.abort_all();
+                this.pool.lock().abort_all();
                 *this.closed = true;
             } else {
-                let empty = loop {
-                    let pool_res = this.pool.poll_join_next(cx);
+                let mut pool = this.pool.lock();
+                loop {
+                    let pool_res = pool.poll_join_next(cx);
                     match pool_res {
-                        Poll::Pending => break false,
-                        Poll::Ready(None) => break true,
+                        Poll::Pending => break,
+                        Poll::Ready(None) => {
+                            *this.closed = true;
+                            this.cancellation.cancel();
+                            continue 'poll;
+                        }
                         Poll::Ready(Some(Ok(()))) => {}
                         Poll::Ready(Some(Err(e))) => {
                             if e.is_panic() {
-                                this.pool.abort_all();
+                                this.pool.lock().abort_all();
                                 *this.closed = true;
                                 this.cancellation.cancel();
-                                return self.poll(cx);
+                                continue 'poll;
                             }
                         }
                     }
-                };
-                while let Poll::Ready(Some(job)) = this.recv.poll_recv(cx) {
-                    job(this.pool)
                 }
-                if empty && this.pool.is_empty() {
-                    *this.closed = true;
-                } else {
-                    return Poll::Pending;
-                }
+                return Poll::Pending;
             }
         }
     }
 }
 
+#[track_caller]
 pub fn run_with_spawner<T: Send + 'static, F: Future<Output = T> + Send + 'static>(
     f: impl FnOnce(Spawner) -> F,
     cancel: CancellationToken,
     span: Span,
+    name: &'static str,
 ) -> Pool<T> {
-    let (send, recv) = tokio::sync::mpsc::unbounded_channel();
-    let mut pool = JoinSet::new();
-    let spawn = Spawner { sender: send };
-    let f = f(spawn).instrument(span);
+    let pool = Arc::new(Mutex::new(JoinSet::new()));
+    let spawn = Spawner { pool: pool.clone() };
     let (send, res) = tokio::sync::oneshot::channel();
-    pool.spawn(async move {
-        let _ = send.send(f.await);
-    });
+    let f = f(spawn.clone());
+    spawn.spawn(
+        async move {
+            let _ = send.send(f.await);
+        },
+        span,
+        name,
+    );
     let fut = cancel.clone().cancelled_owned();
     Pool {
-        recv,
         pool,
         closed: false,
         cancellation: cancel,

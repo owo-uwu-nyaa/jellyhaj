@@ -3,9 +3,7 @@ use std::cmp::{max, min};
 use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 use color_eyre::Result;
 use itertools::Itertools;
-use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetExt, Wrapper, async_task::TaskSubmitter,
-};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetExt, WidgetContext, Wrapper};
 use keybinds::{Command, KeyBinding};
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -19,9 +17,9 @@ pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W:
     this: &mut KeybindWidget<T, W, M>,
     area: Rect,
     buf: &mut ratatui::buffer::Buffer,
-    task: TaskSubmitter<KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
+    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
 ) -> Result<()> {
-    let task = task.wrap_with(KeybindWrapper);
+    let task = cx.wrap_with(KeybindWrapper);
     let len: usize = this.next_maps.iter().map(|v| v.len()).sum();
     if len > 0 {
         let width = (area.width - 4) / 20;

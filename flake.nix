@@ -81,6 +81,7 @@
                 pkgs.pkg-config
                 pkgs.sqlite-interactive
                 pkgs.rustPlatform.bindgenHook
+                pkgs.tokio-console
               ];
               buildInputs = [
                 pkgs.mpv-unwrapped

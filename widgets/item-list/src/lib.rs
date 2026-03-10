@@ -4,8 +4,8 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext, Wrapper,
-    async_task::TaskSubmitter,
+    ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -77,13 +77,13 @@ pub enum ItemListAction<T> {
     Right,
 }
 
-pub struct ItemListState<T: ItemWidget> {
-    pub items: Vec<T::State>,
+pub struct ItemListState<T: ItemState> {
+    pub items: Vec<T>,
     pub title: String,
     pub current: usize,
 }
 
-impl<T: ItemWidget> std::fmt::Debug for ItemListState<T> {
+impl<T: ItemState> std::fmt::Debug for ItemListState<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemListData")
             .field("items", &self.items)
@@ -93,21 +93,21 @@ impl<T: ItemWidget> std::fmt::Debug for ItemListState<T> {
     }
 }
 
-impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
-    type Action = ItemListAction<T::Action>;
+impl<T: ItemState> JellyhajWidgetState for ItemListState<T> {
+    type Action = ItemListAction<T::IAction>;
 
-    type ActionResult = <T as ItemWidget>::ActionResult;
+    type ActionResult = <T as ItemState>::IActionResult;
 
-    type Widget = ItemList<T>;
+    type Widget = ItemList<T::IWidget>;
 
     const NAME: &str = "item-list";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<T::State>();
+        visitor.visit::<T>();
     }
 
     fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
-        let item_size = <T as ItemWidget>::dimensions_static(DimensionsParameter {
+        let item_size = <T::IWidget>::dimensions_static(DimensionsParameter {
             config: &cx.config,
             font_size: cx.image_picker.font_size(),
         });
@@ -127,7 +127,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -135,11 +135,8 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    v.apply_action(
-                        TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
-                        action,
-                    )
-                    .transpose()
+                    v.apply_action(cx.wrap_with(ListWrapper { index }), action)
+                        .transpose()
                 })
                 .transpose(),
             ItemListAction::CurrentInner(action) => self
@@ -147,7 +144,7 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
                 .get_mut(self.current)
                 .and_then(|v| {
                     v.apply_action(
-                        TaskSubmitter::clone(&task).wrap_with(ListWrapper {
+                        cx.wrap_with(ListWrapper {
                             index: self.current,
                         }),
                         action,
@@ -167,8 +164,8 @@ impl<T: ItemWidget> JellyhajWidgetState for ItemListState<T> {
     }
 }
 
-impl<T: ItemWidget> ItemListState<T> {
-    pub fn new(items: impl IntoIterator<Item = T::State>, title: String) -> Self {
+impl<T: ItemState> ItemListState<T> {
+    pub fn new(items: impl IntoIterator<Item = T>, title: String) -> Self {
         Self {
             items: items.into_iter().collect(),
             title,
@@ -191,15 +188,19 @@ impl<T: Send + 'static> Wrapper<T> for ListWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
-    type State = ItemListState<T>;
+    type State = ItemListState<T::IState>;
 
-    type Action = ItemListAction<<T as ItemWidget>::Action>;
+    type Action = ItemListAction<<T as ItemWidget>::IAction>;
 
-    type ActionResult = <T as ItemWidget>::ActionResult;
+    type ActionResult = <T as ItemWidget>::IActionResult;
 
     fn into_state(self) -> Self::State {
         ItemListState {
-            items: self.items.into_iter().map(ItemWidget::into_state).collect(),
+            items: self
+                .items
+                .into_iter()
+                .map(ItemWidget::item_into_state)
+                .collect(),
             title: self.title,
             current: self.current,
         }
@@ -207,7 +208,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -215,11 +216,8 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    v.apply_action(
-                        TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
-                        action,
-                    )
-                    .transpose()
+                    v.apply_action(cx.wrap_with(ListWrapper { index }), action)
+                        .transpose()
                 })
                 .transpose(),
             ItemListAction::CurrentInner(action) => self
@@ -227,7 +225,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
                 .get_mut(self.current)
                 .and_then(|v| {
                     v.apply_action(
-                        TaskSubmitter::clone(&task).wrap_with(ListWrapper {
+                        cx.wrap_with(ListWrapper {
                             index: self.current,
                         }),
                         action,
@@ -248,7 +246,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         mut position: ratatui::prelude::Position,
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -270,9 +268,8 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
                 && let Some(item) = self.items.get_mut(index)
             {
                 self.current = index;
-                ItemWidget::click(
-                    item,
-                    TaskSubmitter::clone(&task).wrap_with(ListWrapper { index }),
+                item.item_click(
+                    cx.wrap_with(ListWrapper { index }),
                     Position {
                         x: x_position,
                         y: position.y,
@@ -292,7 +289,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         self.current = min(self.current, self.items.len().saturating_sub(1));
         let outer = Block::bordered()
@@ -329,11 +326,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemList<T> {
                 width: self.item_size.width,
                 height: main.height,
             };
-            item.render_fallible(
-                area,
-                buf,
-                TaskSubmitter::clone(&task).wrap_with(ListWrapper { index: i }),
-            )?
+            item.render_fallible(area, buf, cx.wrap_with(ListWrapper { index: i }))?
         }
         if visible < self.items.len() {
             Scrollbar::new(HorizontalBottom).render(

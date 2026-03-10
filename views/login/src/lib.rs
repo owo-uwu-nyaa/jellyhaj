@@ -4,6 +4,7 @@ use std::{
     io::Write,
     ops::ControlFlow,
     os::unix::fs::OpenOptionsExt,
+    sync::Arc,
 };
 
 use color_eyre::{
@@ -14,6 +15,7 @@ use config::LoginInfo;
 use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth};
 use jellyhaj_core::{
     CommandMapper, Config,
+    context::{DB, ImageProtocolCache, JellyfinEventInterests, Picker, Stats},
     keybinds::LoadingCommand,
     render::{RenderResult, render_widget_bare},
     state::Navigation,
@@ -31,12 +33,17 @@ use tracing::{info, instrument};
 #[instrument(skip_all)]
 async fn edit_login_info(
     term: &mut DefaultTerminal,
-    spawn: Spawner,
     info: &mut LoginInfo,
     changed: &mut bool,
     error: Report,
     events: &mut KeybindEvents,
-    config: &Config,
+    spawner: Spawner,
+    config: Arc<Config>,
+    image_picker: Arc<Picker>,
+    cache: DB,
+    image_cache: ImageProtocolCache,
+    stats: Stats,
+    jellyfin_events: JellyfinEventInterests,
 ) -> Result<bool> {
     let error = error.to_string();
 
@@ -46,9 +53,22 @@ async fn edit_login_info(
         info.password.clone(),
         info.password_cmd.is_some(),
         error,
-        config,
+        &config,
     );
-    match render_widget_bare(term, events, spawn, widget).await {
+    match render_widget_bare(
+        term,
+        events,
+        spawner,
+        widget,
+        config,
+        image_picker,
+        cache,
+        image_cache,
+        stats,
+        jellyfin_events,
+    )
+    .await
+    {
         RenderResult::Ok((LoginResult::Quit, _)) => Ok(false),
         RenderResult::Ok((
             LoginResult::Data {
@@ -93,11 +113,17 @@ impl CommandMapper<LoadingCommand> for LoadingMapper {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn render_fetch(
     term: &mut DefaultTerminal,
-    spawn: Spawner,
     events: &mut KeybindEvents,
-    config: &Config,
+    spawner: Spawner,
+    config: Arc<Config>,
+    image_picker: Arc<Picker>,
+    cache: DB,
+    image_cache: ImageProtocolCache,
+    stats: Stats,
+    jellyfin_events: JellyfinEventInterests,
 ) -> Result<()> {
     let widget = KeybindWidget::new(
         Loading::new(Cow::Borrowed("Connecting to Server")),
@@ -105,21 +131,40 @@ async fn render_fetch(
         config.keybinds.fetch.clone(),
         LoadingMapper,
     );
-    match render_widget_bare(term, events, spawn, widget).await {
+    match render_widget_bare(
+        term,
+        events,
+        spawner,
+        widget,
+        config,
+        image_picker,
+        cache,
+        image_cache,
+        stats,
+        jellyfin_events,
+    )
+    .await
+    {
         RenderResult::Ok((ControlFlow::Break(_), _)) => Ok(()),
         RenderResult::Err(report) => Err(report),
         RenderResult::Exit => Ok(()),
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
 pub async fn login(
     name: &'static str,
     version: &'static str,
     term: &mut DefaultTerminal,
-    spawn: &Spawner,
-    config: &Config,
     events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+    image_picker: Arc<Picker>,
+    cache: DB,
+    image_cache: ImageProtocolCache,
+    stats: Stats,
+    jellyfin_events: JellyfinEventInterests,
 ) -> Result<Option<JellyfinClient<Auth>>> {
     let mut login_info: LoginInfo;
     let mut error: Option<Report>;
@@ -152,12 +197,17 @@ pub async fn login(
             tracing::error!("Error logging in: {e:?}");
             if !edit_login_info(
                 term,
-                spawn.clone(),
                 &mut login_info,
                 &mut info_changed,
                 e,
                 events,
-                config,
+                spawner.clone(),
+                config.clone(),
+                image_picker.clone(),
+                cache.clone(),
+                image_cache.clone(),
+                stats.clone(),
+                jellyfin_events.clone(),
             )
             .await
             .context("getting login information")?
@@ -176,6 +226,7 @@ pub async fn login(
                 version: version.into(),
             },
             device_name.clone(),
+            config.jellyfin_concurrent_connections.into(),
         ) {
             Ok(client) => client,
             Err(e) => {
@@ -185,12 +236,8 @@ pub async fn login(
         };
 
         select! {
-            r = render_fetch(
-                term,
-                spawn.clone(),
-                events,
-                config,
-            ) => {
+            r = render_fetch(term, events, spawner.clone(), config.clone(), image_picker.clone(), cache.clone(), image_cache.clone(), stats.clone(), jellyfin_events.clone())
+                => {
                 r?;
                 return Ok(None);
             }

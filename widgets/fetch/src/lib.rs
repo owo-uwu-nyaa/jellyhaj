@@ -1,7 +1,7 @@
 use std::{convert::Infallible, fmt::Debug};
 
 use jellyhaj_core::state::{Navigation, Next};
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
 use tracing::info_span;
 
 #[derive(Debug)]
@@ -72,17 +72,14 @@ impl<
 
     fn apply_action(
         &mut self,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             FetchAction::Inner(a) => {
                 let None = self
                     .inner
-                    .apply_action(task.wrap_with(FetchAction::Inner), a)?;
+                    .apply_action(cx.wrap_with(FetchAction::Inner), a)?;
                 Ok(None)
             }
             FetchAction::FetchFinished(next_screen) => Ok(Some(Navigation::Replace(next_screen))),
@@ -138,17 +135,14 @@ impl<
 
     fn apply_action(
         &mut self,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             FetchAction::Inner(action) => {
                 let None = self
                     .inner
-                    .apply_action(task.wrap_with(FetchAction::Inner), action)?;
+                    .apply_action(cx.wrap_with(FetchAction::Inner), action)?;
                 Ok(None)
             }
             FetchAction::FetchFinished(next_screen) => Ok(Some(Navigation::Replace(next_screen))),
@@ -157,17 +151,14 @@ impl<
 
     fn click(
         &mut self,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: jellyhaj_widgets_core::Position,
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
         let None = self.inner.click(
-            task.wrap_with(FetchAction::Inner),
+            cx.wrap_with(FetchAction::Inner),
             position,
             size,
             kind,
@@ -180,19 +171,17 @@ impl<
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        task: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         if self.fut.is_some() {
             let fut = self.fut.take().expect("just checked");
-            task.spawn_task(
+            cx.submitter.spawn_task(
                 async move { Ok(FetchAction::FetchFinished(fut.await?)) },
                 info_span!("do_fetch"),
+                "do_fetch",
             )
         }
         self.inner
-            .render_fallible_inner(area, buf, task.wrap_with(FetchAction::Inner))
+            .render_fallible_inner(area, buf, cx.wrap_with(FetchAction::Inner))
     }
 }

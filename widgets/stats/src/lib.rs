@@ -10,7 +10,7 @@ use std::{
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::Constraint,
@@ -96,7 +96,7 @@ impl JellyhajWidgetState for StatsState {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -182,7 +182,7 @@ impl JellyhajWidget for StatsWidget {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         self.image_fetches = self.stats.image_fetches.load(Relaxed).to_string();
@@ -193,7 +193,7 @@ impl JellyhajWidget for StatsWidget {
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
@@ -207,12 +207,12 @@ impl JellyhajWidget for StatsWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
             let stop = self.stop.clone();
-            task.spawn_stream(
+            cx.submitter.spawn_stream(
                 unfold(interval(Duration::from_secs(5)), move |mut i| {
                     let stop = stop.load(Relaxed);
                     async move {
@@ -224,7 +224,8 @@ impl JellyhajWidget for StatsWidget {
                         }
                     }
                 }),
-                info_span!("tick"),
+                info_span!("update_stats_tick"),
+                "update_stats_tick",
             );
         }
         let block = Block::bordered().title("Program stats");

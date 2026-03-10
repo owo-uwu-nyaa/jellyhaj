@@ -9,12 +9,13 @@ use color_eyre::{
     eyre::{Context, OptionExt},
 };
 use config::{Config, init_config};
-use jellyfin::{JellyfinClient, socket::JellyfinWebSocket};
 use jellyhaj_core::{
     context::TuiContext,
     render::{NavigationResult, Suspended},
     state::{Next, NextScreen},
 };
+use jellyhaj_event_listener::JellyfinEventInterests;
+use jellyhaj_image::Stats;
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -80,33 +81,6 @@ async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult
 }
 
 #[instrument(skip_all, level = "debug")]
-async fn login(
-    term: &mut DefaultTerminal,
-    spawner: &Spawner,
-    events: &mut KeybindEvents,
-    config: &Config,
-) -> Result<Option<(JellyfinClient, JellyfinWebSocket)>> {
-    debug!("logging in to jellyfin");
-    Ok(
-        if let Some(client) = jellyhaj_login_view::login(
-            clap::crate_name!(),
-            clap::crate_version!(),
-            term,
-            spawner,
-            config,
-            events,
-        )
-        .await?
-        {
-            let socket = client.get_socket()?;
-            Some((client, socket))
-        } else {
-            None
-        },
-    )
-}
-
-#[instrument(skip_all, level = "debug")]
 async fn run_state(mut cx: Pin<&mut TuiContext>) {
     let mut state: Vec<Suspended> = Vec::new();
     let mut top: Option<Next> = None;
@@ -141,6 +115,7 @@ async fn run_state(mut cx: Pin<&mut TuiContext>) {
             }
         }
     }
+    info!("main application loop exit")
 }
 
 async fn run_app_inner(
@@ -151,9 +126,28 @@ async fn run_app_inner(
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
 ) -> Result<()> {
-    if let Some((jellyfin, jellyfin_socket)) =
-        login(&mut term, &spawner, &mut events, &config).await?
+    let jellyfin_events = JellyfinEventInterests::new();
+    let image_picker = Arc::new(image_picker);
+    let stats = Stats::default();
+    let config = Arc::new(config);
+    let image_cache = jellyhaj_image::cache::ImageProtocolCache::new();
+    debug!("logging in to jellyfin");
+    if let Some(jellyfin) = jellyhaj_login_view::login(
+        clap::crate_name!(),
+        clap::crate_version!(),
+        &mut term,
+        &mut events,
+        spawner.clone(),
+        config.clone(),
+        image_picker.clone(),
+        cache.clone(),
+        image_cache.clone(),
+        stats,
+        jellyfin_events.clone(),
+    )
+    .await?
     {
+        jellyfin_events.spawn(&spawner, &jellyfin)?;
         let mpv_handle = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,
@@ -166,22 +160,24 @@ async fn run_app_inner(
         spawner.spawn(
             player_jellyfin(mpv_handle.clone(), jellyfin.clone(), spawner.clone()),
             error_span!("player_jellyfin"),
+            "player_jellyfin",
         );
         #[cfg(feature = "mpris")]
         spawner.spawn_res(
             player_mpris::run_mpris_service(mpv_handle.clone(), jellyfin.clone()),
             error_span!("player_mpris"),
+            "player_mpris",
         );
         let cx = pin!(TuiContext {
             jellyfin,
-            jellyfin_socket,
+            jellyfin_events,
             term,
             config,
             events,
-            image_picker: Arc::new(image_picker),
             cache,
-            image_cache: jellyhaj_image::cache::ImageProtocolCache::new(),
+            image_cache,
             mpv_handle,
+            image_picker,
             stats: Default::default(),
             spawn: spawner
         });
@@ -213,6 +209,7 @@ pub async fn run_app(
         |spawner| run_app_inner(term, events, spawner, config, cache.clone(), image_picker),
         cancel,
         error_span!("jellyhaj"),
+        "jellyhaj_main",
     )
     .await
     .ok_or_eyre("app cancelled")?

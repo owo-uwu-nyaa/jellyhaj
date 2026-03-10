@@ -5,9 +5,7 @@ mod render;
 use std::{fmt::Debug, ops::ControlFlow, sync::Arc};
 
 use jellyhaj_core::{CommandMapper, render::KeybindAction, state::Navigation};
-use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Wrapper, async_task::TaskSubmitter,
-};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper};
 use keybinds::{BindingMap, Command};
 use tracing::instrument;
 
@@ -94,13 +92,13 @@ impl<T: Command, S: JellyhajWidgetState, M: CommandMapper<T, A = S::Action>> Jel
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             KeybindAction::Inner(a) => {
                 Ok(
-                    S::apply_action(&mut self.inner, task.wrap_with(KeybindWrapper), a)?
+                    S::apply_action(&mut self.inner, cx.wrap_with(KeybindWrapper), a)?
                         .map(ControlFlow::Continue),
                 )
             }
@@ -150,22 +148,22 @@ impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>> Jellyhaj
     #[instrument(skip_all, name = "action_keybinds")]
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        action::apply_key_event(self, task, action)
+        action::apply_key_event(self, cx, action)
     }
 
     #[instrument(skip_all, name = "click_keybinds")]
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        click::apply_click(self, task, position, size, kind, modifier)
+        click::apply_click(self, cx, position, size, kind, modifier)
     }
 
     #[instrument(skip_all, name = "render_keybind")]
@@ -173,9 +171,9 @@ impl<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>> Jellyhaj
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
-        render::render_keybinds(self, area, buf, task)
+        render::render_keybinds(self, area, buf, cx)
     }
 }
 

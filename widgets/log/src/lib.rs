@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, Wrapper, async_task::TaskSubmitter,
+    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
 };
 use ratatui::{
     style::{Color, Style},
@@ -46,7 +46,7 @@ impl JellyhajWidgetState for LogWidget {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         self.state.transition(action);
@@ -87,7 +87,7 @@ impl JellyhajWidget for LogWidget {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         self.state.transition(action);
@@ -96,7 +96,7 @@ impl JellyhajWidget for LogWidget {
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: jellyhaj_widgets_core::Position,
         _: jellyhaj_widgets_core::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -109,7 +109,7 @@ impl JellyhajWidget for LogWidget {
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
         let block = Block::bordered()
             .title("Log Messages")

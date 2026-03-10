@@ -12,9 +12,8 @@ use jellyhaj_form_widget::{
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
-use jellyhaj_widgets_core::async_task::TaskSubmitter;
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::FlattenState};
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Result, Wrapper};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper};
 use ratatui::prelude::{Buffer, Position, Rect, Size};
 
 #[derive(Debug)]
@@ -104,10 +103,10 @@ impl JellyhajWidgetState for LoginState {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        self.inner.apply_action(task, action).map(|v| {
+        self.inner.apply_action(cx, action).map(|v| {
             v.map(|v| match v {
                 ControlFlow::Continue(_) => LoginResult::Data {
                     server_url: self.inner.inner.inner.data.server_url.text.clone(),
@@ -155,22 +154,22 @@ impl JellyhajWidget for LoginWidget {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self.inner.apply_action(task, action);
+        let res = self.inner.apply_action(cx, action);
         self.map_res(res)
     }
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self.inner.click(task, position, size, kind, modifier);
+        let res = self.inner.click(cx, position, size, kind, modifier);
         self.map_res(res)
     }
 
@@ -178,9 +177,9 @@ impl JellyhajWidget for LoginWidget {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
-        self.inner.render_fallible_inner(area, buf, task)
+        self.inner.render_fallible_inner(area, buf, cx)
     }
 }
 

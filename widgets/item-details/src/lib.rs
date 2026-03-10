@@ -5,8 +5,8 @@ use jellyhaj_core::state::Navigation;
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
 use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, TuiContext, Wrapper,
-    async_task::TaskSubmitter,
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, TuiContext,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{HorizontalAlignment, Margin},
@@ -58,10 +58,10 @@ impl JellyhajWidgetState for Overview {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        JellyhajWidget::apply_action(self, task, action)
+        JellyhajWidget::apply_action(self, cx, action)
     }
 }
 
@@ -98,7 +98,7 @@ impl JellyhajWidget for Overview {
 
     fn apply_action(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -110,7 +110,7 @@ impl JellyhajWidget for Overview {
 
     fn click(
         &mut self,
-        _task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _position: jellyhaj_widgets_core::Position,
         _size: jellyhaj_widgets_core::Size,
         _kind: jellyhaj_widgets_core::MouseEventKind,
@@ -123,7 +123,7 @@ impl JellyhajWidget for Overview {
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title("Overview")
@@ -203,20 +203,20 @@ impl JellyhajWidgetState for ItemDisplayState {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             DisplayAction::Inner(action) => JellyhajWidgetState::apply_action(
                 &mut self.entry,
-                task.wrap_with(DisplayAction::Inner),
+                cx.wrap_with(DisplayAction::Inner),
                 action,
             ),
             DisplayAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unreachable!()),
+                        cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Up,
                     )?;
                 }
@@ -226,7 +226,7 @@ impl JellyhajWidgetState for ItemDisplayState {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unreachable!()),
+                        cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Down,
                     )?;
                 }
@@ -258,7 +258,7 @@ impl JellyhajWidget for ItemDisplay {
 
     fn into_state(self) -> Self::State {
         ItemDisplayState {
-            entry: ItemWidget::into_state(self.entry),
+            entry: self.entry.item_into_state(),
             overview: self.overview,
         }
     }
@@ -277,20 +277,20 @@ impl JellyhajWidget for ItemDisplay {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             DisplayAction::Inner(action) => JellyhajWidget::apply_action(
                 &mut self.entry,
-                task.wrap_with(DisplayAction::Inner),
+                cx.wrap_with(DisplayAction::Inner),
                 action,
             ),
             DisplayAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unreachable!()),
+                        cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Up,
                     )?;
                 }
@@ -300,7 +300,7 @@ impl JellyhajWidget for ItemDisplay {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unreachable!()),
+                        cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Down,
                     )?;
                 }
@@ -311,7 +311,7 @@ impl JellyhajWidget for ItemDisplay {
 
     fn click(
         &mut self,
-        _: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -324,7 +324,7 @@ impl JellyhajWidget for ItemDisplay {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let entry_off = (area.width - self.entry.dimensions().width) / 2;
         self.entry.render_fallible(
@@ -334,7 +334,7 @@ impl JellyhajWidget for ItemDisplay {
             )
                 .into(),
             buf,
-            task.clone().wrap_with(DisplayAction::Inner),
+            cx.wrap_with(DisplayAction::Inner),
         )?;
         if let Some(overview) = self.overview.as_mut() {
             overview.render_fallible(
@@ -344,7 +344,7 @@ impl JellyhajWidget for ItemDisplay {
                 )
                     .into(),
                 buf,
-                task.wrap_with(|_| unreachable!()),
+                cx.wrap_with(|_| unreachable!()),
             )?
         }
         Block::bordered()
@@ -380,7 +380,7 @@ pub struct ItemListDisplay {
 
 #[derive(Debug)]
 pub struct ItemListDisplayState {
-    pub children: ItemListState<Entry>,
+    pub children: ItemListState<EntryState>,
     pub item: MediaItem,
     pub overview: Option<Overview>,
 }
@@ -416,7 +416,7 @@ impl JellyhajWidgetState for ItemListDisplayState {
     const NAME: &str = "item-list-details";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<ItemListState<Entry>>();
+        visitor.visit::<ItemListState<EntryState>>();
         visitor.visit::<Overview>();
     }
 
@@ -430,18 +430,18 @@ impl JellyhajWidgetState for ItemListDisplayState {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             DisplayListAction::Inner(action) => self
                 .children
-                .apply_action(task.wrap_with(DisplayListAction::Inner), action),
+                .apply_action(cx.wrap_with(DisplayListAction::Inner), action),
             DisplayListAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unimplemented!()),
+                        cx.wrap_with(|_| unimplemented!()),
                         OverviewAction::Up,
                     )?;
                 }
@@ -451,18 +451,17 @@ impl JellyhajWidgetState for ItemListDisplayState {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unimplemented!()),
+                        cx.wrap_with(|_| unimplemented!()),
                         OverviewAction::Down,
                     )?;
                 }
                 Ok(None)
             }
-            DisplayListAction::Left => self.children.apply_action(
-                task.wrap_with(DisplayListAction::Inner),
-                ItemListAction::Left,
-            ),
+            DisplayListAction::Left => self
+                .children
+                .apply_action(cx.wrap_with(DisplayListAction::Inner), ItemListAction::Left),
             DisplayListAction::Right => self.children.apply_action(
-                task.wrap_with(DisplayListAction::Inner),
+                cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
         }
@@ -506,18 +505,18 @@ impl JellyhajWidget for ItemListDisplay {
 
     fn apply_action(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             DisplayListAction::Inner(action) => self
                 .children
-                .apply_action(task.wrap_with(DisplayListAction::Inner), action),
+                .apply_action(cx.wrap_with(DisplayListAction::Inner), action),
             DisplayListAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unimplemented!()),
+                        cx.wrap_with(|_| unimplemented!()),
                         OverviewAction::Up,
                     )?;
                 }
@@ -527,18 +526,17 @@ impl JellyhajWidget for ItemListDisplay {
                 if let Some(o) = self.overview.as_mut() {
                     JellyhajWidget::apply_action(
                         o,
-                        task.wrap_with(|_| unimplemented!()),
+                        cx.wrap_with(|_| unimplemented!()),
                         OverviewAction::Down,
                     )?;
                 }
                 Ok(None)
             }
-            DisplayListAction::Left => self.children.apply_action(
-                task.wrap_with(DisplayListAction::Inner),
-                ItemListAction::Left,
-            ),
+            DisplayListAction::Left => self
+                .children
+                .apply_action(cx.wrap_with(DisplayListAction::Inner), ItemListAction::Left),
             DisplayListAction::Right => self.children.apply_action(
-                task.wrap_with(DisplayListAction::Inner),
+                cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
         }
@@ -546,7 +544,7 @@ impl JellyhajWidget for ItemListDisplay {
 
     fn click(
         &mut self,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         mut pos: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
@@ -560,7 +558,7 @@ impl JellyhajWidget for ItemListDisplay {
             pos.x -= 2;
             pos.y -= 2;
             self.children.click(
-                task.wrap_with(DisplayListAction::Inner),
+                cx.wrap_with(DisplayListAction::Inner),
                 pos,
                 (size.width - 4, self.children.height()).into(),
                 kind,
@@ -575,7 +573,7 @@ impl JellyhajWidget for ItemListDisplay {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: TaskSubmitter<Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         self.children.active = true;
         self.children.render_fallible(
@@ -585,7 +583,7 @@ impl JellyhajWidget for ItemListDisplay {
             )
                 .into(),
             buf,
-            task.clone().wrap_with(DisplayListAction::Inner),
+            cx.wrap_with(DisplayListAction::Inner),
         )?;
         if let Some(overview) = self.overview.as_mut() {
             overview.render_fallible(
@@ -595,7 +593,7 @@ impl JellyhajWidget for ItemListDisplay {
                 )
                     .into(),
                 buf,
-                task.wrap_with(|_| unreachable!()),
+                cx.wrap_with(|_| unreachable!()),
             )?
         }
         Block::bordered()

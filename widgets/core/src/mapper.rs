@@ -1,9 +1,10 @@
 use std::{fmt::Debug, marker::PhantomData, pin::Pin};
 
 use color_eyre::eyre::Result;
+use jellyhaj_async_task::Wrapper;
 use jellyhaj_context::TuiContext;
 
-use crate::{JellyhajWidget, JellyhajWidgetState};
+use crate::{JellyhajWidget, JellyhajWidgetState, WidgetContext};
 
 pub trait Named: 'static {
     const NAME: &str;
@@ -77,10 +78,10 @@ impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> JellyhajWidgetState
 
     fn apply_action(
         &mut self,
-        task: crate::async_task::TaskSubmitter<Self::Action, impl crate::Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        match self.inner.apply_action(task, action)? {
+        match self.inner.apply_action(cx, action)? {
             None => Ok(None),
             Some(v) => M::map_state(&mut self.inner, v),
         }
@@ -130,10 +131,10 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
 
     fn apply_action(
         &mut self,
-        task: crate::async_task::TaskSubmitter<Self::Action, impl crate::Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        match self.inner.apply_action(task, action)? {
+        match self.inner.apply_action(cx, action)? {
             None => Ok(None),
             Some(v) => M::map_widget(&mut self.inner, v),
         }
@@ -141,13 +142,13 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
 
     fn click(
         &mut self,
-        task: crate::async_task::TaskSubmitter<Self::Action, impl crate::Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        match self.inner.click(task, position, size, kind, modifier)? {
+        match self.inner.click(cx, position, size, kind, modifier)? {
             None => Ok(None),
             Some(v) => M::map_widget(&mut self.inner, v),
         }
@@ -157,8 +158,8 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        task: crate::async_task::TaskSubmitter<Self::Action, impl crate::Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> Result<()> {
-        self.inner.render_fallible_inner(area, buf, task)
+        self.inner.render_fallible_inner(area, buf, cx)
     }
 }

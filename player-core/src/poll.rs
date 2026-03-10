@@ -15,7 +15,7 @@ use tokio::{
     time::Interval,
 };
 use tokio_util::sync::WaitForCancellationFutureOwned;
-use tracing::{Instrument, debug, error_span, instrument, instrument::Instrumented, warn};
+use tracing::{debug, error_span, instrument, warn};
 use tracing::{info, trace};
 
 use crate::create::set_playlist;
@@ -53,12 +53,6 @@ pin_project_lite::pin_project! {
         pub(crate) playlist_id_gen: PlaylistItemIdGen,
         pub(crate) seeked: bool,
         pub(crate) send_events: broadcast::Sender<Events>,
-    }
-}
-
-impl PollState {
-    pub(crate) fn instrument(self) -> Instrumented<Self> {
-        Instrument::instrument(self, error_span!("mpv-player"))
     }
 }
 

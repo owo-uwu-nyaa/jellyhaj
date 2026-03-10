@@ -1,14 +1,11 @@
 [dependencies]
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-entry-widget = {path = "../../widgets/entry", version = "0.1.0"}
 jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
-jellyhaj-item-screen = {path = "../../widgets/item-screen", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
-jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
+jellyhaj-home-screen-widget = { version = "0.1.0", path = "../../widgets/home-screen" }
 
 [package]
 edition = "2024"

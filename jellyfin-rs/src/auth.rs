@@ -112,7 +112,7 @@ fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
         Err(client) => ClientInner {
             host_header: client.host_header.clone(),
             uri_base: client.uri_base.clone(),
-            connection: client.connection.clone_new(),
+            connection: client.connection.with_same_config(),
             client_info: client.client_info.clone(),
             device_name: client.device_name.clone(),
             auth,

@@ -331,8 +331,8 @@ impl<Auth: Authed> JellyfinClient<Auth> {
 
     pub fn get_video_uri(&self, item_id: &str, play_session_id: &str) -> Result<Uri> {
         Uri::builder()
-            .scheme(if self.tls() { "https" } else { "http" })
-            .authority(self.authority().to_owned())
+            .scheme(if self.config.tls { "https" } else { "http" })
+            .authority(self.config.authority.to_owned())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/videos/");
@@ -359,8 +359,8 @@ impl<Auth: Authed> JellyfinClient<Auth> {
         format: &str,
     ) -> Result<Uri> {
         Uri::builder()
-            .scheme(if self.tls() { "https" } else { "http" })
-            .authority(self.authority().to_owned())
+            .scheme(if self.config.tls { "https" } else { "http" })
+            .authority(self.config.authority.to_owned())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/Videos/");

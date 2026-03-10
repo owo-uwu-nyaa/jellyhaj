@@ -2,7 +2,7 @@ use std::{cmp::min, convert::Infallible};
 
 use ansi_to_tui::IntoText;
 use color_eyre::eyre::Context;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper};
 use ratatui::{
     layout::Margin,
     widgets::{
@@ -60,10 +60,7 @@ impl JellyhajWidgetState for ErrorWidget {
 
     fn apply_action(
         &mut self,
-        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -103,10 +100,7 @@ impl JellyhajWidget for ErrorWidget {
 
     fn apply_action(
         &mut self,
-        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -120,10 +114,7 @@ impl JellyhajWidget for ErrorWidget {
 
     fn click(
         &mut self,
-        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -136,10 +127,7 @@ impl JellyhajWidget for ErrorWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        _: jellyhaj_widgets_core::async_task::TaskSubmitter<
-            Self::Action,
-            impl jellyhaj_widgets_core::Wrapper<Self::Action>,
-        >,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let text = self
             .text
@@ -154,21 +142,22 @@ impl JellyhajWidget for ErrorWidget {
         self.pos_x = min(width.saturating_sub(main.width as usize), self.pos_x);
         self.pos_y = min(height.saturating_sub(main.height as usize), self.pos_y);
         let text = Paragraph::new(text).scroll((self.pos_y as u16, self.pos_x as u16));
-        text.render(area, buf);
+        text.render(main, buf);
         if height > main.height as usize {
             Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
-                area.inner(Margin::new(0, 2)),
+                main.inner(Margin::new(0, 2)),
                 buf,
                 &mut ScrollbarState::new(self.pos_y).position(self.pos_y),
             );
         }
         if width > main.width as usize {
             Scrollbar::new(ScrollbarOrientation::HorizontalBottom).render(
-                area.inner(Margin::new(2, 0)),
+                main.inner(Margin::new(2, 0)),
                 buf,
                 &mut ScrollbarState::new(self.pos_x).position(self.pos_x),
             );
         }
+        outer.render(area, buf);
         Ok(())
     }
 }

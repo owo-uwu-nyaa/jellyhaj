@@ -138,6 +138,7 @@ impl JellyfinClient {
         uri: impl AsRef<str>,
         client_info: ClientInfo,
         device_name: impl Into<Cow<'static, str>>,
+        concurrency: usize,
     ) -> err::Result<JellyfinClient<NoAuth>> {
         let uri = Uri::try_from(uri.as_ref())?.into_parts();
         let tls = match uri.scheme.as_ref().map(|s| s.as_str()) {
@@ -156,7 +157,7 @@ impl JellyfinClient {
             inner: Arc::new(ClientInner {
                 uri_base,
                 host_header,
-                connection: Connection::new(authority, tls)?,
+                connection: Connection::new(authority, tls, concurrency)?,
                 auth: NoAuth,
                 client_info,
                 device_name: device_name.into(),
@@ -174,8 +175,9 @@ impl JellyfinClient {
         device_name: impl Into<Cow<'static, str>>,
         username: impl AsRef<str>,
         password: impl AsRef<str>,
+        concurrency: usize,
     ) -> err::Result<JellyfinClient<Auth>> {
-        Self::new(url, client_info, device_name)?
+        Self::new(url, client_info, device_name, concurrency)?
             .auth_user_name(username, password)
             .await
             .map_err(|(_, e)| e)
@@ -187,8 +189,9 @@ impl JellyfinClient {
         device_name: impl Into<Cow<'static, str>>,
         key: String,
         username: impl AsRef<str>,
+        concurrency: usize,
     ) -> Result<JellyfinClient<KeyAuth>> {
-        Ok(Self::new(url, client_info, device_name)?.auth_key(key, username))
+        Ok(Self::new(url, client_info, device_name, concurrency)?.auth_key(key, username))
     }
 }
 
@@ -223,7 +226,7 @@ fn client_with_auth<Auth1: AuthStatus, Auth2: AuthStatus>(
         Err(client) => ClientInner {
             host_header: client.host_header.clone(),
             uri_base: client.uri_base.clone(),
-            connection: client.connection.clone_new(),
+            connection: client.connection.with_same_config(),
             client_info: client.client_info.clone(),
             device_name: client.device_name.clone(),
             auth,

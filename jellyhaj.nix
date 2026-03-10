@@ -1,13 +1,13 @@
 {
   lib,
   stdenv,
-  fetchFromGitHub,
   rustPlatform,
   pkg-config,
   mpv-unwrapped,
   sqlite,
   versionCheckHook,
   withMpris ? stdenv.isLinux, # enable media player dbus interface
+  withTools ? false, # add developement tools
 }:
 let
   fileset = lib.fileset.unions [
@@ -28,7 +28,7 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = "jellyhaj";
-  version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+  version = (fromTOML (builtins.readFile ./Cargo.toml)).package.version;
   inherit src;
   cargoLock = {
     lockFile = ./Cargo.lock;
@@ -54,14 +54,14 @@ rustPlatform.buildRustPackage {
     "--skip=tests::events"
   ];
   cargoTestFlags = [ "--workspace" ];
+  cargoBuildFlags = lib.optional withTools "--workspace";
   buildFeatures = lib.optional withMpris "mpris";
 
   meta = {
-    description = "Terminal client for Jellyfin trying to reimplement parts of the web ui";
+    description = "Terminal client for Jellyfin reimplementing parts of the web ui";
     license = lib.licenses.mit;
     sourceProvenance = [ lib.sourceTypes.fromSource ];
     mainProgram = "jellyhaj";
     homepage = "https://github.com/owo-uwu-nyaa/jellyhaj";
-    maintainers = with lib.maintainers; [ RobinMarchart ];
   };
 }

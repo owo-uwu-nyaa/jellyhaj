@@ -13,7 +13,7 @@ use jellyhaj_core::{
     render::{NavigationResult, render_widget},
     state::{Navigation, Next, NextScreen},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyhaj_entry_widget::{EntryAction, EntryState};
 use jellyhaj_fetch_view::make_fetch;
 use jellyhaj_item_grid::{ItemGridAction, ItemGridData};
 use jellyhaj_keybinds_widget::KeybindState;
@@ -98,7 +98,7 @@ pub fn render_user_view(
     view: UserView,
     items: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
-    let inner = ItemGridData::<Entry>::new(
+    let inner = ItemGridData::<EntryState>::new(
         items
             .into_iter()
             .map(|i| EntryState::new(i, cx.as_mut()))
