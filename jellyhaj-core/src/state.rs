@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, ops::ControlFlow};
 
 use color_eyre::Result;
 use color_eyre::eyre::Report;
@@ -8,6 +8,17 @@ use jellyfin::{
     items::{MediaItem, PlaybackInfo},
     user_views::UserView,
 };
+
+pub fn flatten_control_flow(
+    v: Result<Option<ControlFlow<Navigation, Navigation>>>,
+) -> Result<Option<Navigation>> {
+    match v {
+        Err(e) => Err(e),
+        Ok(None) => Ok(None),
+        Ok(Some(ControlFlow::Continue(v))) => Ok(Some(v)),
+        Ok(Some(ControlFlow::Break(v))) => Ok(Some(v)),
+    }
+}
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]

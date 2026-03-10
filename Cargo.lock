@@ -2186,8 +2186,17 @@ dependencies = [
  "color-eyre",
  "jellyfin",
  "jellyhaj-core",
- "jellyhaj-entry-widget",
  "jellyhaj-fetch-view",
+ "jellyhaj-library-widget",
+]
+
+[[package]]
+name = "jellyhaj-library-widget"
+version = "0.1.0"
+dependencies = [
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-entry-widget",
  "jellyhaj-item-grid",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",

@@ -6,7 +6,7 @@ use jellyhaj_core::{
     context::TuiContext,
     keybinds::HomeScreenCommand,
     render::KeybindAction,
-    state::{Navigation, NextScreen},
+    state::{Navigation, NextScreen, flatten_control_flow},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
 use jellyhaj_item_screen::{ItemListState, ItemScreen, ItemScreenAction, ItemScreenState};
@@ -120,15 +120,6 @@ pub struct HomeScreen {
     register: Option<Vec<String>>,
 }
 
-fn flatten(v: Result<Option<ControlFlow<Navigation, Navigation>>>) -> Result<Option<Navigation>> {
-    match v {
-        Err(e) => Err(e),
-        Ok(None) => Ok(None),
-        Ok(Some(ControlFlow::Continue(v))) => Ok(Some(v)),
-        Ok(Some(ControlFlow::Break(v))) => Ok(Some(v)),
-    }
-}
-
 impl JellyhajWidgetState for HomeScreenState {
     type Action = KeybindAction<HomeScreenAction>;
 
@@ -163,7 +154,7 @@ impl JellyhajWidgetState for HomeScreenState {
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
-        flatten(self.inner.apply_action(cx.wrap_with(Mapper), action))
+        flatten_control_flow(self.inner.apply_action(cx.wrap_with(Mapper), action))
     }
 }
 
@@ -215,7 +206,7 @@ impl JellyhajWidget for HomeScreen {
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
-        flatten(self.inner.apply_action(cx.wrap_with(Mapper), action))
+        flatten_control_flow(self.inner.apply_action(cx.wrap_with(Mapper), action))
     }
 
     fn click(
@@ -226,7 +217,7 @@ impl JellyhajWidget for HomeScreen {
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        flatten(
+        flatten_control_flow(
             self.inner
                 .click(cx.wrap_with(Mapper), position, size, kind, modifier),
         )

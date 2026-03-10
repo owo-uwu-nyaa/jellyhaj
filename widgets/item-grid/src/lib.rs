@@ -56,13 +56,13 @@ impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
     }
 }
 
-pub struct ItemGridData<W: ItemState> {
+pub struct ItemGridState<W: ItemState> {
     pub items: Vec<W>,
     pub title: String,
     pub current: usize,
 }
 
-impl<W: ItemState> ItemGridData<W> {
+impl<W: ItemState> ItemGridState<W> {
     pub fn new(items: Vec<W>, title: String, current: usize) -> Self {
         Self {
             items,
@@ -72,7 +72,7 @@ impl<W: ItemState> ItemGridData<W> {
     }
 }
 
-impl<W: ItemState> std::fmt::Debug for ItemGridData<W> {
+impl<W: ItemState> std::fmt::Debug for ItemGridState<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemGridData")
             .field("items", &self.items)
@@ -82,7 +82,7 @@ impl<W: ItemState> std::fmt::Debug for ItemGridData<W> {
     }
 }
 
-impl<T: ItemState> JellyhajWidgetState for ItemGridData<T> {
+impl<T: ItemState> JellyhajWidgetState for ItemGridState<T> {
     type Action = ItemGridAction<T::IAction>;
 
     type ActionResult = T::IActionResult;
@@ -174,12 +174,12 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
 }
 
 impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
-    type State = ItemGridData<T::IState>;
+    type State = ItemGridState<T::IState>;
     type Action = ItemGridAction<<T as ItemWidget>::IAction>;
     type ActionResult = <T as ItemWidget>::IActionResult;
 
     fn into_state(self) -> Self::State {
-        ItemGridData {
+        ItemGridState {
             items: self
                 .items
                 .into_iter()

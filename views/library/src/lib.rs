@@ -1,4 +1,4 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::pin::Pin;
 
 use color_eyre::{Result, eyre::Context};
 use jellyfin::{
@@ -7,17 +7,12 @@ use jellyfin::{
     user_views::UserView,
 };
 use jellyhaj_core::{
-    CommandMapper,
     context::TuiContext,
-    keybinds::UserViewCommand,
     render::{NavigationResult, render_widget},
-    state::{Navigation, Next, NextScreen},
+    state::{Next, NextScreen},
 };
-use jellyhaj_entry_widget::{EntryAction, EntryState};
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_item_grid::{ItemGridAction, ItemGridData};
-use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_widgets_core::outer::{Named, OuterState};
+use jellyhaj_library_widget::LibraryState;
 
 async fn fetch_user_view(jellyfin: JellyfinClient, view: UserView) -> Result<Next> {
     let user_id = jellyfin.get_auth().user.id.as_str();
@@ -58,60 +53,11 @@ pub fn render_fetch_user_view(
     make_fetch(cx, title, inner)
 }
 
-#[derive(Debug)]
-pub enum Pass {
-    Reload,
-    Quit,
-}
-
-struct Mapper {
-    view: UserView,
-}
-
-impl CommandMapper<UserViewCommand> for Mapper {
-    type A = ItemGridAction<EntryAction>;
-
-    fn map(&self, command: UserViewCommand) -> ControlFlow<Navigation, Self::A> {
-        match command {
-            UserViewCommand::Quit => ControlFlow::Break(Navigation::PopContext),
-            UserViewCommand::Reload => ControlFlow::Break(Navigation::Replace(Box::new(
-                NextScreen::LoadUserView(self.view.clone()),
-            ))),
-            UserViewCommand::Prev => ControlFlow::Continue(ItemGridAction::Left),
-            UserViewCommand::Next => ControlFlow::Continue(ItemGridAction::Right),
-            UserViewCommand::Up => ControlFlow::Continue(ItemGridAction::Up),
-            UserViewCommand::Down => ControlFlow::Continue(ItemGridAction::Down),
-            UserViewCommand::Entry(entry_command) => ControlFlow::Continue(
-                ItemGridAction::CurrentInner(EntryAction::Command(entry_command)),
-            ),
-            UserViewCommand::Global(g) => ControlFlow::Break(g.into()),
-        }
-    }
-}
-struct Name;
-impl Named for Name {
-    const NAME: &str = "library";
-}
-
 pub fn render_user_view(
     mut cx: Pin<&mut TuiContext>,
     view: UserView,
     items: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
-    let inner = ItemGridData::<EntryState>::new(
-        items
-            .into_iter()
-            .map(|i| EntryState::new(i, cx.as_mut()))
-            .collect(),
-        view.name.clone(),
-        0,
-    );
-    let inner = KeybindState::new(
-        inner,
-        cx.config.help_prefixes.clone(),
-        cx.config.keybinds.user_view.clone(),
-        Mapper { view },
-    );
-    let state = OuterState::<Name, _, _, _>::new(inner);
+    let state = LibraryState::new(view, items, cx.as_mut());
     render_widget(cx, state)
 }
