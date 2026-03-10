@@ -7,6 +7,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, OptionExt, Result};
+use crossterm::{ExecutableCommand, terminal::SetTitle};
 use jellyhaj::run_app;
 use rayon::ThreadPoolBuilder;
 use tokio_util::sync::CancellationToken;
@@ -105,6 +106,7 @@ fn main() -> Result<()> {
             eyre_hook.install().expect("installing eyre hook");
             let cancel = CancellationToken::new();
             let handler_cancel = cancel.clone();
+            std::io::stdout().execute(SetTitle("jellyhaj"))?;
             std::panic::set_hook(Box::new(move |panic| {
                 handler_cancel.cancel();
                 let report = panic_hook.panic_report(panic);
