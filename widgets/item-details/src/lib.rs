@@ -1,7 +1,7 @@
 use std::{cmp::min, convert::Infallible, pin::Pin};
 
 use jellyfin::items::MediaItem;
-use jellyhaj_core::state::Navigation;
+use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
 use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
@@ -159,12 +159,15 @@ pub enum DisplayAction {
     Inner(EntryAction),
     Up,
     Down,
+    Reload(String),
+    Remove,
 }
 
 #[derive(Debug)]
 pub struct ItemDisplayState {
     entry: EntryState,
     overview: Option<Overview>,
+    register: Option<String>,
 }
 
 impl ItemDisplayState {
@@ -173,9 +176,11 @@ impl ItemDisplayState {
             .overview
             .as_ref()
             .map(|o| Overview::new(o.clone(), "Overview".to_string()));
+        let register = Some(item.id.clone());
         Self {
             entry: EntryState::new(item, cx),
             overview,
+            register,
         }
     }
 }
@@ -198,6 +203,7 @@ impl JellyhajWidgetState for ItemDisplayState {
         ItemDisplay {
             entry: self.entry.into_widget(cx),
             overview: self.overview,
+            register: self.register,
         }
     }
 
@@ -232,6 +238,10 @@ impl JellyhajWidgetState for ItemDisplayState {
                 }
                 Ok(None)
             }
+            DisplayAction::Reload(id) => Ok(Some(Navigation::Replace(Box::new(
+                NextScreen::FetchItemDetails(id),
+            )))),
+            DisplayAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }
 }
@@ -239,6 +249,7 @@ impl JellyhajWidgetState for ItemDisplayState {
 pub struct ItemDisplay {
     entry: Entry,
     overview: Option<Overview>,
+    register: Option<String>,
 }
 
 impl JellyhajWidget for ItemDisplay {
@@ -260,6 +271,7 @@ impl JellyhajWidget for ItemDisplay {
         ItemDisplayState {
             entry: self.entry.item_into_state(),
             overview: self.overview,
+            register: self.register,
         }
     }
 
@@ -306,6 +318,10 @@ impl JellyhajWidget for ItemDisplay {
                 }
                 Ok(None)
             }
+            DisplayAction::Reload(id) => Ok(Some(Navigation::Replace(Box::new(
+                NextScreen::FetchItemDetails(id),
+            )))),
+            DisplayAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }
 
@@ -326,6 +342,11 @@ impl JellyhajWidget for ItemDisplay {
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
+        if let Some(register) = self.register.take(){
+            let mut events = cx.jellyfin_events.get();
+            events.register_item_updated(register.clone(), cx.submitter.wrap_with(DisplayAction::Reload));
+            events.register_item_removed(register, cx.submitter.wrap_with(|_|DisplayAction::Remove));
+        }
         let entry_off = (area.width - self.entry.dimensions().width) / 2;
         self.entry.render_fallible(
             (
@@ -370,12 +391,15 @@ pub enum DisplayListAction {
     Down,
     Left,
     Right,
+    Reload,
+    Remove,
 }
 
 pub struct ItemListDisplay {
     children: ItemList<Entry>,
     item: MediaItem,
     overview: Option<Overview>,
+    register: Option<(String, Vec<String>)>
 }
 
 #[derive(Debug)]
@@ -383,6 +407,7 @@ pub struct ItemListDisplayState {
     pub children: ItemListState<EntryState>,
     pub item: MediaItem,
     pub overview: Option<Overview>,
+    register: Option<(String, Vec<String>)>
 }
 
 impl ItemListDisplayState {
@@ -392,6 +417,7 @@ impl ItemListDisplayState {
             .as_ref()
             .map(|o| Overview::new(o.clone(), "Overview".to_string()));
         let title = item.name.clone();
+        let register = Some((item.id.clone(), children.iter().map(|i|i.id.clone()).collect()));
         let children = ItemListState::new(
             children
                 .into_iter()
@@ -402,6 +428,7 @@ impl ItemListDisplayState {
             children,
             item,
             overview,
+            register,
         }
     }
 }
@@ -425,6 +452,7 @@ impl JellyhajWidgetState for ItemListDisplayState {
             children: self.children.into_widget(cx),
             item: self.item,
             overview: self.overview,
+            register: self.register,
         }
     }
 
@@ -464,6 +492,8 @@ impl JellyhajWidgetState for ItemListDisplayState {
                 cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
+            DisplayListAction::Reload => Ok(Some(Navigation::Replace(Box::new(NextScreen::FetchItemListDetailsRef(self.item.id.clone()))))),
+            DisplayListAction::Remove => Ok(Some(Navigation::PopContext))
         }
     }
 }
@@ -488,6 +518,7 @@ impl JellyhajWidget for ItemListDisplay {
             item: self.item,
             overview: self.overview,
             children: self.children.into_state(),
+            register: self.register
         }
     }
 
@@ -539,6 +570,8 @@ impl JellyhajWidget for ItemListDisplay {
                 cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
+            DisplayListAction::Reload => Ok(Some(Navigation::Replace(Box::new(NextScreen::FetchItemListDetailsRef(self.item.id.clone()))))),
+            DisplayListAction::Remove => Ok(Some(Navigation::PopContext))
         }
     }
 
@@ -575,6 +608,15 @@ impl JellyhajWidget for ItemListDisplay {
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
     ) -> jellyhaj_widgets_core::Result<()> {
+        if let Some((parent, children)) = self.register.take(){
+            let mut events = cx.jellyfin_events.get();
+            for child in children{
+                events.register_item_updated(child, cx.submitter.wrap_with(|_|DisplayListAction::Reload));
+            }
+            events.register_folder_modified(parent.clone(), cx.submitter.wrap_with(|_|DisplayListAction::Reload));
+            events.register_item_updated(parent.clone(), cx.submitter.wrap_with(|_|DisplayListAction::Reload));
+            events.register_item_removed(parent, cx.submitter.wrap_with(|_|DisplayListAction::Remove));
+        }
         self.children.active = true;
         self.children.render_fallible(
             (
