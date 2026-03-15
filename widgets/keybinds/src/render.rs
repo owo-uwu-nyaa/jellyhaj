@@ -3,7 +3,10 @@ use std::cmp::{max, min};
 use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 use color_eyre::Result;
 use itertools::Itertools;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetExt, WidgetContext, Wrapper};
+use jellyhaj_core::Config;
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetExt, WidgetContext, Wrapper,
+};
 use keybinds::{Command, KeyBinding};
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -13,11 +16,16 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Widget},
 };
 
-pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
-    this: &mut KeybindWidget<T, W, M>,
+pub fn render_keybinds<
+    R: ContextRef<Config> + 'static,
+    T: Command,
+    W: JellyhajWidget<R>,
+    M: CommandMapper<T, A = W::Action>,
+>(
+    this: &mut KeybindWidget<R, T, W, M>,
     area: Rect,
     buf: &mut ratatui::buffer::Buffer,
-    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
+    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
 ) -> Result<()> {
     let task = cx.wrap_with(KeybindWrapper);
     let len: usize = this.next_maps.iter().map(|v| v.len()).sum();
@@ -94,7 +102,8 @@ pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W:
         block.render(area, buf);
     } else {
         this.inner.render_fallible(area, buf, task)?;
-        let len = this.help_prefixes.len();
+        let help_prefixes = &Config::get_ref(cx.refs).help_prefixes;
+        let len = help_prefixes.len();
         if len != 0 {
             let area = Rect {
                 x: area.x + 1,
@@ -103,7 +112,7 @@ pub fn render_keybinds<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W:
                 height: 1,
             };
             let mut message = "For help press ".to_string();
-            for (i, bind) in this.help_prefixes.iter().enumerate() {
+            for (i, bind) in help_prefixes.iter().enumerate() {
                 if i == 0 {
                 } else if i == len - 1 {
                     message.push_str(" or ");

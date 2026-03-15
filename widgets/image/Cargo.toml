@@ -13,6 +13,7 @@ rayon.workspace = true
 sqlx.workspace = true
 tracing.workspace = true
 image-cache = { version = "0.1.0", path = "../../image-cache" }
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 
 [package]
 edition = "2024"

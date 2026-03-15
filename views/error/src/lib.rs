@@ -1,15 +1,16 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::ops::ControlFlow;
 
 use color_eyre::eyre::Report;
 use jellyhaj_core::{
-    CommandMapper, keybinds::ErrorCommand, render::render_widget, state::Navigation,
+    CommandMapper,
+    context::{DefaultTerminal, KeybindEvents, TuiContext},
+    keybinds::ErrorCommand,
+    render::render_widget,
+    state::Navigation,
 };
 use jellyhaj_error_widget::{ErrorAction, ErrorWidget};
 use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_widgets_core::{
-    TuiContext,
-    outer::{Named, OuterState},
-};
+use jellyhaj_widgets_core::outer::{Named, OuterState};
 
 struct Mapper;
 
@@ -35,15 +36,16 @@ impl Named for Name {
 }
 
 pub fn render_error(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     e: Report,
 ) -> impl Future<Output = jellyhaj_core::render::NavigationResult> {
     tracing::error!("Error encountered: {e:?}");
-    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
+    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
         ErrorWidget::new(format!("{e:?}")),
-        cx.config.help_prefixes.clone(),
         cx.config.keybinds.error.clone(),
         Mapper,
     ));
-    render_widget(cx, state)
+    render_widget(term, events, cx, state)
 }

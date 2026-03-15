@@ -1,12 +1,16 @@
-use std::{cmp::min, convert::Infallible, pin::Pin};
+use std::{cmp::min, convert::Infallible};
 
-use jellyfin::items::MediaItem;
-use jellyhaj_core::state::{Navigation, NextScreen};
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyfin::{JellyfinClient, items::MediaItem};
+use jellyhaj_core::{
+    Config,
+    context::{DB, JellyfinEventInterests, Spawner},
+    state::{Navigation, NextScreen},
+};
+use jellyhaj_entry_widget::{Entry, EntryAction, EntryState, ImageProtocolCache, Picker, Stats};
 use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Rect, TuiContext,
-    WidgetContext, Wrapper,
+    ContextRef, GetFromContext, ItemState, ItemWidget, ItemWidgetExt, JellyhajWidget,
+    JellyhajWidgetExt, JellyhajWidgetState, Rect, WidgetContext, WidgetTreeVisitor, Wrapper,
 };
 use ratatui::{
     layout::{HorizontalAlignment, Margin},
@@ -41,7 +45,7 @@ impl Overview {
     }
 }
 
-impl JellyhajWidgetState for Overview {
+impl<R: 'static> JellyhajWidgetState<R> for Overview {
     type Action = OverviewAction;
 
     type ActionResult = Infallible;
@@ -50,22 +54,22 @@ impl JellyhajWidgetState for Overview {
 
     const NAME: &str = "overview";
 
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+    fn visit_children(_: &mut impl WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
+    fn into_widget(self, _: &R) -> Self::Widget {
         self
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         JellyhajWidget::apply_action(self, cx, action)
     }
 }
 
-impl JellyhajWidget for Overview {
+impl<R: 'static> JellyhajWidget<R> for Overview {
     type State = Self;
 
     type Action = OverviewAction;
@@ -98,7 +102,7 @@ impl JellyhajWidget for Overview {
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -110,7 +114,7 @@ impl JellyhajWidget for Overview {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _position: jellyhaj_widgets_core::Position,
         _size: jellyhaj_widgets_core::Size,
         _kind: jellyhaj_widgets_core::MouseEventKind,
@@ -123,7 +127,7 @@ impl JellyhajWidget for Overview {
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title("Overview")
@@ -171,7 +175,7 @@ pub struct ItemDisplayState {
 }
 
 impl ItemDisplayState {
-    pub fn new(item: MediaItem, cx: Pin<&mut TuiContext>) -> Self {
+    pub fn new(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>) -> Self {
         let overview = item
             .overview
             .as_ref()
@@ -185,7 +189,17 @@ impl ItemDisplayState {
     }
 }
 
-impl JellyhajWidgetState for ItemDisplayState {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidgetState<R> for ItemDisplayState
+{
     type Action = DisplayAction;
 
     type ActionResult = Navigation;
@@ -194,14 +208,14 @@ impl JellyhajWidgetState for ItemDisplayState {
 
     const NAME: &str = "item-display";
 
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<EntryState>();
-        visitor.visit::<Overview>();
+    fn visit_children(visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit_item::<R, EntryState>();
+        visitor.visit::<R, Overview>();
     }
 
-    fn into_widget(self, cx: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         ItemDisplay {
-            entry: self.entry.into_widget(cx),
+            entry: self.entry.item_into_widget(cx),
             overview: self.overview,
             register: self.register,
         }
@@ -209,11 +223,11 @@ impl JellyhajWidgetState for ItemDisplayState {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
-            DisplayAction::Inner(action) => JellyhajWidgetState::apply_action(
+            DisplayAction::Inner(action) => ItemState::item_apply_action(
                 &mut self.entry,
                 cx.wrap_with(DisplayAction::Inner),
                 action,
@@ -252,7 +266,17 @@ pub struct ItemDisplay {
     register: Option<String>,
 }
 
-impl JellyhajWidget for ItemDisplay {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidget<R> for ItemDisplay
+{
     type State = ItemDisplayState;
 
     type Action = DisplayAction;
@@ -260,16 +284,16 @@ impl JellyhajWidget for ItemDisplay {
     type ActionResult = Navigation;
 
     fn min_width(&self) -> Option<u16> {
-        Some(self.entry.dimensions().width + 4)
+        Some(ItemWidget::<R>::dimensions(&self.entry).width + 4)
     }
 
     fn min_height(&self) -> Option<u16> {
-        Some(self.entry.dimensions().height + 8)
+        Some(ItemWidget::<R>::dimensions(&self.entry).height + 8)
     }
 
     fn into_state(self) -> Self::State {
         ItemDisplayState {
-            entry: self.entry.item_into_state(),
+            entry: ItemWidget::<R>::item_into_state(self.entry),
             overview: self.overview,
             register: self.register,
         }
@@ -289,11 +313,11 @@ impl JellyhajWidget for ItemDisplay {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
-            DisplayAction::Inner(action) => JellyhajWidget::apply_action(
+            DisplayAction::Inner(action) => ItemWidget::<R>::item_apply_action(
                 &mut self.entry,
                 cx.wrap_with(DisplayAction::Inner),
                 action,
@@ -327,7 +351,7 @@ impl JellyhajWidget for ItemDisplay {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -340,10 +364,10 @@ impl JellyhajWidget for ItemDisplay {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if let Some(register) = self.register.take() {
-            let mut events = cx.jellyfin_events.get();
+            let mut events = JellyfinEventInterests::get_ref(cx.refs).get();
             events.register_item_updated(
                 register.clone(),
                 cx.submitter.wrap_with(DisplayAction::Reload),
@@ -351,11 +375,11 @@ impl JellyhajWidget for ItemDisplay {
             events
                 .register_item_removed(register, cx.submitter.wrap_with(|_| DisplayAction::Remove));
         }
-        let entry_off = (area.width - self.entry.dimensions().width) / 2;
-        self.entry.render_fallible(
+        let entry_off = (area.width - ItemWidget::<R>::dimensions(&self.entry).width) / 2;
+        self.entry.render_item(
             (
                 (area.x + entry_off, area.y + 2).into(),
-                self.entry.dimensions(),
+                ItemWidget::<R>::dimensions(&self.entry),
             )
                 .into(),
             buf,
@@ -364,8 +388,16 @@ impl JellyhajWidget for ItemDisplay {
         if let Some(overview) = self.overview.as_mut() {
             overview.render_fallible(
                 (
-                    (area.x, area.y + 4 + self.entry.dimensions().height).into(),
-                    (area.width, area.height - 4 - self.entry.dimensions().height).into(),
+                    (
+                        area.x,
+                        area.y + 4 + ItemWidget::<R>::dimensions(&self.entry).height,
+                    )
+                        .into(),
+                    (
+                        area.width,
+                        area.height - 4 - ItemWidget::<R>::dimensions(&self.entry).height,
+                    )
+                        .into(),
                 )
                     .into(),
                 buf,
@@ -399,23 +431,72 @@ pub enum DisplayListAction {
     Remove,
 }
 
-pub struct ItemListDisplay {
-    children: ItemList<Entry>,
+pub struct ItemListDisplay<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> {
+    children: ItemList<R, Entry>,
     item: MediaItem,
     overview: Option<Overview>,
     register: Option<(String, Vec<String>)>,
 }
 
-#[derive(Debug)]
-pub struct ItemListDisplayState {
-    pub children: ItemListState<EntryState>,
+pub struct ItemListDisplayState<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> {
+    pub children: ItemListState<R, EntryState>,
     pub item: MediaItem,
     pub overview: Option<Overview>,
     register: Option<(String, Vec<String>)>,
 }
 
-impl ItemListDisplayState {
-    pub fn new(children: Vec<MediaItem>, item: MediaItem, mut cx: Pin<&mut TuiContext>) -> Self {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> std::fmt::Debug for ItemListDisplayState<R>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ItemListDisplayState")
+            .field("children", &self.children)
+            .field("item", &self.item)
+            .field("overview", &self.overview)
+            .field("register", &self.register)
+            .finish()
+    }
+}
+
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<ImageProtocolCache>
+        + ContextRef<DB>
+        + 'static,
+> ItemListDisplayState<R>
+{
+    pub fn new(children: Vec<MediaItem>, item: MediaItem, cx: &R) -> Self {
         let overview = item
             .overview
             .as_ref()
@@ -425,12 +506,8 @@ impl ItemListDisplayState {
             item.id.clone(),
             children.iter().map(|i| i.id.clone()).collect(),
         ));
-        let children = ItemListState::new(
-            children
-                .into_iter()
-                .map(|i| EntryState::new(i, cx.as_mut())),
-            title,
-        );
+        let children =
+            ItemListState::new(children.into_iter().map(|i| EntryState::new(i, cx)), title);
         Self {
             children,
             item,
@@ -440,21 +517,31 @@ impl ItemListDisplayState {
     }
 }
 
-impl JellyhajWidgetState for ItemListDisplayState {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidgetState<R> for ItemListDisplayState<R>
+{
     type Action = DisplayListAction;
 
     type ActionResult = Navigation;
 
-    type Widget = ItemListDisplay;
+    type Widget = ItemListDisplay<R>;
 
     const NAME: &str = "item-list-details";
 
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<ItemListState<EntryState>>();
-        visitor.visit::<Overview>();
+    fn visit_children(visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit::<R, ItemListState<R, EntryState>>();
+        visitor.visit::<R, Overview>();
     }
 
-    fn into_widget(self, cx: Pin<&mut jellyhaj_core::context::TuiContext>) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         ItemListDisplay {
             children: self.children.into_widget(cx),
             item: self.item,
@@ -465,7 +552,7 @@ impl JellyhajWidgetState for ItemListDisplayState {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -507,8 +594,18 @@ impl JellyhajWidgetState for ItemListDisplayState {
     }
 }
 
-impl JellyhajWidget for ItemListDisplay {
-    type State = ItemListDisplayState;
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidget<R> for ItemListDisplay<R>
+{
+    type State = ItemListDisplayState<R>;
 
     type Action = DisplayListAction;
 
@@ -545,7 +642,7 @@ impl JellyhajWidget for ItemListDisplay {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -588,7 +685,7 @@ impl JellyhajWidget for ItemListDisplay {
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         mut pos: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
@@ -617,10 +714,10 @@ impl JellyhajWidget for ItemListDisplay {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if let Some((parent, children)) = self.register.take() {
-            let mut events = cx.jellyfin_events.get();
+            let mut events = JellyfinEventInterests::get_ref(cx.refs).get();
             for child in children {
                 events.register_item_updated(
                     child,

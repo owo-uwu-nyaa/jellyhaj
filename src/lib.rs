@@ -1,8 +1,4 @@
-use std::{
-    path::PathBuf,
-    pin::{Pin, pin},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use color_eyre::{
     Result,
@@ -15,7 +11,7 @@ use jellyhaj_core::{
     state::{Next, NextScreen},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
-use jellyhaj_image::Stats;
+use jellyhaj_image::cache::ImageProtocolCache;
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -26,9 +22,16 @@ use sqlx::SqliteConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error_span, info, instrument};
 
-async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult {
+async fn show_screen(
+    screen: Next,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
+) -> NavigationResult {
     match *screen {
-        NextScreen::LoadHomeScreen => jellyhaj_home_screen_view::render_fetch_home_screen(cx).await,
+        NextScreen::LoadHomeScreen => {
+            jellyhaj_home_screen_view::render_fetch_home_screen(term, events, cx).await
+        }
         NextScreen::HomeScreen {
             cont,
             next_up,
@@ -36,6 +39,8 @@ async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult
             library_latest,
         } => {
             jellyhaj_home_screen_view::render_home_screen(
+                term,
+                events,
                 cx,
                 cont,
                 next_up,
@@ -45,56 +50,65 @@ async fn show_screen(screen: Next, cx: Pin<&mut TuiContext>) -> NavigationResult
             .await
         }
         NextScreen::LoadUserView(user_view) => {
-            jellyhaj_library_view::render_fetch_user_view(cx, user_view).await
+            jellyhaj_library_view::render_fetch_user_view(term, events, cx, user_view).await
         }
         NextScreen::UserView { view, items } => {
-            jellyhaj_library_view::render_user_view(cx, view, items).await
+            jellyhaj_library_view::render_user_view(term, events, cx, view, items).await
         }
         NextScreen::FetchPlay(load_play) => {
-            jellyhaj_player_view::render_fetch_play(cx, load_play).await
+            jellyhaj_player_view::render_fetch_play(term, events, cx, load_play).await
         }
         NextScreen::Play { items, index } => {
-            jellyhaj_player_view::render_play(cx, items, index).await
+            jellyhaj_player_view::render_play(term, events, cx, items, index).await
         }
-        NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, report).await,
+        NextScreen::Error(report) => {
+            jellyhaj_error_view::render_error(term, events, cx, report).await
+        }
         NextScreen::ItemDetails(media_item) => {
-            jellyhaj_item_details_view::render_item_details(cx, media_item).await
+            jellyhaj_item_details_view::render_item_details(term, events, cx, media_item).await
         }
         NextScreen::ItemListDetails(media_item, media_items) => {
-            jellyhaj_item_details_view::render_item_list_details(cx, media_item, media_items).await
+            jellyhaj_item_details_view::render_item_list_details(
+                term,
+                events,
+                cx,
+                media_item,
+                media_items,
+            )
+            .await
         }
         NextScreen::FetchItemListDetails(media_item) => {
-            jellyhaj_item_details_view::render_fetch_item_list(cx, media_item).await
+            jellyhaj_item_details_view::render_fetch_item_list(term, events, cx, media_item).await
         }
         NextScreen::FetchItemListDetailsRef(id) => {
-            jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id).await
+            jellyhaj_item_details_view::render_fetch_item_list_ref(term, events, cx, id).await
         }
         NextScreen::FetchItemDetails(item) => {
-            jellyhaj_item_details_view::render_fetch_episode(cx, item).await
+            jellyhaj_item_details_view::render_fetch_episode(term, events, cx, item).await
         }
         NextScreen::RefreshItem(id) => {
-            jellyhaj_refresh_item_view::render_refresh_item_form(cx, id).await
+            jellyhaj_refresh_item_view::render_refresh_item_form(term, events, cx, id).await
         }
-        NextScreen::Stats => jellyhaj_stats_view::render_stats(cx).await,
-        NextScreen::Logs => jellyhaj_log_view::render_log(cx).await,
+        NextScreen::Stats => jellyhaj_stats_view::render_stats(term, events, cx).await,
+        NextScreen::Logs => jellyhaj_log_view::render_log(term, events, cx).await,
     }
 }
 
 #[instrument(skip_all, level = "debug")]
-async fn run_state(mut cx: Pin<&mut TuiContext>) {
+async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
     let mut state: Vec<Suspended> = Vec::new();
     let mut top: Option<Next> = None;
     info!("reached main application loop");
     loop {
         let res = if let Some(top) = top.take() {
             debug!("running top next screen");
-            show_screen(top, cx.as_mut()).await
+            show_screen(top, term, events, cx.clone()).await
         } else if let Some(mut suspended) = state.pop() {
             debug!("resuming suspended widget: {}", suspended.name());
-            suspended.resume(cx.as_mut()).await
+            suspended.resume(term, events).await
         } else {
             debug!("defaulting to displaying home screen");
-            jellyhaj_home_screen_view::render_fetch_home_screen(cx.as_mut()).await
+            jellyhaj_home_screen_view::render_fetch_home_screen(term, events, cx.clone()).await
         };
         match res {
             NavigationResult::Exit => break,
@@ -126,11 +140,7 @@ async fn run_app_inner(
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
 ) -> Result<()> {
-    let jellyfin_events = JellyfinEventInterests::new();
-    let image_picker = Arc::new(image_picker);
-    let stats = Stats::default();
     let config = Arc::new(config);
-    let image_cache = jellyhaj_image::cache::ImageProtocolCache::new();
     debug!("logging in to jellyfin");
     if let Some(jellyfin) = jellyhaj_login_view::login(
         clap::crate_name!(),
@@ -139,15 +149,10 @@ async fn run_app_inner(
         &mut events,
         spawner.clone(),
         config.clone(),
-        image_picker.clone(),
-        cache.clone(),
-        image_cache.clone(),
-        stats,
-        jellyfin_events.clone(),
     )
     .await?
     {
-        jellyfin_events.spawn(&spawner, &jellyfin)?;
+        let jellyfin_events = JellyfinEventInterests::new(&spawner, &jellyfin)?;
         let mpv_handle = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,
@@ -168,20 +173,22 @@ async fn run_app_inner(
             error_span!("player_mpris"),
             "player_mpris",
         );
-        let cx = pin!(TuiContext {
-            jellyfin,
-            jellyfin_events,
-            term,
-            config,
-            events,
-            cache,
-            image_cache,
-            mpv_handle,
-            image_picker,
-            stats: Default::default(),
-            spawn: spawner
-        });
-        run_state(cx).await
+        run_state(
+            &mut term,
+            &mut events,
+            TuiContext {
+                jellyfin,
+                jellyfin_events,
+                config,
+                cache,
+                image_cache: ImageProtocolCache::new(),
+                mpv_handle: mpv_handle.clone(),
+                image_picker: Arc::new(image_picker),
+                stats: Default::default(),
+                spawn: spawner,
+            },
+        )
+        .await
     }
     Ok(())
 }

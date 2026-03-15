@@ -1,8 +1,7 @@
-use std::{fmt::Debug, marker::PhantomData, pin::Pin};
+use std::{fmt::Debug, marker::PhantomData};
 
 use color_eyre::eyre::Result;
 use jellyhaj_async_task::Wrapper;
-use jellyhaj_context::TuiContext;
 
 use crate::{JellyhajWidget, JellyhajWidgetState, WidgetContext};
 
@@ -10,45 +9,54 @@ pub trait Named: 'static {
     const NAME: &str;
 }
 
-pub trait ResultMapper<S: JellyhajWidgetState>: Default + Send + 'static {
+pub trait ResultMapper<CX: 'static, S: JellyhajWidgetState<CX>>: Default + Send + 'static {
     type R: Debug + 'static;
     fn map_widget(this: &mut S::Widget, res: S::ActionResult) -> Result<Option<Self::R>>;
     fn map_state(this: &mut S, res: S::ActionResult) -> Result<Option<Self::R>>;
 }
 
-pub struct MapperWidget<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> {
+pub struct MapperWidget<CX: 'static, N: Named, W: JellyhajWidget<CX>, M: ResultMapper<CX, W::State>>
+{
     pub inner: W,
     named: PhantomData<fn(N) -> N>,
+    cx: PhantomData<fn(CX) -> ()>,
     mapper: M,
 }
 
-impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> MapperWidget<N, W, M> {
+impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> MapperWidget<R, N, W, M> {
     pub fn new(inner: W) -> Self {
         Self {
             inner,
             named: PhantomData,
             mapper: Default::default(),
+            cx: PhantomData,
         }
     }
 }
 
-pub struct MapperState<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> {
+pub struct MapperState<R: 'static, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> {
     pub inner: S,
     named: PhantomData<fn(N) -> N>,
+    r: PhantomData<fn(R) -> ()>,
     mapper: M,
 }
 
-impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> MapperState<N, S, M> {
+impl<R: 'static, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>>
+    MapperState<R, N, S, M>
+{
     pub fn new(inner: S) -> Self {
         Self {
             inner,
             named: PhantomData,
             mapper: Default::default(),
+            r: PhantomData,
         }
     }
 }
 
-impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> Debug for MapperState<N, S, M> {
+impl<R, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> Debug
+    for MapperState<R, N, S, M>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OuterState")
             .field("inner", &self.inner)
@@ -57,28 +65,29 @@ impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> Debug for MapperState
     }
 }
 
-impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> JellyhajWidgetState
-    for MapperState<N, S, M>
+impl<R, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> JellyhajWidgetState<R>
+    for MapperState<R, N, S, M>
 {
     type Action = S::Action;
 
     type ActionResult = M::R;
 
-    type Widget = MapperWidget<N, S::Widget, M>;
+    type Widget = MapperWidget<R, N, S::Widget, M>;
 
     const NAME: &str = N::NAME;
 
-    fn into_widget(self, cx: Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         MapperWidget {
             inner: self.inner.into_widget(cx),
             named: self.named,
             mapper: self.mapper,
+            cx: PhantomData,
         }
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match self.inner.apply_action(cx, action)? {
@@ -88,18 +97,18 @@ impl<N: Named, S: JellyhajWidgetState, M: ResultMapper<S>> JellyhajWidgetState
     }
 
     fn visit_children(visitor: &mut impl crate::WidgetTreeVisitor) {
-        visitor.visit::<S>();
+        visitor.visit::<R, S>();
     }
 }
 
-impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
-    for MapperWidget<N, W, M>
+impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> JellyhajWidget<R>
+    for MapperWidget<R, N, W, M>
 {
     type Action = W::Action;
 
     type ActionResult = M::R;
 
-    type State = MapperState<N, W::State, M>;
+    type State = MapperState<R, N, W::State, M>;
 
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
@@ -114,6 +123,7 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
             inner: self.inner.into_state(),
             named: self.named,
             mapper: self.mapper,
+            r: PhantomData,
         }
     }
 
@@ -131,7 +141,7 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match self.inner.apply_action(cx, action)? {
@@ -142,7 +152,7 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -158,7 +168,7 @@ impl<N: Named, W: JellyhajWidget, M: ResultMapper<W::State>> JellyhajWidget
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         self.inner.render_fallible_inner(area, buf, cx)
     }

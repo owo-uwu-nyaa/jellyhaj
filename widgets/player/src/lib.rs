@@ -4,9 +4,7 @@ use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
 use player_core::{
     Command, Events, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
@@ -60,7 +58,7 @@ pub enum PlayerAction {
 #[derive(Debug)]
 pub struct PlayerQuit;
 
-impl JellyhajWidgetState for PlayerWidget {
+impl<R: 'static> JellyhajWidgetState<R> for PlayerWidget {
     type Action = PlayerAction;
 
     type ActionResult = Navigation;
@@ -71,20 +69,20 @@ impl JellyhajWidgetState for PlayerWidget {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, _: &R) -> Self::Widget {
         self
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         JellyhajWidget::apply_action(self, cx, action)
     }
 }
 
-impl JellyhajWidget for PlayerWidget {
+impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
     type Action = PlayerAction;
 
     type ActionResult = Navigation;
@@ -118,7 +116,7 @@ impl JellyhajWidget for PlayerWidget {
     #[instrument(name = "apply_action_player", skip_all)]
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
@@ -168,7 +166,7 @@ impl JellyhajWidget for PlayerWidget {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
@@ -182,7 +180,7 @@ impl JellyhajWidget for PlayerWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         if !self.send {
             self.send = true;

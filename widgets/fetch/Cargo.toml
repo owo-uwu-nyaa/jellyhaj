@@ -5,5 +5,6 @@ edition = "2024"
 
 [dependencies]
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-loading-widget = { version = "0.1.0", path = "../loading" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 tracing.workspace = true

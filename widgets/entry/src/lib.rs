@@ -2,17 +2,22 @@ pub mod map;
 
 use color_eyre::Result;
 use jellyfin::{
+    JellyfinClient,
     image::select_images,
     items::{ItemType, MediaItem, UserData},
     socket::ChangedUserData,
     user_views::UserView,
 };
-use jellyhaj_core::{keybinds::EntryCommand, state::Navigation};
-use jellyhaj_image::{JellyfinImage, JellyfinImageState};
+use jellyhaj_core::{
+    context::{DB, JellyfinEventInterests, Spawner},
+    keybinds::EntryCommand,
+    state::Navigation,
+};
+use jellyhaj_image::{JellyfinImage, JellyfinImageState, ParsedImage};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageProtocolCache};
 use jellyhaj_widgets_core::{
-    Config, FontSize, ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt,
-    JellyhajWidgetState, TuiContext, WidgetContext, Wrapper,
+    Config, ContextRef, FontSize, GetFromContext, ItemState, ItemWidget, JellyhajWidget,
+    JellyhajWidgetExt, JellyhajWidgetState, WidgetContext, Wrapper,
 };
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
@@ -21,7 +26,7 @@ use ratatui::{
     text::Span,
     widgets::{Block, BorderType, Paragraph, Widget},
 };
-use std::{borrow::Cow, fmt::Debug, pin::Pin};
+use std::{borrow::Cow, fmt::Debug};
 use tracing::instrument;
 
 #[derive(Debug, Clone)]
@@ -92,7 +97,17 @@ pub struct EntryState {
     register_changed_user_data: Option<String>,
 }
 
-impl ItemState for EntryState {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> ItemState<R> for EntryState
+{
     type IAction = EntryAction;
 
     type IActionResult = Navigation;
@@ -102,14 +117,11 @@ impl ItemState for EntryState {
     const NAME: &str = "entry";
 
     fn item_visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<JellyfinImageState>();
+        visitor.visit::<R, JellyfinImageState>();
     }
 
-    fn item_into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::IWidget {
-        let size = calc_dimensions(&cx.config, cx.image_picker.font_size());
+    fn item_into_widget(self, cx: &R) -> Self::IWidget {
+        let size = calc_dimensions(cx.get_ref(), Picker::get_ref(cx).font_size());
         Entry {
             image: self.image.map(move |i| i.into_widget(cx)),
             title: self.title,
@@ -124,7 +136,7 @@ impl ItemState for EntryState {
 
     fn item_apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>>,
+        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
         action: Self::IAction,
     ) -> Result<Option<Self::IActionResult>> {
         match action {
@@ -134,14 +146,10 @@ impl ItemState for EntryState {
                 }
                 Ok(None)
             }
-            EntryAction::Command(entry_command) => Ok(self.inner.apply_command(entry_command)),
-            EntryAction::UpdatedUserData(user_data) => {
-                self.inner
-                    .item_mut()
-                    .expect("should only be requested for item inners")
-                    .user_data = Some(user_data);
-                Ok(None)
+            EntryAction::Command(entry_command) => {
+                Ok(self.inner.apply_command(entry_command, cx.refs))
             }
+            EntryAction::UpdatedUserData(user_data) => self.updated_user_data(user_data),
         }
     }
 }
@@ -177,17 +185,31 @@ impl EntryState {
     pub fn data(&self) -> &EntryData {
         &self.inner
     }
-    pub fn new(state: impl Into<EntryData>, cx: Pin<&mut TuiContext>) -> EntryState {
+    pub fn new(
+        state: impl Into<EntryData>,
+        cx: &impl ContextRef<ImageProtocolCache>,
+    ) -> EntryState {
         match state.into() {
             EntryData::Item(media_item) => from_media_item(media_item, cx),
             EntryData::View(user_view) => from_user_view(user_view, cx),
         }
     }
+
+    fn updated_user_data(
+        &mut self,
+        user_data: UserData,
+    ) -> std::result::Result<Option<Navigation>, color_eyre::eyre::Error> {
+        self.inner
+            .item_mut()
+            .expect("should only be requested for item inners")
+            .user_data = Some(user_data);
+        Ok(None)
+    }
 }
 
 #[derive(Debug)]
 pub enum EntryAction {
-    Inner(<JellyfinImage as JellyhajWidget>::Action),
+    Inner(ParsedImage),
     Command(EntryCommand),
     UpdatedUserData(UserData),
 }
@@ -195,28 +217,38 @@ pub enum EntryAction {
 #[derive(Clone, Copy)]
 struct EntryWrapper;
 
-impl Wrapper<<JellyfinImage as JellyhajWidget>::Action> for EntryWrapper {
+impl Wrapper<ParsedImage> for EntryWrapper {
     type F = EntryAction;
 
-    fn wrap(&self, val: <JellyfinImage as JellyhajWidget>::Action) -> Self::F {
+    fn wrap(&self, val: ParsedImage) -> Self::F {
         EntryAction::Inner(val)
     }
 }
 
-impl ItemWidget for Entry {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> ItemWidget<R> for Entry
+{
     type IState = EntryState;
     type IAction = EntryAction;
     type IActionResult = Navigation;
 
-    fn dimensions_static(par: jellyhaj_widgets_core::DimensionsParameter<'_>) -> Size {
-        calc_dimensions(par.config, par.font_size)
+    fn dimensions_static(cx: &R) -> Size {
+        calc_dimensions(cx.get_ref(), Picker::get_ref(cx).font_size())
     }
     fn dimensions(&self) -> Size {
         self.size
     }
     fn item_into_state(self) -> Self::IState {
         EntryState {
-            image: self.image.map(JellyfinImage::into_state),
+            image: self.image.map(JellyhajWidget::<R>::into_state),
             title: self.title,
             subtitle: self.subtitle,
             inner: self.inner,
@@ -226,7 +258,7 @@ impl ItemWidget for Entry {
     }
     fn item_apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>>,
+        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
         action: Self::IAction,
     ) -> Result<Option<Self::IActionResult>> {
         Ok(match action {
@@ -236,7 +268,7 @@ impl ItemWidget for Entry {
                 }
                 None
             }
-            EntryAction::Command(entry_command) => self.inner.apply_command(entry_command),
+            EntryAction::Command(entry_command) => self.inner.apply_command(entry_command, cx.refs),
             EntryAction::UpdatedUserData(user_data) => {
                 self.inner
                     .item_mut()
@@ -248,14 +280,14 @@ impl ItemWidget for Entry {
     }
     fn item_click(
         &mut self,
-        _: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>>,
+        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
         _: ratatui::prelude::Position,
         _: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
     ) -> Result<Option<Self::IActionResult>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
-            Ok(self.inner.apply_command(EntryCommand::Activate))
+            Ok(self.inner.apply_command(EntryCommand::Activate, cx.refs))
         } else {
             Ok(None)
         }
@@ -266,15 +298,17 @@ impl ItemWidget for Entry {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>>,
+        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
     ) -> Result<()> {
         if let Some(item_id) = self.register_changed_user_data.take() {
-            cx.jellyfin_events.get().register_changed_userdata(
-                item_id,
-                cx.submitter.wrap_with(|changed: ChangedUserData| {
-                    EntryAction::UpdatedUserData(changed.user_data)
-                }),
-            );
+            JellyfinEventInterests::get_ref(cx.refs)
+                .get()
+                .register_changed_userdata(
+                    item_id,
+                    cx.submitter.wrap_with(|changed: ChangedUserData| {
+                        EntryAction::UpdatedUserData(changed.user_data)
+                    }),
+                );
         }
         let mut outer = Block::bordered()
             .border_type(if self.active {
@@ -323,7 +357,7 @@ impl ItemWidget for Entry {
     }
 }
 
-fn from_media_item(item: MediaItem, mut cx: Pin<&mut TuiContext>) -> EntryState {
+fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>) -> EntryState {
     let (title, subtitle) = match &item.item_type {
         ItemType::Movie | ItemType::Unknown | ItemType::CollectionFolder => {
             (item.name.clone(), None)
@@ -344,7 +378,7 @@ fn from_media_item(item: MediaItem, mut cx: Pin<&mut TuiContext>) -> EntryState 
     };
     let image = select_images(&item)
         .map(|(image_type, tag)| {
-            JellyfinImageState::new(item.id.clone(), tag.to_string(), image_type, cx.as_mut())
+            JellyfinImageState::new(item.id.clone(), tag.to_string(), image_type, cx)
         })
         .next();
     let watch_status = if let Some(user_data) = item.user_data.as_ref() {
@@ -369,7 +403,7 @@ fn from_media_item(item: MediaItem, mut cx: Pin<&mut TuiContext>) -> EntryState 
     }
 }
 
-fn from_user_view(item: UserView, cx: Pin<&mut TuiContext>) -> EntryState {
+fn from_user_view(item: UserView, cx: &impl ContextRef<ImageProtocolCache>) -> EntryState {
     let title = item.name.clone();
     let image = item
         .image_tags

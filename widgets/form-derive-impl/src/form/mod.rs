@@ -9,7 +9,8 @@ struct FormItem {
     pub ty: Type,
     pub descr: LitStr,
     pub selection: Path,
-    pub selection_id: Ident,
+    pub action: Path,
+    pub enum_id: Ident,
     pub show_if: Option<Expr>,
     pub show_if_fun: Option<Ident>,
 }
@@ -20,6 +21,7 @@ struct ParseResult {
     action_result: Type,
     data_ty: Ident,
     selection_ty: Ident,
+    action_ty: Ident,
     full: ItemStruct,
     size_ident: Ident,
     state_name: Ident,
@@ -33,19 +35,24 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         action_result,
         data_ty,
         selection_ty,
+        action_ty,
         full,
         size_ident,
         state_name,
         widget_name,
     } = parse::parse(args, input)?;
     let exports: Path = parse_quote!(::jellyhaj_form_widget::macro_impl::exports);
-    let form_item_tr: Type = parse_quote!(::jellyhaj_form_widget::FormItem<#action_result>);
+    let form_item_info_tr: Type =
+        parse_quote!(::jellyhaj_form_widget::FormItemInfo<#action_result>);
     let form_data_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormData);
     let with_selection_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelection);
     let with_selection_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelectionMut);
+    let with_selection_mut_cx_tr: Path =
+        parse_quote!(::jellyhaj_form_widget::form::WithSelectionMutCX);
     let with_index_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIndexMut);
     let with_iter_items_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItems);
     let with_iter_items_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItemsMut);
+    let with_action_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithActionMut);
     let form_state: Path = parse_quote!(::jellyhaj_form_widget::form::FormState);
     let form: Path = parse_quote!(::jellyhaj_form_widget::form::Form);
     let total_size = Literal::usize_suffixed(fields.len());
@@ -60,9 +67,14 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         }
     });
     let selection_items = fields.iter().map(|item| {
-        let name = &item.selection_id;
+        let name = &item.enum_id;
         let ty = &item.ty;
-        quote! {#name(<#ty as #form_item_tr>::SelectionInner)}
+        quote! {#name(<#ty as #form_item_info_tr>::SelectionInner)}
+    });
+    let action_items = fields.iter().map(|item| {
+        let name = &item.enum_id;
+        let ty = &item.ty;
+        quote! {#name(<#ty as #form_item_info_tr>::Action)}
     });
     let with_selection_pats = fields.iter().enumerate().map(|(i, item)| {
         let name = &item.name;
@@ -88,16 +100,30 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
             )
         }
     });
+    let with_selection_mut_cx_pats = fields.iter().enumerate().map(|(i, item)| {
+        let name = &item.name;
+        let ty = &item.ty;
+        let sel = &item.selection;
+        let ac = &item.action;
+        let descr = &item.descr;
+        let index = Literal::usize_suffixed(i);
+        quote! {
+            #sel(s) => W::with_mut::<#index, #ty>(
+                with, s, cx.wrap_with(#ac), &mut state.#name, #descr
+            )
+        }
+    });
     let with_index_mut_pats = fields.iter().enumerate().map(|(i, item)| {
         let name = &item.name;
         let sel = &item.selection;
+        let ac = &item.action;
         let ty = &item.ty;
         let descr = &item.descr;
         let index = Literal::usize_suffixed(i);
         quote! {
             #index => {
                 *this = #sel(W::with_mut::<#index, #ty>(
-                    with, &mut state.#name, #descr
+                    with, cx.wrap_with(#ac), &mut state.#name, #descr
                 )?)
             }
         }
@@ -116,12 +142,24 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let with_iter_items_mut = fields.iter().enumerate().map(|(i, item)| {
         let name = &item.name;
         let ty = &item.ty;
+        let ac = &item.action;
         let descr = &item.descr;
         let index = Literal::usize_suffixed(i);
         quote! {
             W::with_mut::<#index, #ty>(
-                with, &mut state.#name, #descr
+                with, cx.wrap_with(#ac), &mut state.#name, #descr
             )?;
+        }
+    });
+    let with_action_mut_pats = fields.iter().enumerate().map(|(i, item)| {
+        let name = &item.name;
+        let ty = &item.ty;
+        let ac = &item.action;
+        let index = Literal::usize_suffixed(i);
+        quote! {
+            #ac(action) =>  W::with_mut::<#index, #ty>(
+                with, action, cx.wrap_with(#ac), &mut state.#name
+            )
         }
     });
     let show_if_items = fields.iter().map(|item| {
@@ -146,13 +184,18 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         #vis enum #selection_ty {
             #(#selection_items),*
         }
+        #[derive(Debug)]
+        #vis enum #action_ty {
+            #(#action_items),*
+        }
         #vis const #size_ident: #exports::usize = #total_size;
         impl #form_data_tr<#total_size> for #data_ty{
             type Selector = #selection_ty;
             type AR = #action_result;
+            type Action = #action_ty;
             const TITLE: &#exports::str = #name;
 
-            fn with_selection<T, W: #with_selection_tr<Self::AR, T>>(
+            fn with_selection<R: 'static, T, W: #with_selection_tr<R, Self::AR, T>>(
                 this: &Self::Selector,
                 state: &Self,
                 with: W,
@@ -162,7 +205,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
                 }
             }
 
-            fn with_mut_selection<T, W: #with_selection_mut_tr<Self::AR, T>>(
+            fn with_selection_mut<R: 'static, T, W: #with_selection_mut_tr<R, Self::AR, T>>(
                 this: &mut Self::Selector,
                 state: &mut Self,
                 with: W,
@@ -172,8 +215,20 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
                 }
             }
 
-            fn with_index_mut<W: #with_index_mut_tr<Self::AR>>(
+            fn with_selection_mut_cx<R: 'static, T, W: #with_selection_mut_cx_tr<R, Self::AR, T>>(
                 this: &mut Self::Selector,
+                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
+                state: &mut Self,
+                with: W,
+            ) -> T {
+                match this {
+                    #(#with_selection_mut_cx_pats),*
+                }
+            }
+
+            fn with_index_mut<R: 'static, W: #with_index_mut_tr<R, Self::AR>>(
+                this: &mut Self::Selector,
+                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
                 state: &mut Self,
                 index: #exports::usize,
                 with: W,
@@ -185,20 +240,34 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
                 #exports::Result::Ok(())
             }
 
-            fn with_iter<W: #with_iter_items_tr<Self::AR>>(
+            fn with_iter<R: 'static, W: #with_iter_items_tr<R, Self::AR>>(
                 state: &Self,
                 with: &mut W
             ) -> #exports::Result<()>{
                 #(#with_iter_items)*
                 #exports::Result::Ok(())
             }
-            fn with_iter_mut<W: #with_iter_items_mut_tr<Self::AR>>(
+
+            fn with_iter_mut<R: 'static, W: #with_iter_items_mut_tr<R, Self::AR>>(
+                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
                 state: &mut Self,
                 with: &mut W,
             ) -> #exports::Result<()>{
                 #(#with_iter_items_mut)*
                 #exports::Result::Ok(())
             }
+
+            fn with_action_mut<R: 'static, T, W: #with_action_mut_tr<R, Self::AR, T>>(
+                action: Self::Action,
+                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
+                state: &mut Self,
+                with: W,
+            ) -> T {
+                match action {
+                    #(#with_action_mut_pats),*
+                }
+            }
+
             fn show_if(state: &Self) -> [#exports::bool; #total_size]{
                 [#(#show_if_items),*]
             }

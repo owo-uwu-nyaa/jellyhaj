@@ -15,7 +15,7 @@ use config::LoginInfo;
 use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth};
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::{DB, ImageProtocolCache, JellyfinEventInterests, Picker, Stats},
+    context::ContextRef,
     keybinds::LoadingCommand,
     render::{RenderResult, render_widget_bare},
     state::Navigation,
@@ -29,6 +29,16 @@ use spawn::Spawner;
 use tokio::select;
 use tracing::{info, instrument};
 
+struct LoginContext {
+    config: Arc<Config>,
+}
+
+impl ContextRef<Config> for LoginContext {
+    fn get_ref(&self) -> &Config {
+        &self.config
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
 async fn edit_login_info(
@@ -39,13 +49,9 @@ async fn edit_login_info(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
-    image_picker: Arc<Picker>,
-    cache: DB,
-    image_cache: ImageProtocolCache,
-    stats: Stats,
-    jellyfin_events: JellyfinEventInterests,
 ) -> Result<bool> {
     let error = error.to_string();
+    let cx = LoginContext { config };
 
     let widget = LoginWidget::new(
         info.server_url.clone(),
@@ -53,22 +59,9 @@ async fn edit_login_info(
         info.password.clone(),
         info.password_cmd.is_some(),
         error,
-        &config,
+        &cx,
     );
-    match render_widget_bare(
-        term,
-        events,
-        spawner,
-        widget,
-        config,
-        image_picker,
-        cache,
-        image_cache,
-        stats,
-        jellyfin_events,
-    )
-    .await
-    {
+    match render_widget_bare(term, events, spawner, widget, cx).await {
         RenderResult::Ok((LoginResult::Quit, _)) => Ok(false),
         RenderResult::Ok((
             LoginResult::Data {
@@ -119,32 +112,14 @@ async fn render_fetch(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
-    image_picker: Arc<Picker>,
-    cache: DB,
-    image_cache: ImageProtocolCache,
-    stats: Stats,
-    jellyfin_events: JellyfinEventInterests,
 ) -> Result<()> {
     let widget = KeybindWidget::new(
         Loading::new(Cow::Borrowed("Connecting to Server")),
-        config.help_prefixes.clone(),
         config.keybinds.fetch.clone(),
         LoadingMapper,
     );
-    match render_widget_bare(
-        term,
-        events,
-        spawner,
-        widget,
-        config,
-        image_picker,
-        cache,
-        image_cache,
-        stats,
-        jellyfin_events,
-    )
-    .await
-    {
+    let cx = LoginContext { config };
+    match render_widget_bare(term, events, spawner, widget, cx).await {
         RenderResult::Ok((ControlFlow::Break(_), _)) => Ok(()),
         RenderResult::Err(report) => Err(report),
         RenderResult::Exit => Ok(()),
@@ -160,11 +135,6 @@ pub async fn login(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
-    image_picker: Arc<Picker>,
-    cache: DB,
-    image_cache: ImageProtocolCache,
-    stats: Stats,
-    jellyfin_events: JellyfinEventInterests,
 ) -> Result<Option<JellyfinClient<Auth>>> {
     let mut login_info: LoginInfo;
     let mut error: Option<Report>;
@@ -203,11 +173,6 @@ pub async fn login(
                 events,
                 spawner.clone(),
                 config.clone(),
-                image_picker.clone(),
-                cache.clone(),
-                image_cache.clone(),
-                stats.clone(),
-                jellyfin_events.clone(),
             )
             .await
             .context("getting login information")?
@@ -236,7 +201,7 @@ pub async fn login(
         };
 
         select! {
-            r = render_fetch(term, events, spawner.clone(), config.clone(), image_picker.clone(), cache.clone(), image_cache.clone(), stats.clone(), jellyfin_events.clone())
+            r = render_fetch(term, events, spawner.clone(), config.clone())
                 => {
                 r?;
                 return Ok(None);

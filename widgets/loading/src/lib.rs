@@ -11,9 +11,7 @@ use std::{
 };
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Rect, TuiContext, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Rect, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
@@ -39,7 +37,7 @@ impl LoadingState {
     }
 }
 
-impl JellyhajWidgetState for LoadingState {
+impl<R: 'static> JellyhajWidgetState<R> for LoadingState {
     type Action = AdvanceLoadingScreen;
 
     type ActionResult = Infallible;
@@ -50,13 +48,13 @@ impl JellyhajWidgetState for LoadingState {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, _: &R) -> Self::Widget {
         Loading::new(self.title)
     }
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -88,7 +86,7 @@ const TICK_INTERVAL: Duration = Duration::from_millis(200);
 #[derive(Debug)]
 pub struct AdvanceLoadingScreen;
 
-impl JellyhajWidget for Loading {
+impl<R: 'static> JellyhajWidget<R> for Loading {
     type State = LoadingState;
     type Action = AdvanceLoadingScreen;
     type ActionResult = Infallible;
@@ -106,7 +104,7 @@ impl JellyhajWidget for Loading {
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         for v in &mut self.lines {
@@ -121,7 +119,7 @@ impl JellyhajWidget for Loading {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _position: ratatui::prelude::Position,
         _size: ratatui::prelude::Size,
         _kind: ratatui::crossterm::event::MouseEventKind,
@@ -135,7 +133,7 @@ impl JellyhajWidget for Loading {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;

@@ -3,24 +3,28 @@ use std::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
 pub struct Mapper<
     T: Debug + 'static,
     A: Debug + 'static + Into<T>,
-    S: JellyhajWidgetState<ActionResult = ControlFlow<T, A>>,
+    R: 'static,
+    S: JellyhajWidgetState<R, ActionResult = ControlFlow<T, A>>,
 > {
     _t: PhantomData<fn(T) -> T>,
     _a: PhantomData<fn(A) -> A>,
+    _r: PhantomData<fn(R) -> R>,
     _s: PhantomData<fn(S) -> S>,
 }
 
 impl<
     T: Debug + 'static,
     A: Debug + 'static + Into<T>,
-    S: JellyhajWidgetState<ActionResult = ControlFlow<T, A>>,
-> Default for Mapper<T, A, S>
+    R: 'static,
+    S: JellyhajWidgetState<R, ActionResult = ControlFlow<T, A>>,
+> Default for Mapper<T, A, R, S>
 {
     fn default() -> Self {
         Self {
-            _t: Default::default(),
-            _a: Default::default(),
-            _s: Default::default(),
+            _t: PhantomData,
+            _a: PhantomData,
+            _s: PhantomData,
+            _r: PhantomData,
         }
     }
 }
@@ -28,13 +32,14 @@ impl<
 impl<
     T: Debug + 'static,
     A: Debug + 'static + Into<T>,
-    S: JellyhajWidgetState<ActionResult = ControlFlow<T, A>>,
-> ResultMapper<S> for Mapper<T, A, S>
+    R: 'static,
+    S: JellyhajWidgetState<R, ActionResult = ControlFlow<T, A>>,
+> ResultMapper<R, S> for Mapper<T, A, R, S>
 {
     type R = T;
     fn map_widget(
         _: &mut S::Widget,
-        res: <S::Widget as JellyhajWidget>::ActionResult,
+        res: <S::Widget as JellyhajWidget<R>>::ActionResult,
     ) -> color_eyre::eyre::Result<Option<Self::R>> {
         Ok(Some(match res {
             ControlFlow::Continue(c) => c.into(),
@@ -55,4 +60,4 @@ use crate::{
     mapper::{MapperState, ResultMapper},
 };
 
-pub type OuterState<N, T, A, S> = MapperState<N, S, Mapper<T, A, S>>;
+pub type OuterState<N, T, A, R, S> = MapperState<R, N, S, Mapper<T, A, R, S>>;

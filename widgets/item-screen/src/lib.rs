@@ -1,12 +1,13 @@
 use std::{
     cmp::min,
+    fmt::Debug,
     ops::{Index, IndexMut},
 };
 
-pub use jellyhaj_item_list::{DimensionsParameter, ItemList, ItemListAction, ItemListState};
+pub use jellyhaj_item_list::{ItemList, ItemListAction, ItemListState};
 use jellyhaj_widgets_core::{
     ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Result,
-    TuiContext, WidgetContext, Wrapper,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -16,32 +17,32 @@ use ratatui::{
     },
 };
 
-pub struct ItemScreen<T: ItemWidget> {
-    lists: Vec<ItemList<T>>,
+pub struct ItemScreen<R: 'static, T: ItemWidget<R>> {
+    lists: Vec<ItemList<R, T>>,
     current: usize,
     title: String,
     item_size: Size,
     offset: usize,
 }
 
-impl<T: ItemWidget> ItemScreen<T> {
-    pub fn get(&self, index: usize) -> Option<&ItemList<T>> {
+impl<R: 'static, T: ItemWidget<R>> ItemScreen<R, T> {
+    pub fn get(&self, index: usize) -> Option<&ItemList<R, T>> {
         self.lists.get(index)
     }
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemList<T>> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemList<R, T>> {
         self.lists.get_mut(index)
     }
 }
 
-impl<T: ItemWidget> Index<usize> for ItemScreen<T> {
-    type Output = ItemList<T>;
+impl<R: 'static, T: ItemWidget<R>> Index<usize> for ItemScreen<R, T> {
+    type Output = ItemList<R, T>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.lists[index]
     }
 }
 
-impl<T: ItemWidget> IndexMut<usize> for ItemScreen<T> {
+impl<R: 'static, T: ItemWidget<R>> IndexMut<usize> for ItemScreen<R, T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.lists[index]
     }
@@ -57,29 +58,29 @@ pub enum ItemScreenAction<T> {
     Down,
 }
 
-pub struct ItemScreenState<T: ItemState> {
-    pub lists: Vec<ItemListState<T>>,
+pub struct ItemScreenState<R: 'static, T: ItemState<R>> {
+    pub lists: Vec<ItemListState<R, T>>,
     pub title: String,
     pub current: usize,
 }
 
-impl<T: ItemState> ItemScreenState<T> {
-    pub fn new(lists: Vec<ItemListState<T>>, title: String) -> Self {
+impl<R: 'static, T: ItemState<R>> ItemScreenState<R, T> {
+    pub fn new(lists: Vec<ItemListState<R, T>>, title: String) -> Self {
         Self {
             lists,
             title,
             current: 0,
         }
     }
-    pub fn get(&self, index: usize) -> Option<&ItemListState<T>> {
+    pub fn get(&self, index: usize) -> Option<&ItemListState<R, T>> {
         self.lists.get(index)
     }
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemListState<T>> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemListState<R, T>> {
         self.lists.get_mut(index)
     }
 }
 
-impl<T: ItemState> std::fmt::Debug for ItemScreenState<T> {
+impl<R: 'static, T: ItemState<R>> Debug for ItemScreenState<R, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemScreenState")
             .field("lists", &self.lists)
@@ -89,30 +90,23 @@ impl<T: ItemState> std::fmt::Debug for ItemScreenState<T> {
     }
 }
 
-impl<T: ItemState> JellyhajWidgetState for ItemScreenState<T> {
+impl<R: 'static, T: ItemState<R>> JellyhajWidgetState<R> for ItemScreenState<R, T> {
     type Action = ItemScreenAction<T::IAction>;
 
     type ActionResult = T::IActionResult;
 
-    type Widget = ItemScreen<T::IWidget>;
+    type Widget = ItemScreen<R, T::IWidget>;
 
     const NAME: &str = "item-screen";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<ItemListState<T>>();
+        visitor.visit::<R, ItemListState<R, T>>();
     }
 
-    fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
-        let item_size = T::IWidget::dimensions_static(DimensionsParameter {
-            config: &cx.config,
-            font_size: cx.image_picker.font_size(),
-        });
+    fn into_widget(self, cx: &R) -> Self::Widget {
+        let item_size = T::IWidget::dimensions_static(cx);
         ItemScreen {
-            lists: self
-                .lists
-                .into_iter()
-                .map(|l| l.into_widget(cx.as_mut()))
-                .collect(),
+            lists: self.lists.into_iter().map(|l| l.into_widget(cx)).collect(),
             current: self.current,
             title: self.title,
             offset: 0,
@@ -122,15 +116,16 @@ impl<T: ItemState> JellyhajWidgetState for ItemScreenState<T> {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        fn apply<T: ItemState>(
-            this: &mut ItemScreenState<T>,
+        fn apply<R: 'static, T: ItemState<R>>(
+            this: &mut ItemScreenState<R, T>,
             cx: WidgetContext<
                 '_,
                 ItemScreenAction<T::IAction>,
                 impl Wrapper<ItemScreenAction<T::IAction>>,
+                R,
             >,
             index: usize,
             action: ItemListAction<T::IAction>,
@@ -184,10 +179,10 @@ impl<T: Send + 'static> Wrapper<ItemListAction<T>> for ScreenWrapper {
     }
 }
 
-impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
-    type State = ItemScreenState<T::IState>;
-    type Action = ItemScreenAction<<T as ItemWidget>::IAction>;
-    type ActionResult = <T as ItemWidget>::IActionResult;
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<R, T> {
+    type State = ItemScreenState<R, T::IState>;
+    type Action = ItemScreenAction<<T as ItemWidget<R>>::IAction>;
+    type ActionResult = <T as ItemWidget<R>>::IActionResult;
 
     fn into_state(self) -> Self::State {
         ItemScreenState {
@@ -203,19 +198,20 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        fn apply<T: ItemWidget>(
-            this: &mut ItemScreen<T>,
+        fn apply<R: 'static, T: ItemWidget<R>>(
+            this: &mut ItemScreen<R, T>,
             cx: WidgetContext<
                 '_,
                 ItemScreenAction<T::IAction>,
                 impl Wrapper<ItemScreenAction<T::IAction>>,
+                R,
             >,
             index: usize,
-            action: ItemListAction<<T as ItemWidget>::IAction>,
-        ) -> Result<Option<<T as ItemWidget>::IActionResult>> {
+            action: ItemListAction<<T as ItemWidget<R>>::IAction>,
+        ) -> Result<Option<<T as ItemWidget<R>>::IActionResult>> {
             this.lists
                 .get_mut(index)
                 .and_then(|r| {
@@ -246,7 +242,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         mut position: ratatui::prelude::Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -291,7 +287,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemScreen<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())

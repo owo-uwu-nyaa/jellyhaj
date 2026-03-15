@@ -1,41 +1,31 @@
-use std::{convert::Infallible, fmt::Debug};
+use std::{borrow::Cow, fmt::Debug};
 
 use jellyhaj_core::state::{Navigation, Next};
+use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading, LoadingState};
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
 use tracing::info_span;
 
 #[derive(Debug)]
-pub enum FetchAction<T: Debug> {
-    Inner(T),
+pub enum FetchAction {
+    Inner(AdvanceLoadingScreen),
     FetchFinished(Next),
 }
 
-pub struct FetchState<
-    S: JellyhajWidgetState<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> {
+pub struct FetchState<F: Future<Output = Result<Next>> + Send + 'static> {
     fut: Option<F>,
-    inner: S,
+    inner: LoadingState,
 }
 
-impl<
-    S: JellyhajWidgetState<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> FetchState<S, F>
-{
-    pub fn new(fut: F, inner: S) -> Self {
+impl<F: Future<Output = Result<Next>> + Send + 'static> FetchState<F> {
+    pub fn new(fut: F, title: Cow<'static, str>) -> Self {
         Self {
             fut: Some(fut),
-            inner,
+            inner: LoadingState::new(title),
         }
     }
 }
 
-impl<
-    S: JellyhajWidgetState<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> std::fmt::Debug for FetchState<S, F>
-{
+impl<F: Future<Output = Result<Next>> + Send + 'static> Debug for FetchState<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FetchState")
             .field("inner", &self.inner)
@@ -43,27 +33,22 @@ impl<
     }
 }
 
-impl<
-    S: JellyhajWidgetState<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> JellyhajWidgetState for FetchState<S, F>
+impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidgetState<R>
+    for FetchState<F>
 {
-    type Action = FetchAction<S::Action>;
+    type Action = FetchAction;
 
     type ActionResult = Navigation;
 
-    type Widget = FetchWidget<S::Widget, F>;
+    type Widget = FetchWidget<F>;
 
     const NAME: &str = "fetch";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<S>();
+        visitor.visit::<R, LoadingState>();
     }
 
-    fn into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         FetchWidget {
             fut: self.fut,
             inner: self.inner.into_widget(cx),
@@ -72,7 +57,7 @@ impl<
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
@@ -87,55 +72,50 @@ impl<
     }
 }
 
-pub struct FetchWidget<
-    W: JellyhajWidget<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> {
+pub struct FetchWidget<F: Future<Output = Result<Next>> + Send + 'static> {
     fut: Option<F>,
-    inner: W,
+    inner: Loading,
 }
 
-impl<
-    W: JellyhajWidget<ActionResult = Infallible>,
-    F: Future<Output = Result<Next>> + Send + 'static,
-> JellyhajWidget for FetchWidget<W, F>
+impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidget<R>
+    for FetchWidget<F>
 {
-    type Action = FetchAction<W::Action>;
+    type Action = FetchAction;
 
     type ActionResult = Navigation;
 
-    type State = FetchState<W::State, F>;
+    type State = FetchState<F>;
 
     fn min_width(&self) -> Option<u16> {
-        self.inner.min_width()
+        JellyhajWidget::<R>::min_width(&self.inner)
     }
 
     fn min_height(&self) -> Option<u16> {
-        self.inner.min_height()
+        JellyhajWidget::<R>::min_height(&self.inner)
     }
 
     fn into_state(self) -> Self::State {
         FetchState {
             fut: self.fut,
-            inner: self.inner.into_state(),
+            inner: JellyhajWidget::<R>::into_state(self.inner),
         }
     }
 
     fn accepts_text_input(&self) -> bool {
-        self.inner.accepts_text_input()
+        JellyhajWidget::<R>::accepts_text_input(&self.inner)
     }
 
     fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
+        JellyhajWidget::<R>::accept_char(&mut self.inner, text);
     }
 
     fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
+        JellyhajWidget::<R>::accept_text(&mut self.inner, text);
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
@@ -151,7 +131,7 @@ impl<
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: jellyhaj_widgets_core::Position,
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
@@ -171,7 +151,7 @@ impl<
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         if self.fut.is_some() {
             let fut = self.fut.take().expect("just checked");

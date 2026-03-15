@@ -30,6 +30,8 @@ pub enum EntryCommand {
     OpenSeason,
     OpenEpisode,
     RefreshItem,
+    SetWatched,
+    UnsetWatched,
 }
 
 #[derive(Debug, Clone, Copy, Command)]

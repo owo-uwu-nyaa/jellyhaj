@@ -5,15 +5,20 @@ use std::{
 
 use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 use color_eyre::Result;
-use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_core::{Config, state::Navigation};
+use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, WidgetContext, Wrapper};
 use keybinds::{Command, KeyBinding};
 use ratatui::layout::{Position, Size};
 use tracing::{debug, warn};
 
-pub fn apply_click<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
-    this: &mut KeybindWidget<T, W, M>,
-    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
+pub fn apply_click<
+    R: ContextRef<Config> + 'static,
+    T: Command,
+    W: JellyhajWidget<R>,
+    M: CommandMapper<T, A = W::Action>,
+>(
+    this: &mut KeybindWidget<R, T, W, M>,
+    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
     mut position: ratatui::prelude::Position,
     size: ratatui::prelude::Size,
     kind: ratatui::crossterm::event::MouseEventKind,

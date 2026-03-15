@@ -1,7 +1,9 @@
 use std::{cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Position, Rect, Result};
+use jellyhaj_widgets_core::{
+    KeyModifiers, MouseEventKind, Position, Rect, Result, WidgetContext, Wrapper,
+};
 use ratatui::{
     crossterm::event::MouseButton,
     style::Modifier,
@@ -11,7 +13,7 @@ use ratatui::{
     },
 };
 
-use crate::{FormAction, FormItem, offset::calc_offset};
+use crate::{FormAction, FormItem, FormItemInfo, offset::calc_offset};
 
 pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + 'static {
     fn descr(self) -> &'static str;
@@ -37,14 +39,18 @@ fn selection_prev<S: Selection>(cur: S) -> S {
     S::ALL[index]
 }
 
-impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
+impl<S: Selection, AR: From<Infallible>> FormItemInfo<AR> for S {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 4;
 
     type SelectionInner = Option<S>;
-    type R = Infallible;
 
+    type Ret = Infallible;
+
+    type Action = Infallible;
+}
+impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
@@ -61,10 +67,11 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
         sel.is_some()
     }
 
-    fn apply_action(
+    fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
-        action: FormAction,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: FormAction<Infallible>,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if let Some(sel_inner) = sel {
             match action {
@@ -84,15 +91,24 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
                 _ => {}
             }
         } else {
-            if FormAction::Enter == action {
+            if let FormAction::Enter = action {
                 *sel = Some(*self);
             }
         }
         Ok(None)
     }
 
+    fn apply_action(
+        &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
+        unreachable!()
+    }
+
     fn render_pass_main(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         active: bool,
@@ -115,6 +131,7 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
 
     fn render_pass_popup(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: ratatui::prelude::Rect,
         mut full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
@@ -204,6 +221,7 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
 
     fn apply_click_active(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         sel: &mut Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
@@ -250,6 +268,7 @@ impl<S: Selection, AR: From<Infallible>> FormItem<AR> for S {
 
     fn apply_click_inactive(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         size: ratatui::prelude::Size,
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,

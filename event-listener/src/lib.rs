@@ -184,17 +184,8 @@ impl JellyfinEventInterests {
         guard.clean();
         guard
     }
-    pub fn spawn(&self, spawn: &Spawner, jellyfin: &JellyfinClient) -> Result<()> {
-        let stream = jellyfin.get_socket()?;
-        spawn.spawn(
-            poll_socket_cancellable(self.inner.clone(), stream, self.cancel.inner.clone()),
-            info_span!("poll_jellyfin_socket"),
-            "poll_jellyfin_socket",
-        );
-        Ok(())
-    }
-    pub fn new() -> Self {
-        JellyfinEventInterests {
+    pub fn new(spawn: &Spawner, jellyfin: &JellyfinClient) -> Result<Self> {
+        let this = JellyfinEventInterests {
             inner: Arc::new(Mutex::new(Interests {
                 refresh_progress: HashMap::new(),
                 changed_user_data: HashMap::new(),
@@ -206,13 +197,14 @@ impl JellyfinEventInterests {
             cancel: Arc::new(CancelSocket {
                 inner: Arc::new(ManualResetEvent::new(false)),
             }),
-        }
-    }
-}
-
-impl Default for JellyfinEventInterests {
-    fn default() -> Self {
-        Self::new()
+        };
+        let stream = jellyfin.get_socket()?;
+        spawn.spawn(
+            poll_socket_cancellable(this.inner.clone(), stream, this.cancel.inner.clone()),
+            info_span!("poll_jellyfin_socket"),
+            "poll_jellyfin_socket",
+        );
+        Ok(this)
     }
 }
 

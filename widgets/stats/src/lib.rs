@@ -10,14 +10,14 @@ use std::{
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, TuiContext, WidgetContext, Wrapper,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::Constraint,
     symbols::merge::MergeStrategy,
     widgets::{Block, Padding, Widget},
 };
-use stats_data::Stats;
+use stats_data::StatsData;
 use tokio::time::interval;
 use tracing::{info_span, instrument};
 
@@ -79,7 +79,7 @@ impl Widget for &BorderedTable<'_> {
 #[derive(Debug, Default)]
 pub struct StatsState;
 
-impl JellyhajWidgetState for StatsState {
+impl<R: 'static + ContextRef<StatsData>> JellyhajWidgetState<R> for StatsState {
     type Action = StatsUpdate;
 
     type ActionResult = Infallible;
@@ -90,13 +90,13 @@ impl JellyhajWidgetState for StatsState {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
-        StatsWidget::new(cx.stats.clone())
+    fn into_widget(self, cx: &R) -> Self::Widget {
+        StatsWidget::new(cx.get_ref())
     }
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
@@ -108,7 +108,6 @@ pub struct StatsWidget {
     db_image_cache_hits: String,
     memory_image_cache_hits: String,
     spawned: bool,
-    stats: Stats,
     stop: Arc<AtomicBool>,
 }
 
@@ -119,12 +118,11 @@ impl Drop for StatsWidget {
 }
 
 impl StatsWidget {
-    pub fn new(stats: Stats) -> Self {
+    pub fn new(stats: &StatsData) -> Self {
         Self {
             image_fetches: stats.image_fetches.load(Relaxed).to_string(),
             db_image_cache_hits: stats.db_image_cache_hits.load(Relaxed).to_string(),
             memory_image_cache_hits: stats.memory_image_cache_hits.load(Relaxed).to_string(),
-            stats,
             spawned: false,
             stop: Arc::new(AtomicBool::new(false)),
         }
@@ -134,7 +132,7 @@ impl StatsWidget {
 #[derive(Debug)]
 pub struct StatsUpdate;
 
-impl JellyhajWidget for StatsWidget {
+impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
     type State = StatsState;
 
     type Action = StatsUpdate;
@@ -182,18 +180,19 @@ impl JellyhajWidget for StatsWidget {
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        self.image_fetches = self.stats.image_fetches.load(Relaxed).to_string();
-        self.db_image_cache_hits = self.stats.db_image_cache_hits.load(Relaxed).to_string();
-        self.memory_image_cache_hits = self.stats.memory_image_cache_hits.load(Relaxed).to_string();
+        let stats = StatsData::get_ref(cx.refs);
+        self.image_fetches = stats.image_fetches.load(Relaxed).to_string();
+        self.db_image_cache_hits = stats.db_image_cache_hits.load(Relaxed).to_string();
+        self.memory_image_cache_hits = stats.memory_image_cache_hits.load(Relaxed).to_string();
         Ok(None)
     }
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
@@ -207,7 +206,7 @@ impl JellyhajWidget for StatsWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         if !self.spawned {
             self.spawned = true;
@@ -247,8 +246,8 @@ impl JellyhajWidget for StatsWidget {
         let cols = [LABEL_MAX_LEN as u16, col as u16];
         let table = BorderedTable::new(&rows, &cols);
         let table_area = block.inner(area).centered(
-            Constraint::Length(self.min_width().unwrap()),
-            Constraint::Length(self.min_height().unwrap()),
+            Constraint::Length(<Self as JellyhajWidget<R>>::min_width(self).unwrap()),
+            Constraint::Length(<Self as JellyhajWidget<R>>::min_height(self).unwrap()),
         );
         table.render(table_area, buf);
         block.render(area, buf);

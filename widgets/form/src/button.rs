@@ -1,13 +1,13 @@
-use std::{fmt::Debug, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{MouseEventKind, Rect};
+use jellyhaj_widgets_core::{MouseEventKind, Rect, Result, WidgetContext, Wrapper};
 use ratatui::{
     crossterm::event::MouseButton,
     widgets::{Block, BorderType, Widget},
 };
 
-use crate::{FormAction, FormItem};
+use crate::{FormAction, FormItem, FormItemInfo};
 
 pub trait ActionCreator: Debug {
     type T;
@@ -54,14 +54,19 @@ fn center(full: u16, requested: u16) -> Centered {
     }
 }
 
-impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
+impl<C: ActionCreator, AR: From<C::T>> FormItemInfo<AR> for Button<C> {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = ();
-    type R = C::T;
 
+    type Ret = C::T;
+
+    type Action = Infallible;
+}
+
+impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C> {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
@@ -78,16 +83,25 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
         false
     }
 
-    fn apply_action(
+    fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
-        action: crate::FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, C::T>>> {
-        if action == FormAction::Enter {
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: crate::FormAction<Infallible>,
+    ) -> Result<Option<ControlFlow<Navigation, C::T>>> {
+        if let FormAction::Enter = action {
             Ok(Some(ControlFlow::Continue(self.creator.make_action())))
         } else {
             Ok(None)
         }
+    }
+
+    fn apply_action(
+        &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
+        unreachable!()
     }
 
     fn popup_area(
@@ -101,23 +115,25 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
 
     fn apply_click_active(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         sel: &mut Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, C::T>>> {
+    ) -> Result<Option<ControlFlow<Navigation, C::T>>> {
         unimplemented!()
     }
 
     fn apply_click_inactive(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         size: ratatui::prelude::Size,
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(
+    ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, C::T>>,
     )> {
@@ -137,11 +153,12 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
 
     fn render_pass_main(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         mut area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         active: bool,
         name: &'static str,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         self.width = name.chars().map(|_| 1u16).sum::<u16>() + 2;
         let centered = center(area.width, self.width);
         area.x += centered.offset;
@@ -158,12 +175,13 @@ impl<C: ActionCreator, AR: From<C::T>> FormItem<AR> for Button<C> {
 
     fn render_pass_popup(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         Ok(())
     }
 }

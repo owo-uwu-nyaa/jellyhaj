@@ -1,37 +1,39 @@
 use std::{
     cmp::min,
     fmt::Debug,
+    marker::PhantomData,
     ops::{Index, IndexMut},
 };
 
 use jellyhaj_widgets_core::{
-    ItemState, ItemWidget, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TuiContext,
-    WidgetContext, Wrapper,
+    ItemState, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetState, WidgetContext,
+    Wrapper,
 };
 use ratatui::{
     layout::{Position, Rect, Size},
     widgets::{Block, Padding, Scrollbar, ScrollbarState, StatefulWidget, Widget},
 };
 
-pub use jellyhaj_widgets_core::DimensionsParameter;
-pub struct ItemGrid<T: ItemWidget> {
+pub struct ItemGrid<R: 'static, T: ItemWidget<R>> {
     items: Vec<T>,
     current: usize,
     width: usize,
     title: String,
     item_size: Size,
     skip_rows: usize,
+    _r: PhantomData<fn(R)>,
 }
 
-impl<T: ItemWidget> ItemGrid<T> {
-    pub fn new(items: Vec<T>, current: usize, title: String, dim: DimensionsParameter<'_>) -> Self {
+impl<R: 'static, T: ItemWidget<R>> ItemGrid<R, T> {
+    pub fn new(items: Vec<T>, current: usize, title: String, cx: &R) -> Self {
         Self {
             items,
             current,
             width: 1,
             title,
-            item_size: <T as ItemWidget>::dimensions_static(dim),
+            item_size: <T as ItemWidget<R>>::dimensions_static(cx),
             skip_rows: 0,
+            _r: PhantomData,
         }
     }
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -42,7 +44,7 @@ impl<T: ItemWidget> ItemGrid<T> {
     }
 }
 
-impl<T: ItemWidget> Index<usize> for ItemGrid<T> {
+impl<R: 'static, T: ItemWidget<R>> Index<usize> for ItemGrid<R, T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -50,29 +52,31 @@ impl<T: ItemWidget> Index<usize> for ItemGrid<T> {
     }
 }
 
-impl<T: ItemWidget> IndexMut<usize> for ItemGrid<T> {
+impl<R: 'static, T: ItemWidget<R>> IndexMut<usize> for ItemGrid<R, T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.items[index]
     }
 }
 
-pub struct ItemGridState<W: ItemState> {
+pub struct ItemGridState<R: 'static, W: ItemState<R>> {
     pub items: Vec<W>,
     pub title: String,
     pub current: usize,
+    _r: PhantomData<fn(R)>,
 }
 
-impl<W: ItemState> ItemGridState<W> {
+impl<R: 'static, W: ItemState<R>> ItemGridState<R, W> {
     pub fn new(items: Vec<W>, title: String, current: usize) -> Self {
         Self {
             items,
             title,
             current,
+            _r: PhantomData,
         }
     }
 }
 
-impl<W: ItemState> std::fmt::Debug for ItemGridState<W> {
+impl<R: 'static, W: ItemState<R>> Debug for ItemGridState<R, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ItemGridData")
             .field("items", &self.items)
@@ -82,40 +86,38 @@ impl<W: ItemState> std::fmt::Debug for ItemGridState<W> {
     }
 }
 
-impl<T: ItemState> JellyhajWidgetState for ItemGridState<T> {
+impl<R: 'static, T: ItemState<R>> JellyhajWidgetState<R> for ItemGridState<R, T> {
     type Action = ItemGridAction<T::IAction>;
 
     type ActionResult = T::IActionResult;
 
-    type Widget = ItemGrid<T::IWidget>;
+    type Widget = ItemGrid<R, T::IWidget>;
 
     const NAME: &str = "grid";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<T>();
+        visitor.visit_item::<R, T>();
     }
 
-    fn into_widget(self, mut cx: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         ItemGrid {
             items: self
                 .items
                 .into_iter()
-                .map(|s| s.into_widget(cx.as_mut()))
+                .map(|s| s.item_into_widget(cx))
                 .collect(),
             current: self.current,
             width: 1,
             title: self.title,
-            item_size: T::IWidget::dimensions_static(DimensionsParameter {
-                config: &cx.config,
-                font_size: cx.image_picker.font_size(),
-            }),
+            item_size: T::IWidget::dimensions_static(cx),
             skip_rows: 0,
+            _r: PhantomData,
         }
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -123,19 +125,15 @@ impl<T: ItemState> JellyhajWidgetState for ItemGridState<T> {
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    JellyhajWidgetState::apply_action(
-                        v,
-                        cx.wrap_with(GridWrapper { index }),
-                        action,
-                    )
-                    .transpose()
+                    ItemState::item_apply_action(v, cx.wrap_with(GridWrapper { index }), action)
+                        .transpose()
                 })
                 .transpose(),
             ItemGridAction::CurrentInner(action) => self
                 .items
                 .get_mut(self.current)
                 .and_then(|v| {
-                    JellyhajWidgetState::apply_action(
+                    ItemState::item_apply_action(
                         v,
                         cx.wrap_with(GridWrapper {
                             index: self.current,
@@ -173,10 +171,10 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
     }
 }
 
-impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
-    type State = ItemGridState<T::IState>;
-    type Action = ItemGridAction<<T as ItemWidget>::IAction>;
-    type ActionResult = <T as ItemWidget>::IActionResult;
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<R, T> {
+    type State = ItemGridState<R, T::IState>;
+    type Action = ItemGridAction<<T as ItemWidget<R>>::IAction>;
+    type ActionResult = <T as ItemWidget<R>>::IActionResult;
 
     fn into_state(self) -> Self::State {
         ItemGridState {
@@ -187,12 +185,13 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
                 .collect(),
             title: self.title,
             current: self.current,
+            _r: PhantomData,
         }
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -241,7 +240,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         mut position: ratatui::prelude::Position,
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
@@ -286,7 +285,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -319,7 +318,7 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
             .zip(position)
         {
             item.set_active(self.current == index);
-            item.render_fallible(
+            item.render_item(
                 Rect::from((position, self.item_size)),
                 buf,
                 cx.wrap_with(GridWrapper { index }),
@@ -347,23 +346,23 @@ impl<T: ItemWidget> JellyhajWidget for ItemGrid<T> {
 
     fn accepts_text_input(&self) -> bool {
         self.get(self.current)
-            .map(|i| i.accepts_text_input())
+            .map(|i| i.item_accepts_text_input())
             .unwrap_or(false)
     }
 
     fn accept_char(&mut self, text: char) {
         if let Some(i) = self.get_mut(self.current)
-            && i.accepts_text_input()
+            && i.item_accepts_text_input()
         {
-            i.accept_char(text);
+            i.item_accept_char(text);
         }
     }
 
     fn accept_text(&mut self, text: String) {
         if let Some(i) = self.get_mut(self.current)
-            && i.accepts_text_input()
+            && i.item_accepts_text_input()
         {
-            i.accept_text(text);
+            i.item_accept_text(text);
         }
     }
 }

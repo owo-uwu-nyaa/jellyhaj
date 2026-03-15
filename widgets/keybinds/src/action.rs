@@ -1,17 +1,22 @@
 use std::{mem, ops::ControlFlow};
 
 use color_eyre::Result;
-use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_core::{Config, state::Navigation};
+use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, WidgetContext, Wrapper};
 use keybinds::{Command, Key, KeyBinding};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tracing::{debug, warn};
 
 use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
 
-pub fn apply_key_event<T: Command, W: JellyhajWidget, M: CommandMapper<T, A = W::Action>>(
-    this: &mut KeybindWidget<T, W, M>,
-    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>>,
+pub fn apply_key_event<
+    R: ContextRef<Config> + 'static,
+    T: Command,
+    W: JellyhajWidget<R>,
+    M: CommandMapper<T, A = W::Action>,
+>(
+    this: &mut KeybindWidget<R, T, W, M>,
+    cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
     action: KeybindAction<W::Action>,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     match action {

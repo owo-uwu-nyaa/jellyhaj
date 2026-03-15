@@ -1,10 +1,10 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::ops::ControlFlow;
 
 use color_eyre::eyre::Context;
 use jellyfin::items::MediaItem;
 use jellyhaj_core::{
     CommandMapper,
-    context::TuiContext,
+    context::{DefaultTerminal, KeybindEvents, TuiContext},
     keybinds::{ItemDetailsCommand, ItemListDetailsCommand},
     render::{NavigationResult, render_widget},
     state::{Navigation, NextScreen},
@@ -22,7 +22,9 @@ use tracing::instrument;
 
 #[instrument(skip_all)]
 pub fn render_fetch_episode(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     parent: String,
 ) -> impl Future<Output = NavigationResult> {
     let jellyfin = cx.jellyfin.clone();
@@ -32,12 +34,14 @@ pub fn render_fetch_episode(
             .context("fetching episode")?;
         Ok(Box::new(NextScreen::ItemDetails(item)))
     };
-    make_fetch(cx, "Fetching single item", fut)
+    make_fetch(term, events, cx, "Fetching single item", fut)
 }
 
 #[instrument(skip_all)]
 pub fn render_fetch_item_list(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     parent: MediaItem,
 ) -> impl Future<Output = NavigationResult> {
     let jellyfin = cx.jellyfin.clone();
@@ -46,12 +50,14 @@ pub fn render_fetch_item_list(
         let items = fetch_all_children(&jellyfin, &parent.id).await?;
         Ok(Box::new(NextScreen::ItemListDetails(parent, items)))
     };
-    make_fetch(cx, title, fut)
+    make_fetch(term, events, cx, title, fut)
 }
 
 #[instrument(skip_all)]
 pub fn render_fetch_item_list_ref(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     parent: String,
 ) -> impl Future<Output = NavigationResult> {
     let jellyfin = cx.jellyfin.clone();
@@ -62,7 +68,7 @@ pub fn render_fetch_item_list_ref(
         )?;
         Ok(Box::new(NextScreen::ItemListDetails(parent, children)))
     };
-    make_fetch(cx, "Loading item list", fut)
+    make_fetch(term, events, cx, "Loading item list", fut)
 }
 
 struct DetailsMapper {
@@ -96,18 +102,24 @@ impl Named for DetailsName {
 
 #[instrument(skip_all)]
 pub fn render_item_details(
-    mut cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     item: MediaItem,
 ) -> impl Future<Output = NavigationResult> {
     let id = item.id.clone();
-    let state = ItemDisplayState::new(item, cx.as_mut());
+    let state = ItemDisplayState::new(item, &cx);
     let state = KeybindState::new(
         state,
-        cx.config.help_prefixes.clone(),
         cx.config.keybinds.item_details.clone(),
         DetailsMapper { id },
     );
-    render_widget(cx, OuterState::<DetailsName, _, _, _>::new(state))
+    render_widget(
+        term,
+        events,
+        cx,
+        OuterState::<DetailsName, _, _, _, _>::new(state),
+    )
 }
 
 struct ListMapper {
@@ -148,17 +160,23 @@ impl Named for ListName {
 
 #[instrument(skip_all)]
 pub fn render_item_list_details(
-    mut cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     parent: MediaItem,
     children: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
     let id = parent.id.clone();
-    let state = ItemListDisplayState::new(children, parent, cx.as_mut());
+    let state = ItemListDisplayState::new(children, parent, &cx);
     let state = KeybindState::new(
         state,
-        cx.config.help_prefixes.clone(),
         cx.config.keybinds.item_list_details.clone(),
         ListMapper { id },
     );
-    render_widget(cx, OuterState::<ListName, _, _, _>::new(state))
+    render_widget(
+        term,
+        events,
+        cx,
+        OuterState::<ListName, _, _, _, _>::new(state),
+    )
 }

@@ -1,10 +1,10 @@
 use std::{convert::Infallible, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::Rect;
+use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 
-use crate::{FormAction, FormItem};
+use crate::{FormAction, FormItem, FormItemInfo};
 
 #[derive(Debug)]
 pub struct TextField {
@@ -34,14 +34,20 @@ mod s {
         }
     }
 }
-impl<AR: From<Infallible>> FormItem<AR> for TextField {
+
+impl<AR: From<Infallible>> FormItemInfo<AR> for TextField {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = ();
-    type R = Infallible;
 
+    type Ret = Infallible;
+
+    type Action = Infallible;
+}
+
+impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
@@ -58,15 +64,24 @@ impl<AR: From<Infallible>> FormItem<AR> for TextField {
         false
     }
 
-    fn apply_action(
+    fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
-        action: FormAction,
-    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if FormAction::Delete == action {
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: FormAction<Infallible>,
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
+        if let FormAction::Delete = action {
             self.text.pop();
         }
         Ok(None)
+    }
+
+    fn apply_action(
+        &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
+        unreachable!()
     }
 
     fn popup_area(
@@ -80,23 +95,25 @@ impl<AR: From<Infallible>> FormItem<AR> for TextField {
 
     fn apply_click_active(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         sel: &mut Self::SelectionInner,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Size,
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<ControlFlow<Navigation, Infallible>>> {
+    ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unimplemented!()
     }
 
     fn apply_click_inactive(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         size: ratatui::prelude::Size,
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(
+    ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
@@ -105,11 +122,12 @@ impl<AR: From<Infallible>> FormItem<AR> for TextField {
 
     fn render_pass_main(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         active: bool,
         name: &'static str,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         let mut block = Block::bordered().title(name);
         if active {
             block = block.border_type(BorderType::Double);
@@ -122,12 +140,13 @@ impl<AR: From<Infallible>> FormItem<AR> for TextField {
 
     fn render_pass_popup(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: ratatui::prelude::Rect,
         full_area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         Ok(())
     }
 }

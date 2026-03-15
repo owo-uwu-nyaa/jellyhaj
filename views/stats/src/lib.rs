@@ -1,8 +1,8 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::ops::ControlFlow;
 
 use jellyhaj_core::{
     CommandMapper,
-    context::TuiContext,
+    context::{DefaultTerminal, KeybindEvents, TuiContext},
     keybinds::StatsCommand,
     render::{NavigationResult, render_widget},
     state::Navigation,
@@ -28,12 +28,15 @@ impl Named for Name {
     const NAME: &str = "stats";
 }
 
-pub fn render_stats(cx: Pin<&mut TuiContext>) -> impl Future<Output = NavigationResult> {
-    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
+pub fn render_stats(
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
+) -> impl Future<Output = NavigationResult> {
+    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
         StatsState,
-        cx.config.help_prefixes.clone(),
         cx.config.keybinds.stats.clone(),
         Mapper,
     ));
-    render_widget(cx, state)
+    render_widget(term, events, cx, state)
 }

@@ -1,17 +1,19 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::{fmt::Debug, ops::ControlFlow};
 
-use jellyfin::{items::MediaItem, user_views::UserView};
+use jellyfin::{JellyfinClient, items::MediaItem, user_views::UserView};
 use jellyhaj_core::{
-    CommandMapper,
-    context::TuiContext,
+    CommandMapper, Config,
+    context::{DB, JellyfinEventInterests, Spawner},
     keybinds::HomeScreenCommand,
     render::KeybindAction,
     state::{Navigation, NextScreen, flatten_control_flow},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryState};
+use jellyhaj_entry_widget::{Entry, EntryAction, EntryState, ImageProtocolCache, Picker, Stats};
 use jellyhaj_item_screen::{ItemListState, ItemScreen, ItemScreenAction, ItemScreenState};
 use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper,
+};
 
 #[derive(Debug)]
 pub enum HomeScreenAction {
@@ -59,15 +61,53 @@ impl Wrapper<String> for Mapper {
     }
 }
 
-#[derive(Debug)]
-pub struct HomeScreenState {
-    inner: KeybindState<HomeScreenCommand, ItemScreenState<EntryState>, Mapper>,
+pub struct HomeScreenState<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> {
+    inner: KeybindState<R, HomeScreenCommand, ItemScreenState<R, EntryState>, Mapper>,
     register: Option<Vec<String>>,
 }
 
-impl HomeScreenState {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> Debug for HomeScreenState<R>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HomeScreenState")
+            .field("inner", &self.inner)
+            .field("register", &self.register)
+            .finish()
+    }
+}
+
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + ContextRef<ImageProtocolCache>
+        + 'static,
+> HomeScreenState<R>
+{
     pub fn new(
-        mut cx: Pin<&mut TuiContext>,
+        cx: &R,
         cont: Vec<MediaItem>,
         next_up: Vec<MediaItem>,
         libraries: Vec<UserView>,
@@ -77,26 +117,21 @@ impl HomeScreenState {
         let screen = ItemScreenState::new(
             [
                 ItemListState::new(
-                    cont.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
+                    cont.into_iter().map(|i| EntryState::new(i, cx)),
                     "Continue Watching".to_string(),
                 ),
                 ItemListState::new(
-                    next_up.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
+                    next_up.into_iter().map(|i| EntryState::new(i, cx)),
                     "Next Up".to_string(),
                 ),
                 ItemListState::new(
-                    libraries
-                        .into_iter()
-                        .map(|i| EntryState::new(i, cx.as_mut())),
+                    libraries.into_iter().map(|i| EntryState::new(i, cx)),
                     "Continue Watching".to_string(),
                 ),
             ]
             .into_iter()
             .chain(library_latest.into_iter().map(|(title, list)| {
-                ItemListState::new(
-                    list.into_iter().map(|i| EntryState::new(i, cx.as_mut())),
-                    title,
-                )
+                ItemListState::new(list.into_iter().map(|i| EntryState::new(i, cx)), title)
             }))
             .filter(|l| !l.items.is_empty())
             .collect(),
@@ -104,8 +139,7 @@ impl HomeScreenState {
         );
         let inner = KeybindState::new(
             screen,
-            cx.config.help_prefixes.clone(),
-            cx.config.keybinds.home_screen.clone(),
+            Config::get_ref(cx).keybinds.home_screen.clone(),
             Mapper,
         );
         Self {
@@ -115,25 +149,46 @@ impl HomeScreenState {
     }
 }
 
-pub struct HomeScreen {
-    inner: KeybindWidget<HomeScreenCommand, ItemScreen<Entry>, Mapper>,
+pub struct HomeScreen<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> {
+    inner: KeybindWidget<R, HomeScreenCommand, ItemScreen<R, Entry>, Mapper>,
     register: Option<Vec<String>>,
 }
 
-impl JellyhajWidgetState for HomeScreenState {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidgetState<R> for HomeScreenState<R>
+{
     type Action = KeybindAction<HomeScreenAction>;
 
     type ActionResult = Navigation;
 
-    type Widget = HomeScreen;
+    type Widget = HomeScreen<R>;
 
     const NAME: &str = "home-screen";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<KeybindState<HomeScreenCommand, ItemScreenState<EntryState>, Mapper>>();
+        visitor
+            .visit::<R, KeybindState<R, HomeScreenCommand, ItemScreenState<R, EntryState>, Mapper>>(
+            );
     }
 
-    fn into_widget(self, cx: Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         HomeScreen {
             inner: self.inner.into_widget(cx),
             register: self.register,
@@ -142,7 +197,7 @@ impl JellyhajWidgetState for HomeScreenState {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl jellyhaj_widgets_core::Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl jellyhaj_widgets_core::Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
@@ -158,12 +213,22 @@ impl JellyhajWidgetState for HomeScreenState {
     }
 }
 
-impl JellyhajWidget for HomeScreen {
+impl<
+    R: ContextRef<Spawner>
+        + ContextRef<Config>
+        + ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<JellyfinEventInterests>
+        + ContextRef<DB>
+        + 'static,
+> JellyhajWidget<R> for HomeScreen<R>
+{
     type Action = KeybindAction<HomeScreenAction>;
 
     type ActionResult = Navigation;
 
-    type State = HomeScreenState;
+    type State = HomeScreenState<R>;
 
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
@@ -194,7 +259,7 @@ impl JellyhajWidget for HomeScreen {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
@@ -211,7 +276,7 @@ impl JellyhajWidget for HomeScreen {
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: jellyhaj_widgets_core::Position,
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
@@ -227,10 +292,10 @@ impl JellyhajWidget for HomeScreen {
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         if let Some(register) = self.register.take() {
-            let mut interests = cx.jellyfin_events.get();
+            let mut interests = JellyfinEventInterests::get_ref(cx.refs).get();
             let submitter = cx.submitter.wrap_with(Mapper);
             for item in register {
                 interests.register_folder_modified(item, submitter);

@@ -1,4 +1,4 @@
-use std::{ops::ControlFlow, pin::Pin};
+use std::ops::ControlFlow;
 
 use futures_util::future::try_join_all;
 use jellyfin::{
@@ -9,7 +9,7 @@ use jellyfin::{
 };
 use jellyhaj_core::{
     CommandMapper,
-    context::TuiContext,
+    context::{DefaultTerminal, KeybindEvents, TuiContext},
     keybinds::MpvCommand,
     render::{NavigationResult, render_widget},
     state::{LoadPlay, Navigation, Next, NextScreen},
@@ -46,7 +46,9 @@ impl Named for Name {
 }
 
 pub fn render_play(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     items: Vec<(MediaItem, PlaybackInfo)>,
     index: usize,
 ) -> impl Future<Output = NavigationResult> {
@@ -56,21 +58,22 @@ pub fn render_play(
         items: items.into_iter().map(PlayItem::from).collect(),
         first: index,
     });
-    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
+    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
         PlayerWidget::new(cx.mpv_handle.clone()),
-        cx.config.help_prefixes.clone(),
         cx.config.keybinds.play_mpv.clone(),
         Mapper,
     ));
-    render_widget(cx, state)
+    render_widget(term, events, cx, state)
 }
 
 pub fn render_fetch_play(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     item: LoadPlay,
 ) -> impl Future<Output = NavigationResult> {
     let fut = fetch_items(cx.jellyfin.clone(), item);
-    jellyhaj_fetch_view::make_fetch(cx, "Loading related items for playlist", fut)
+    jellyhaj_fetch_view::make_fetch(term, events, cx, "Loading related items for playlist", fut)
 }
 
 async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<Next> {

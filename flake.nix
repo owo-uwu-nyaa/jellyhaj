@@ -70,17 +70,18 @@
             };
           };
           devShells = {
-            default = pkgs.mkShell {
+            default = let llvm = pkgs.llvmPackages_22; in (pkgs.mkShell.override {stdenv = llvm.stdenv;}) {
               nativeBuildInputs = [
+                llvm.bintools
                 pkgs.cargo-nextest
                 pkgs.cargo-audit
                 pkgs.cargo-expand
                 pkgs.rust-bin.nightly.latest.rust-analyzer
                 (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+                pkgs.rustPlatform.bindgenHook
                 pkgs.sqlx-cli
                 pkgs.pkg-config
                 pkgs.sqlite-interactive
-                pkgs.rustPlatform.bindgenHook
                 pkgs.tokio-console
               ];
               buildInputs = [

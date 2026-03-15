@@ -12,20 +12,20 @@ pub mod secret_field;
 pub mod selection;
 pub mod text_field;
 
-use std::{fmt::Debug, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
 pub use jellyhaj_form_derive::{Selection, form_widget};
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size};
+use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size, WidgetContext, Wrapper};
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
 };
 pub use selection::Selection;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FormAction {
+#[derive(Debug)]
+pub enum FormAction<A: Debug + Send + 'static> {
     Quit,
     Up,
     Down,
@@ -33,51 +33,66 @@ pub enum FormAction {
     Right,
     Delete,
     Enter,
+    Inner(A),
 }
 
-pub trait FormItem<AR> {
+pub trait FormItemInfo<AR> {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;
     type SelectionInner: Default + Debug;
-    type R: Into<AR>;
+    type Ret: Into<AR>;
+    type Action: Debug + Send + 'static;
+}
 
+pub trait FormItem<R: 'static, AR>: FormItemInfo<AR> {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool;
     fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char);
     fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String);
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool;
-    fn apply_action(
+    fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
-        action: FormAction,
-    ) -> Result<Option<ControlFlow<Navigation, Self::R>>>;
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: FormAction<Infallible>,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
+
+    fn apply_action(
+        &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
 
     fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 
+    #[allow(clippy::too_many_arguments)]
     fn apply_click_active(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         sel: &mut Self::SelectionInner,
         area: Rect,
         full_area: Size,
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<ControlFlow<Navigation, Self::R>>>;
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
 
     #[allow(clippy::type_complexity)]
     fn apply_click_inactive(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         size: Size,
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<(
         Option<Self::SelectionInner>,
-        Option<ControlFlow<Navigation, Self::R>>,
+        Option<ControlFlow<Navigation, Self::Ret>>,
     )>;
 
     fn render_pass_main(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: Rect,
         buf: &mut Buffer,
         active: bool,
@@ -86,6 +101,7 @@ pub trait FormItem<AR> {
 
     fn render_pass_popup(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: Rect,
         full_area: Rect,
         buf: &mut Buffer,

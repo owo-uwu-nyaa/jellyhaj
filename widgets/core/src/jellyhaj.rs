@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use config::Config;
 use jellyhaj_async_task::Wrapper;
 use ratatui::{
     buffer::Buffer,
@@ -7,55 +6,61 @@ use ratatui::{
     layout::{Position, Rect, Size},
     widgets::{Paragraph, Widget, Wrap},
 };
-use ratatui_image::FontSize;
+use std::any::type_name;
 use std::fmt::Debug;
-use std::{any::type_name, pin::Pin};
 use tracing::warn;
 
-use crate::WidgetContext;
-
-pub struct DimensionsParameter<'c> {
-    pub config: &'c Config,
-    pub font_size: FontSize,
-}
+use crate::{ItemState, WidgetContext};
 
 pub trait TreeVisitor {
     fn enter(&mut self, name: &'static str, visit_children: fn(&mut dyn TreeVisitor));
 }
 
 pub trait WidgetTreeVisitor: Sized {
-    fn visit<S: JellyhajWidgetState>(&mut self);
+    fn visit<R: 'static, S: JellyhajWidgetState<R>>(&mut self);
+    fn visit_item<R: 'static, S: ItemState<R>>(&mut self);
 }
 
 impl WidgetTreeVisitor for &mut dyn TreeVisitor {
-    fn visit<S: JellyhajWidgetState>(&mut self) {
+    fn visit<R: 'static, S: JellyhajWidgetState<R>>(&mut self) {
         self.enter(S::NAME, |mut this| {
             S::visit_children(&mut this);
         });
     }
+
+    fn visit_item<R: 'static, S: ItemState<R>>(&mut self) {
+        self.enter(S::NAME, |mut this| {
+            S::item_visit_children(&mut this);
+        });
+    }
 }
 
-pub trait JellyhajWidgetState: Debug + Send + 'static {
+pub trait JellyhajWidgetState<R: 'static>: Debug + Send + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
-    type Widget: JellyhajWidget<State = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
+    type Widget: JellyhajWidget<R, State = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
 
     const NAME: &str;
 
     fn visit_children(visitor: &mut impl WidgetTreeVisitor);
 
-    fn into_widget(self, cx: Pin<&mut jellyhaj_context::TuiContext>) -> Self::Widget;
+    fn into_widget(self, cx: &R) -> Self::Widget;
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
 }
 
-pub trait JellyhajWidget: Send + Sized + 'static {
+pub trait JellyhajWidget<R: 'static>: Send + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
-    type State: JellyhajWidgetState<Widget = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
+    type State: JellyhajWidgetState<
+            R,
+            Widget = Self,
+            Action = Self::Action,
+            ActionResult = Self::ActionResult,
+        >;
 
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
@@ -68,13 +73,13 @@ pub trait JellyhajWidget: Send + Sized + 'static {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
@@ -85,16 +90,16 @@ pub trait JellyhajWidget: Send + Sized + 'static {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()>;
 }
 
-pub trait JellyhajWidgetExt: JellyhajWidget {
+pub trait JellyhajWidgetExt<R: 'static>: JellyhajWidget<R> {
     fn render_fallible(
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         fn size_ok(
             widget: &'static str,
@@ -145,4 +150,4 @@ pub trait JellyhajWidgetExt: JellyhajWidget {
     }
 }
 
-impl<W: JellyhajWidget> JellyhajWidgetExt for W {}
+impl<R: 'static, W: JellyhajWidget<R>> JellyhajWidgetExt<R> for W {}

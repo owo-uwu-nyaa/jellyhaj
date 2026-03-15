@@ -4,8 +4,9 @@ config = {path = "../config"}
 either.workspace = true
 futures-util.workspace = true
 image = {workspace = true}
+image-cache = { version = "0.1.0", path = "../image-cache" }
 jellyfin = {path = "../jellyfin-rs"}
-jellyhaj-context = { version = "0.1.0", path = "../context" }
+jellyhaj-event-listener = { version = "0.1.0", path = "../event-listener" }
 jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
 keybinds = { path = "../keybinds" }
 libmpv = {default-features = false, path = "../libmpv-rs"}

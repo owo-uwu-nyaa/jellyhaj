@@ -43,7 +43,7 @@ pub enum ErrorAction {
     Right,
 }
 
-impl JellyhajWidgetState for ErrorWidget {
+impl<R: 'static> JellyhajWidgetState<R> for ErrorWidget {
     type Action = ErrorAction;
 
     type ActionResult = Infallible;
@@ -54,20 +54,20 @@ impl JellyhajWidgetState for ErrorWidget {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: std::pin::Pin<&mut jellyhaj_widgets_core::TuiContext>) -> Self::Widget {
+    fn into_widget(self, _: &R) -> Self::Widget {
         self
     }
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }
 }
 
-impl JellyhajWidget for ErrorWidget {
+impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
     type State = ErrorWidget;
 
     type Action = ErrorAction;
@@ -100,7 +100,7 @@ impl JellyhajWidget for ErrorWidget {
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
@@ -114,7 +114,7 @@ impl JellyhajWidget for ErrorWidget {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: ratatui::prelude::Position,
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -127,7 +127,7 @@ impl JellyhajWidget for ErrorWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let text = self
             .text

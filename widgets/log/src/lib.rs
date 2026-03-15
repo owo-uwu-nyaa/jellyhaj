@@ -1,8 +1,6 @@
 use std::convert::Infallible;
 
-use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
 use ratatui::{
     style::{Color, Style},
     widgets::{Block, Padding, Widget},
@@ -29,7 +27,7 @@ impl LogWidget {
     }
 }
 
-impl JellyhajWidgetState for LogWidget {
+impl<R: 'static> JellyhajWidgetState<R> for LogWidget {
     type Action = TuiWidgetEvent;
 
     type ActionResult = Infallible;
@@ -40,13 +38,13 @@ impl JellyhajWidgetState for LogWidget {
 
     fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: std::pin::Pin<&mut TuiContext>) -> Self::Widget {
+    fn into_widget(self, _: &R) -> Self::Widget {
         self
     }
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         self.state.transition(action);
@@ -54,7 +52,7 @@ impl JellyhajWidgetState for LogWidget {
     }
 }
 
-impl JellyhajWidget for LogWidget {
+impl<R: 'static> JellyhajWidget<R> for LogWidget {
     type State = Self;
 
     type Action = TuiWidgetEvent;
@@ -87,7 +85,7 @@ impl JellyhajWidget for LogWidget {
 
     fn apply_action(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         self.state.transition(action);
@@ -96,7 +94,7 @@ impl JellyhajWidget for LogWidget {
 
     fn click(
         &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: jellyhaj_widgets_core::Position,
         _: jellyhaj_widgets_core::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
@@ -109,7 +107,7 @@ impl JellyhajWidget for LogWidget {
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         let block = Block::bordered()
             .title("Log Messages")

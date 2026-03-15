@@ -1,14 +1,15 @@
-use std::{convert::Infallible, io::stdout};
+use std::{convert::Infallible, io::stdout, ops::ControlFlow};
 
 use crossterm::clipboard::CopyToClipboard;
-use jellyhaj_widgets_core::Position;
+use jellyhaj_core::state::Navigation;
+use jellyhaj_widgets_core::{Position, Result, WidgetContext, Wrapper};
 use ratatui::{
     crossterm::execute,
     prelude::Rect,
     widgets::{Block, Clear, Padding, Paragraph, Widget},
 };
 
-use crate::{FormAction, FormItem};
+use crate::{FormAction, FormItem, FormItemInfo};
 
 #[derive(Debug)]
 pub struct LabelBlock {
@@ -21,15 +22,19 @@ impl LabelBlock {
     }
 }
 
-impl<AR: From<Infallible>> FormItem<AR> for LabelBlock {
+impl<AR: From<Infallible>> FormItemInfo<AR> for LabelBlock {
     const HEIGHT: u16 = 5;
 
     const HEIGHT_BUF: u16 = 0;
 
     type SelectionInner = Option<Position>;
 
-    type R = Infallible;
+    type Ret = Infallible;
 
+    type Action = Infallible;
+}
+
+impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
@@ -46,13 +51,12 @@ impl<AR: From<Infallible>> FormItem<AR> for LabelBlock {
         sel.is_some()
     }
 
-    fn apply_action(
+    fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
-        action: FormAction,
-    ) -> jellyhaj_widgets_core::Result<
-        Option<std::ops::ControlFlow<jellyhaj_core::state::Navigation, Self::R>>,
-    > {
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: FormAction<Infallible>,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         if let Some(pos) = sel {
             match action {
                 FormAction::Up => pos.y = pos.y.saturating_sub(1),
@@ -67,6 +71,14 @@ impl<AR: From<Infallible>> FormItem<AR> for LabelBlock {
             }
         }
         Ok(None)
+    }
+
+    fn apply_action(
+        &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
+        unreachable!()
     }
 
     fn popup_area(
@@ -84,38 +96,39 @@ impl<AR: From<Infallible>> FormItem<AR> for LabelBlock {
 
     fn apply_click_active(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         sel: &mut Self::SelectionInner,
         area: Rect,
         full_area: ratatui::prelude::Size,
         pos: Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<
-        Option<std::ops::ControlFlow<jellyhaj_core::state::Navigation, Self::R>>,
-    > {
+    ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         Ok(None)
     }
 
     fn apply_click_inactive(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         size: ratatui::prelude::Size,
         pos: Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<(
+    ) -> Result<(
         Option<Self::SelectionInner>,
-        Option<std::ops::ControlFlow<jellyhaj_core::state::Navigation, Self::R>>,
+        Option<ControlFlow<Navigation, Self::Ret>>,
     )> {
         Ok((Some(Some(Position::ORIGIN)), None))
     }
 
     fn render_pass_main(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         active: bool,
         name: &'static str,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         Paragraph::new(self.text.as_str())
             .block(Block::bordered().padding(Padding::uniform(1)))
             .render(area, buf);
@@ -124,12 +137,13 @@ impl<AR: From<Infallible>> FormItem<AR> for LabelBlock {
 
     fn render_pass_popup(
         &mut self,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         area: Rect,
         full_area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         if let Some(pos) = sel {
             Clear.render(area, buf);
             Paragraph::new(self.text.as_str())

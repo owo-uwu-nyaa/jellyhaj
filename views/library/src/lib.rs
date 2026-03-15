@@ -1,5 +1,3 @@
-use std::pin::Pin;
-
 use color_eyre::{Result, eyre::Context};
 use jellyfin::{
     JellyfinClient, JellyfinVec,
@@ -7,7 +5,7 @@ use jellyfin::{
     user_views::UserView,
 };
 use jellyhaj_core::{
-    context::TuiContext,
+    context::{DefaultTerminal, KeybindEvents, TuiContext},
     render::{NavigationResult, render_widget},
     state::{Next, NextScreen},
 };
@@ -45,19 +43,23 @@ async fn fetch_user_view(jellyfin: JellyfinClient, view: UserView) -> Result<Nex
 }
 
 pub fn render_fetch_user_view(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     view: UserView,
 ) -> impl Future<Output = NavigationResult> {
     let title = format!("Loading user view {}", view.name);
     let inner = fetch_user_view(cx.jellyfin.clone(), view);
-    make_fetch(cx, title, inner)
+    make_fetch(term, events, cx, title, inner)
 }
 
 pub fn render_user_view(
-    mut cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     view: UserView,
     items: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
-    let state = LibraryState::new(view, items, cx.as_mut());
-    render_widget(cx, state)
+    let state = LibraryState::new(view, items, &cx);
+    render_widget(term, events, cx, state)
 }

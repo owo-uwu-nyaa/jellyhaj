@@ -33,6 +33,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
     if let Fields::Named(fields) = &mut input.fields {
         let name = input.ident.to_string();
         let selection_ty = format_ident!("{name}Selection");
+        let action_ty = format_ident!("{name}Action");
         let fields: Result<Vec<_>> = fields
             .named
             .iter_mut()
@@ -99,13 +100,14 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                     let name = name.to_string();
                     format_ident!("_show_if_{name}")
                 });
-                let selection_id = Ident::new(&name.to_string().to_case(Case::Pascal), name.span());
+                let enum_id = Ident::new(&name.to_string().to_case(Case::Pascal), name.span());
                 Ok(FormItem {
                     name,
                     ty: field.ty.clone(),
                     descr,
-                    selection: parse_quote!(#selection_ty::#selection_id),
-                    selection_id,
+                    selection: parse_quote!(#selection_ty::#enum_id),
+                    action: parse_quote!(#action_ty::#enum_id),
+                    enum_id,
                     show_if,
                     show_if_fun,
                 })
@@ -125,6 +127,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
             action_result: args.action_result,
             data_ty,
             selection_ty,
+            action_ty,
             size_ident,
             state_name,
             widget_name,

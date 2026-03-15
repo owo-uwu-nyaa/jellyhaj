@@ -1,16 +1,24 @@
 use jellyfin::{
+    JellyfinClient,
     items::{ItemType, MediaItem},
     user_views::UserView,
 };
 use jellyhaj_core::{
+    context::Spawner,
     keybinds::EntryCommand,
     state::{LoadPlay, Navigation, NextScreen},
 };
+use jellyhaj_widgets_core::{ContextRef, GetFromContext};
+use tracing::info_span;
 
 use crate::EntryData;
 
 impl EntryData {
-    pub fn apply_command(&self, command: EntryCommand) -> Option<Navigation> {
+    pub fn apply_command(
+        &self,
+        command: EntryCommand,
+        cx: &(impl ContextRef<Spawner> + ContextRef<JellyfinClient>),
+    ) -> Option<Navigation> {
         let next: NextScreen = match (self, command) {
             (EntryData::Item(item), EntryCommand::Activate | EntryCommand::Play) => {
                 play_item(item.clone())?
@@ -26,12 +34,34 @@ impl EntryData {
             (EntryData::Item(item), EntryCommand::OpenSeries) => item_series(item)?,
             (EntryData::Item(item), EntryCommand::OpenSeason) => item_season(item)?,
             (EntryData::Item(item), EntryCommand::OpenEpisode) => item_episode(item)?,
+            (EntryData::Item(item), EntryCommand::SetWatched) => {
+                let jellyfin = JellyfinClient::get_ref(cx).clone();
+                let id = item.id.clone();
+                Spawner::get_ref(cx).spawn_res(
+                    async move { jellyfin.set_played(&id).await },
+                    info_span!("set_watched"),
+                    "set_watched",
+                );
+                return None;
+            }
+            (EntryData::Item(item), EntryCommand::UnsetWatched) => {
+                let jellyfin = JellyfinClient::get_ref(cx).clone();
+                let id = item.id.clone();
+                Spawner::get_ref(cx).spawn_res(
+                    async move { jellyfin.set_unplayed(&id).await },
+                    info_span!("unset_watched"),
+                    "unset_watched",
+                );
+                return None;
+            }
             (
                 EntryData::View(_),
                 EntryCommand::Play
                 | EntryCommand::OpenSeries
                 | EntryCommand::OpenSeason
-                | EntryCommand::OpenEpisode,
+                | EntryCommand::OpenEpisode
+                | EntryCommand::SetWatched
+                | EntryCommand::UnsetWatched,
             ) => return None,
         };
         Some(Navigation::Push(Box::new(next)))

@@ -1,3 +1,4 @@
+pub mod context;
 pub mod render;
 pub mod state;
 pub mod term;
@@ -8,7 +9,6 @@ use std::ops::ControlFlow;
 use ::keybinds::Command;
 pub use config::Config;
 pub use config::keybind_defs as keybinds;
-pub use jellyhaj_context as context;
 
 use crate::state::Navigation;
 

@@ -68,7 +68,7 @@ opt-level = 3
 
 [workspace]
 members = ["async-task",
-  "config", "context", "event-collector", "event-listener", "image-cache",
+  "config", "event-collector", "event-listener", "image-cache",
   "jellyfin-rs",
   "jellyhaj-core",
   "keybinds",

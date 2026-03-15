@@ -1,11 +1,11 @@
-use std::{convert::Infallible, ops::ControlFlow, pin::Pin};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use color_eyre::eyre::Context;
 use jellyfin::{
     JellyfinClient,
     items::{RefreshItemQuery, RefreshMode},
 };
-use jellyhaj_core::{context::Spawner, keybinds::FormCommand, state::Navigation};
+use jellyhaj_core::{Config, keybinds::FormCommand, state::Navigation};
 use jellyhaj_form_widget::{
     Selection,
     button::{ActionCreator, Button},
@@ -14,8 +14,8 @@ use jellyhaj_form_widget::{
 };
 use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetState, Result, TuiContext, WidgetContext, Wrapper,
-    spawn::tracing::info_span,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, Result, WidgetContext,
+    Wrapper, spawn::tracing::info_span,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Selection)]
@@ -96,64 +96,68 @@ impl RefreshItem {
     }
 }
 
-type InnerState = KeybindState<FormCommand, RefreshItemState, FormCommandMapper>;
-type InnerWidget = KeybindWidget<FormCommand, RefreshItemWidget, FormCommandMapper>;
+type InnerState<R> =
+    KeybindState<R, FormCommand, RefreshItemState, FormCommandMapper<RefreshItemAction>>;
+type InnerWidget<R> =
+    KeybindWidget<R, FormCommand, RefreshItemWidget, FormCommandMapper<RefreshItemAction>>;
 
-#[derive(Debug)]
-pub struct RefreshState {
-    inner: InnerState,
-    jellyfin: JellyfinClient,
+pub struct RefreshState<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> {
+    inner: InnerState<R>,
     id: String,
 }
 
-impl RefreshState {
-    pub fn new(id: String, cx: Pin<&mut TuiContext>) -> Self {
+impl<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> Debug for RefreshState<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RefreshState")
+            .field("inner", &self.inner)
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+impl<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> RefreshState<R> {
+    pub fn new(id: String, cx: &R) -> Self {
         Self {
             inner: KeybindState::new(
                 RefreshItem::default().make_state_with(RefreshItemSelection::Action(None)),
-                cx.config.help_prefixes.clone(),
-                cx.config.keybinds.form.clone(),
-                FormCommandMapper,
+                Config::get_ref(cx).keybinds.form.clone(),
+                FormCommandMapper::default(),
             ),
-            jellyfin: cx.jellyfin.clone(),
             id,
         }
     }
 }
 
-pub struct RefreshWidget {
-    inner: InnerWidget,
-    jellyfin: JellyfinClient,
+pub struct RefreshWidget<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> {
+    inner: InnerWidget<R>,
     id: String,
 }
 
-impl JellyhajWidgetState for RefreshState {
-    type Action = <InnerState as JellyhajWidgetState>::Action;
+impl<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> JellyhajWidgetState<R>
+    for RefreshState<R>
+{
+    type Action = <InnerState<R> as JellyhajWidgetState<R>>::Action;
 
     type ActionResult = Navigation;
 
-    type Widget = RefreshWidget;
+    type Widget = RefreshWidget<R>;
 
     const NAME: &str = "refresh-item";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<InnerState>();
+        visitor.visit::<R, InnerState<R>>();
     }
 
-    fn into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         RefreshWidget {
             inner: self.inner.into_widget(cx),
-            jellyfin: self.jellyfin,
             id: self.id,
         }
     }
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         Ok(match self.inner.apply_action(cx, action)? {
@@ -161,7 +165,7 @@ impl JellyhajWidgetState for RefreshState {
             Some(ControlFlow::Break(b)) => Some(b),
             Some(ControlFlow::Continue(ControlFlow::Break(b))) => Some(b),
             Some(ControlFlow::Continue(ControlFlow::Continue(FormResult::Submit))) => {
-                let jellyfin = self.jellyfin.clone();
+                let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
                 let id = self.id.clone();
                 let query = self.inner.inner.data.to_query();
                 cx.submitter.spawn_res(
@@ -180,20 +184,20 @@ impl JellyhajWidgetState for RefreshState {
     }
 }
 
-fn map(
-    this: &RefreshWidget,
+fn map<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static, A>(
+    this: &RefreshWidget<R>,
     res: Result<Option<ControlFlow<Navigation, ControlFlow<Navigation, FormResult>>>>,
-    task: &Spawner,
+    cx: WidgetContext<'_, A, impl Wrapper<A>, R>,
 ) -> Result<Option<Navigation>> {
     Ok(match res? {
         None => None,
         Some(ControlFlow::Break(b)) => Some(b),
         Some(ControlFlow::Continue(ControlFlow::Break(b))) => Some(b),
         Some(ControlFlow::Continue(ControlFlow::Continue(FormResult::Submit))) => {
-            let jellyfin = this.jellyfin.clone();
+            let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
             let id = this.id.clone();
             let query = this.inner.inner.data.to_query();
-            task.spawn_res(
+            cx.submitter.spawn_res(
                 async move {
                     jellyfin
                         .refresh_item(&id, &query)
@@ -208,12 +212,14 @@ fn map(
     })
 }
 
-impl JellyhajWidget for RefreshWidget {
-    type Action = <InnerWidget as JellyhajWidget>::Action;
+impl<R: ContextRef<Config> + ContextRef<JellyfinClient> + 'static> JellyhajWidget<R>
+    for RefreshWidget<R>
+{
+    type Action = <InnerWidget<R> as JellyhajWidget<R>>::Action;
 
     type ActionResult = Navigation;
 
-    type State = RefreshState;
+    type State = RefreshState<R>;
 
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
@@ -226,7 +232,6 @@ impl JellyhajWidget for RefreshWidget {
     fn into_state(self) -> Self::State {
         RefreshState {
             inner: self.inner.into_state(),
-            jellyfin: self.jellyfin,
             id: self.id,
         }
     }
@@ -245,30 +250,30 @@ impl JellyhajWidget for RefreshWidget {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let res = self.inner.apply_action(cx, action);
-        map(self, res, &cx.submitter)
+        map(self, res, cx)
     }
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: jellyhaj_widgets_core::Position,
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
         let res = self.inner.click(cx, position, size, kind, modifier);
-        map(self, res, &cx.submitter)
+        map(self, res, cx)
     }
 
     fn render_fallible_inner(
         &mut self,
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         self.inner.render_fallible_inner(area, buf, cx)
     }

@@ -4,7 +4,6 @@ use std::{
     io::Write,
     mem,
     pin::{Pin, pin},
-    sync::Arc,
     task::{
         Context,
         Poll::{self, Ready},
@@ -13,24 +12,20 @@ use std::{
 };
 
 use color_eyre::Report;
-use config::Config;
 use either::Either;
 use futures_util::future::BoxFuture;
 use jellyfin::Result;
-use jellyhaj_context::{
-    DB, ImageProtocolCache, JellyfinEventInterests, KeybindEvents, Picker, TuiContext,
-};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position, TreeVisitor, WidgetContext,
-    WidgetTreeVisitor,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position,
+    TreeVisitor, WidgetContext, WidgetTreeVisitor,
     async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter},
 };
+use keybinds::KeybindEvents;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{Event, KeyEvent, MouseEvent},
 };
 use spawn::{CancellationToken, Spawner};
-use stats_data::Stats;
 use tokio::{select, task::JoinHandle};
 use tracing::debug;
 
@@ -46,44 +41,49 @@ pub type Suspended = Box<dyn SuspendedWidget + Send>;
 
 pub trait SuspendedWidget {
     fn name(&self) -> &'static str;
-    fn resume<'a>(
+    fn resume<'p>(
         &mut self,
-        cx: Pin<&'a mut TuiContext>,
-    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>>;
+        term: &'p mut DefaultTerminal,
+        events: &'p mut KeybindEvents,
+    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'p>>;
     fn visit_widget_tree(&self, visitor: &mut dyn TreeVisitor);
 }
 
 struct SuspendedWidgetImpl<
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
-    task: Option<JoinHandle<Hydrated<W::State>>>,
+    task: Option<JoinHandle<Hydrated<R, W::State>>>,
     stop: Option<tokio_util::sync::DropGuard>,
 }
 
 impl<
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> SuspendedWidget for SuspendedWidgetImpl<A, W>
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+> SuspendedWidget for SuspendedWidgetImpl<A, R, W>
 {
     fn name(&self) -> &'static str {
-        <W::State as JellyhajWidgetState>::NAME
+        <W::State as JellyhajWidgetState<R>>::NAME
     }
 
-    fn resume<'a>(
+    fn resume<'p>(
         &mut self,
-        cx: Pin<&'a mut TuiContext>,
-    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'a>> {
+        term: &'p mut DefaultTerminal,
+        events: &'p mut KeybindEvents,
+    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'p>> {
         self.stop = None;
-        let renderer: HydrateRenderer<'_, A, W> = HydrateRenderer::Hydrating {
+        let renderer: HydrateRenderer<'_, A, R, W> = HydrateRenderer::Hydrating {
             task: self.task.take().expect("tried to hydrate twice"),
-            context: cx,
+            term,
+            events,
         };
         Box::pin(renderer)
     }
 
     fn visit_widget_tree(&self, mut visitor: &mut dyn TreeVisitor) {
-        visitor.visit::<W::State>();
+        visitor.visit::<_, W::State>();
     }
 }
 
@@ -100,33 +100,37 @@ pub enum NavigationResult {
         without_tui: BoxFuture<'static, Result<()>>,
     },
 }
-enum Hydrated<S: JellyhajWidgetState> {
+enum Hydrated<R: 'static, S: JellyhajWidgetState<R>> {
     Finished(Result<Navigation>),
     Widget {
         state: S,
         submitter: TaskSubmitter<S::Action, IdWrapper>,
         receiver: EventReceiver<S::Action>,
+        context: R,
     },
 }
 
 enum HydrateRenderer<
     't,
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+    R: 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 > {
     Hydrating {
-        task: JoinHandle<Hydrated<W::State>>,
-        context: Pin<&'t mut TuiContext>,
+        task: JoinHandle<Hydrated<R, W::State>>,
+        term: &'t mut DefaultTerminal,
+        events: &'t mut KeybindEvents,
     },
-    Rendering(WidgetRenderer<'t, A, Navigation, W>),
+    Rendering(WidgetRenderer<'t, A, Navigation, R, W>),
     Exit,
 }
 
 impl<
     't,
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> HydrateRenderer<'t, A, W>
+    R: 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+> HydrateRenderer<'t, A, R, W>
 {
     fn project(self: Pin<&mut Self>) -> &mut Self {
         unsafe { self.get_unchecked_mut() }
@@ -136,62 +140,61 @@ impl<
 impl<
     't,
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation>,
-> Future for HydrateRenderer<'t, A, W>
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation>,
+> Future for HydrateRenderer<'t, A, R, W>
 {
     type Output = NavigationResult;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let res = match this {
-            HydrateRenderer::Hydrating { task, context: _ } => {
-                match ready!(Pin::new(task).poll(cx)) {
-                    Err(e) => {
-                        panic!("suspended widget task paniced!\n{e:?}");
-                    }
-                    Ok(Hydrated::Finished(nav)) => {
-                        debug!("suspended widget already finished");
-                        nav
-                    }
-                    Ok(Hydrated::Widget {
-                        state,
-                        submitter,
-                        receiver,
-                    }) => {
-                        debug!("received suspended widget");
-                        if let HydrateRenderer::Hydrating {
-                            task: _,
-                            mut context,
-                        } = mem::replace(this, HydrateRenderer::Exit)
-                        {
-                            let widget = state.into_widget(context.as_mut());
-                            let context = context.project();
-                            let mut rendering = WidgetRenderer {
-                                term: context.term,
-                                events: Events {
-                                    receiver,
-                                    events: context.events,
-                                    first: true,
-                                },
-                                widget,
-                                task: submitter,
-                                render: true,
-                                config: context.config.clone(),
-                                image_picker: context.image_picker.clone(),
-                                cache: context.cache.clone(),
-                                image_cache: context.image_cache.clone(),
-                                jellyfin_events: context.jellyfin_events.clone(),
-                                stats: context.stats.clone(),
-                            };
-                            let res = rendering.poll(cx);
-                            *this = HydrateRenderer::Rendering(rendering);
-                            ready!(res).transform()
-                        } else {
-                            unreachable!()
-                        }
+            HydrateRenderer::Hydrating {
+                task,
+                term: _,
+                events: _,
+            } => match ready!(Pin::new(task).poll(cx)) {
+                Err(e) => {
+                    panic!("suspended widget task paniced!\n{e:?}");
+                }
+                Ok(Hydrated::Finished(nav)) => {
+                    debug!("suspended widget already finished");
+                    nav
+                }
+                Ok(Hydrated::Widget {
+                    state,
+                    submitter,
+                    receiver,
+                    context,
+                }) => {
+                    debug!("received suspended widget");
+                    if let HydrateRenderer::Hydrating {
+                        task: _,
+                        term,
+                        events,
+                    } = mem::replace(this, HydrateRenderer::Exit)
+                    {
+                        let widget = state.into_widget(&context);
+                        let mut rendering = WidgetRenderer {
+                            term,
+                            events: Events {
+                                receiver,
+                                events,
+                                first: true,
+                            },
+                            widget,
+                            task: submitter,
+                            render: true,
+                            cx: context,
+                        };
+                        let res = rendering.poll(cx);
+                        *this = HydrateRenderer::Rendering(rendering);
+                        ready!(res).transform()
+                    } else {
+                        unreachable!()
                     }
                 }
-            }
+            },
             HydrateRenderer::Rendering(widget_renderer) => {
                 ready!(widget_renderer.poll(cx)).transform()
             }
@@ -209,10 +212,11 @@ impl<
 
 fn with_suspend_current<
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 >(
     res: std::result::Result<Navigation, Report>,
-    renderer: WidgetRenderer<'_, A, Navigation, W>,
+    renderer: WidgetRenderer<'_, A, Navigation, R, W>,
 ) -> NavigationResult {
     match res {
         Err(e) => NavigationResult::Replace(Box::new(NextScreen::Error(e))),
@@ -232,10 +236,11 @@ fn with_suspend_current<
 
 fn spawn<
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 >(
-    fut: impl Future<Output = Hydrated<W::State>> + Send + 'static,
-) -> JoinHandle<Hydrated<W::State>> {
+    fut: impl Future<Output = Hydrated<R, W::State>> + Send + 'static,
+) -> JoinHandle<Hydrated<R, W::State>> {
     #[cfg(tokio_unstable)]
     {
         tokio::task::Builder::new()
@@ -251,22 +256,18 @@ fn spawn<
 
 fn suspend<
     A: Debug + Send + 'static,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+    R: Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
 >(
-    renderer: WidgetRenderer<'_, A, Navigation, W>,
-) -> Box<SuspendedWidgetImpl<A, W>> {
+    renderer: WidgetRenderer<'_, A, Navigation, R, W>,
+) -> Box<SuspendedWidgetImpl<A, R, W>> {
     let WidgetRenderer {
         term: _,
         events,
         widget,
         task,
         render: _,
-        config,
-        image_picker,
-        cache,
-        image_cache,
-        stats,
-        jellyfin_events,
+        cx,
     } = renderer;
     let mut receiver = events.receiver;
     let mut state = widget.into_state();
@@ -274,14 +275,14 @@ fn suspend<
     let stop_fut = stop.clone();
     let stop = stop.drop_guard();
 
-    Box::new(SuspendedWidgetImpl::<A, W> {
-        task: Some(spawn::<A, W>(async move {
+    Box::new(SuspendedWidgetImpl::<A, R, W> {
+        task: Some(spawn::<A, R, W>(async move {
             let mut stop_fut = pin!(stop_fut.cancelled_owned());
             loop {
                 select! {
                     biased;
                     _ = &mut stop_fut => {
-                        return Hydrated::Widget{ state, submitter: task, receiver }
+                        return Hydrated::Widget{ state, submitter: task, receiver, context: cx }
                     }
                     res = receiver.next() => {
                         match res {
@@ -289,12 +290,7 @@ fn suspend<
                             Some(Err(e)) => return Hydrated::Finished(Err(e)),
                             Some(Ok(a)) => match state.apply_action(
                                 WidgetContext{
-                                    config: &config,
-                                    image_picker: &image_picker,
-                                    cache: &cache,
-                                    image_cache: &image_cache,
-                                    stats: &stats,
-                                    jellyfin_events: &jellyfin_events,
+                                    refs: &cx,
                                     submitter: task.as_ref()
                                 }, a
                             ) {
@@ -361,37 +357,29 @@ struct WidgetRenderer<
     't,
     A: Debug + Send + 'static,
     T: Debug,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = T>,
+    R: 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
 > {
     term: &'t mut DefaultTerminal,
     events: Events<'t, A>,
     widget: W,
     task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
     render: bool,
-    config: Arc<Config>,
-    image_picker: Arc<Picker>,
-    cache: DB,
-    image_cache: ImageProtocolCache,
-    stats: Stats,
-    jellyfin_events: JellyfinEventInterests,
+    cx: R,
 }
 
 #[allow(clippy::too_many_arguments)]
 pub async fn render_widget_bare<
     A: Debug + Send + 'static,
     T: Debug,
-    W: Send + Unpin + JellyhajWidget<Action = KeybindAction<A>, ActionResult = T>,
+    R: 'static,
+    W: Send + Unpin + JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
 >(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     spawner: Spawner,
     widget: W,
-    config: Arc<Config>,
-    image_picker: Arc<Picker>,
-    cache: DB,
-    image_cache: ImageProtocolCache,
-    stats: Stats,
-    jellyfin_events: JellyfinEventInterests,
+    cx: R,
 ) -> RenderResult<(T, W)> {
     let (task, receiver) = jellyhaj_widgets_core::async_task::new_task_pair(spawner);
     let mut renderer = WidgetRenderer {
@@ -404,12 +392,7 @@ pub async fn render_widget_bare<
         widget,
         task,
         render: true,
-        config,
-        image_picker,
-        cache,
-        image_cache,
-        stats,
-        jellyfin_events,
+        cx,
     };
     match poll_fn(|cx| renderer.poll(cx)).await {
         RenderResult::Ok(v) => RenderResult::Ok((v, renderer.widget)),
@@ -420,30 +403,28 @@ pub async fn render_widget_bare<
 
 pub async fn render_widget<
     A: Debug + Send + 'static,
-    S: JellyhajWidgetState<Action = KeybindAction<A>, ActionResult = Navigation>,
+    R: ContextRef<Spawner> + Send + 'static,
+    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation>,
 >(
-    mut cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: R,
     state: S,
 ) -> NavigationResult {
-    let (task, receiver) = jellyhaj_widgets_core::async_task::new_task_pair(cx.spawn.clone());
-    let widget = state.into_widget(cx.as_mut());
-    let cx = cx.project();
+    let (task, receiver) =
+        jellyhaj_widgets_core::async_task::new_task_pair(Spawner::get_ref(&cx).clone());
+    let widget = state.into_widget(&cx);
     let mut renderer = WidgetRenderer {
-        term: cx.term,
+        term,
         events: Events {
             receiver,
-            events: cx.events,
+            events,
             first: true,
         },
         widget,
         task,
         render: true,
-        config: cx.config.clone(),
-        image_picker: cx.image_picker.clone(),
-        cache: cx.cache.clone(),
-        image_cache: cx.image_cache.clone(),
-        stats: cx.stats.clone(),
-        jellyfin_events: cx.jellyfin_events.clone(),
+        cx,
     };
     let res = poll_fn(|cx| renderer.poll(cx)).await.transform();
     with_suspend_current(res, renderer)
@@ -453,8 +434,9 @@ impl<
     't,
     A: Debug + Send + 'static,
     T: Debug,
-    W: JellyhajWidget<Action = KeybindAction<A>, ActionResult = T>,
-> WidgetRenderer<'t, A, T, W>
+    R: 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
+> WidgetRenderer<'t, A, T, R, W>
 {
     fn render_widget(&mut self) -> Result<()> {
         self.term.autoresize()?;
@@ -463,12 +445,7 @@ impl<
             frame.area(),
             frame.buffer_mut(),
             WidgetContext {
-                config: &self.config,
-                image_picker: &self.image_picker,
-                cache: &self.cache,
-                image_cache: &self.image_cache,
-                stats: &self.stats,
-                jellyfin_events: &self.jellyfin_events,
+                refs: &self.cx,
                 submitter: self.task.as_ref(),
             },
         )?;
@@ -494,12 +471,7 @@ impl<
                     self.render = true;
                     self.widget.apply_action(
                         WidgetContext {
-                            config: &self.config,
-                            image_picker: &self.image_picker,
-                            cache: &self.cache,
-                            image_cache: &self.image_cache,
-                            stats: &self.stats,
-                            jellyfin_events: &self.jellyfin_events,
+                            refs: &self.cx,
                             submitter: self.task.as_ref(),
                         },
                         KeybindAction::Key(key),
@@ -514,12 +486,7 @@ impl<
                     self.render = true;
                     self.widget.click(
                         WidgetContext {
-                            config: &self.config,
-                            image_picker: &self.image_picker,
-                            cache: &self.cache,
-                            image_cache: &self.image_cache,
-                            stats: &self.stats,
-                            jellyfin_events: &self.jellyfin_events,
+                            refs: &self.cx,
                             submitter: self.task.as_ref(),
                         },
                         Position::new(column, row),
@@ -542,12 +509,7 @@ impl<
                     self.render = true;
                     self.widget.apply_action(
                         WidgetContext {
-                            config: &self.config,
-                            image_picker: &self.image_picker,
-                            cache: &self.cache,
-                            image_cache: &self.image_cache,
-                            stats: &self.stats,
-                            jellyfin_events: &self.jellyfin_events,
+                            refs: &self.cx,
                             submitter: self.task.as_ref(),
                         },
                         v,

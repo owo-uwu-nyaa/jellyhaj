@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::ControlFlow, pin::Pin};
+use std::{borrow::Cow, ops::ControlFlow};
 
 use color_eyre::{
     Result,
@@ -10,23 +10,22 @@ use jellyfin::{
 };
 use jellyhaj_core::{
     CommandMapper,
+    context::TuiContext,
     keybinds::LoadingCommand,
     render::{NavigationResult, render_widget},
     state::{Navigation, Next},
 };
 use jellyhaj_fetch_widget::{FetchAction, FetchState};
 use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_loading_widget::{AdvanceLoadingScreen, LoadingState};
-use jellyhaj_widgets_core::{
-    TuiContext,
-    outer::{Named, OuterState},
-};
+use jellyhaj_widgets_core::outer::{Named, OuterState};
+use keybinds::KeybindEvents;
+use ratatui::DefaultTerminal;
 use tracing::instrument;
 
 struct FetchMapper;
 
 impl CommandMapper<LoadingCommand> for FetchMapper {
-    type A = FetchAction<AdvanceLoadingScreen>;
+    type A = FetchAction;
 
     fn map(&self, command: LoadingCommand) -> std::ops::ControlFlow<Navigation, Self::A> {
         match command {
@@ -42,17 +41,18 @@ impl Named for Name {
 }
 
 pub fn make_fetch(
-    cx: Pin<&mut TuiContext>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
     title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<Next>> + Send + 'static,
 ) -> impl Future<Output = NavigationResult> {
-    let state = OuterState::<Name, _, _, _>::new(KeybindState::new(
-        FetchState::new(fut, LoadingState::new(title.into())),
-        cx.config.help_prefixes.clone(),
+    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
+        FetchState::new(fut, title.into()),
         cx.config.keybinds.fetch.clone(),
         FetchMapper,
     ));
-    render_widget(cx, state)
+    render_widget(term, events, cx, state)
 }
 
 #[instrument(skip(jellyfin))]

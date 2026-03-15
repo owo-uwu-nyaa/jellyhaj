@@ -12,8 +12,10 @@ use jellyhaj_form_widget::{
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper,
+};
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::FlattenState};
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper};
 use ratatui::prelude::{Buffer, Position, Rect, Size};
 
 #[derive(Debug)]
@@ -52,21 +54,29 @@ pub struct LoginData {
     error: LabelBlock,
 }
 
-type InnerState = <InnerWidget as JellyhajWidget>::State;
-
-#[derive(Debug)]
-pub struct LoginState {
-    inner: InnerState,
-}
-
-type InnerWidget = <FlattenState<
+type InnerState<R> = FlattenState<
+    R,
     Navigation,
     Submit,
-    KeybindState<FormCommand, LoginDataState, FormCommandMapper>,
-> as JellyhajWidgetState>::Widget;
+    KeybindState<R, FormCommand, LoginDataState, FormCommandMapper<LoginDataAction>>,
+>;
 
-pub struct LoginWidget {
-    inner: InnerWidget,
+type InnerWidget<R> = <InnerState<R> as JellyhajWidgetState<R>>::Widget;
+
+pub struct LoginState<R: ContextRef<Config> + 'static> {
+    inner: InnerState<R>,
+}
+
+impl<R: ContextRef<Config> + 'static> std::fmt::Debug for LoginState<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoginState")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+pub struct LoginWidget<R: ContextRef<Config> + 'static> {
+    inner: InnerWidget<R>,
 }
 
 #[derive(Debug)]
@@ -79,23 +89,20 @@ pub enum LoginResult {
     },
 }
 
-impl JellyhajWidgetState for LoginState {
-    type Action = <InnerState as JellyhajWidgetState>::Action;
+impl<R: ContextRef<Config> + 'static> JellyhajWidgetState<R> for LoginState<R> {
+    type Action = <InnerState<R> as JellyhajWidgetState<R>>::Action;
 
     type ActionResult = LoginResult;
 
-    type Widget = LoginWidget;
+    type Widget = LoginWidget<R>;
 
     const NAME: &str = "login";
 
     fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<InnerState>();
+        visitor.visit::<R, InnerState<R>>();
     }
 
-    fn into_widget(
-        self,
-        cx: std::pin::Pin<&mut jellyhaj_core::context::TuiContext>,
-    ) -> Self::Widget {
+    fn into_widget(self, cx: &R) -> Self::Widget {
         LoginWidget {
             inner: self.inner.into_widget(cx),
         }
@@ -103,7 +110,7 @@ impl JellyhajWidgetState for LoginState {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         self.inner.apply_action(cx, action).map(|v| {
@@ -119,12 +126,12 @@ impl JellyhajWidgetState for LoginState {
     }
 }
 
-impl JellyhajWidget for LoginWidget {
-    type Action = <InnerWidget as JellyhajWidget>::Action;
+impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget<R> {
+    type Action = <InnerWidget<R> as JellyhajWidget<R>>::Action;
 
     type ActionResult = LoginResult;
 
-    type State = LoginState;
+    type State = LoginState<R>;
 
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
@@ -154,7 +161,7 @@ impl JellyhajWidget for LoginWidget {
 
     fn apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let res = self.inner.apply_action(cx, action);
@@ -163,7 +170,7 @@ impl JellyhajWidget for LoginWidget {
 
     fn click(
         &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
@@ -177,16 +184,16 @@ impl JellyhajWidget for LoginWidget {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         self.inner.render_fallible_inner(area, buf, cx)
     }
 }
 
-impl LoginWidget {
+impl<R: ContextRef<Config> + 'static> LoginWidget<R> {
     fn map_res(
         &mut self,
-        res: Result<Option<<InnerWidget as JellyhajWidget>::ActionResult>>,
+        res: Result<Option<<InnerWidget<R> as JellyhajWidget<R>>::ActionResult>>,
     ) -> Result<Option<LoginResult>, color_eyre::eyre::Error> {
         res.map(|v| {
             v.map(|v| match v {
@@ -206,7 +213,7 @@ impl LoginWidget {
         password: String,
         password_cmd_set: bool,
         error: String,
-        config: &Config,
+        cx: &R,
     ) -> Self {
         let server_unset = server_url.is_empty();
         let data = LoginData {
@@ -225,9 +232,8 @@ impl LoginWidget {
         });
         let keybinds = KeybindWidget::new(
             data.into_widget(),
-            config.help_prefixes.clone(),
-            config.keybinds.form.clone(),
-            FormCommandMapper,
+            Config::get_ref(cx).keybinds.form.clone(),
+            FormCommandMapper::<LoginDataAction>::default(),
         );
         Self {
             inner: InnerWidget::new(keybinds),
