@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ops::ControlFlow};
 
-use jellyfin::{JellyfinClient, items::MediaItem, user_views::UserView};
+use jellyfin::{JellyfinClient, items::MediaItem, socket::ChangedUserData, user_views::UserView};
 use jellyhaj_core::{
     CommandMapper, Config,
     context::{DB, JellyfinEventInterests, Spawner},
@@ -19,6 +19,7 @@ use jellyhaj_widgets_core::{
 pub enum HomeScreenAction {
     Inner(ItemScreenAction<EntryAction>),
     Reload,
+    PotentialReload(bool),
 }
 
 #[derive(Clone, Copy)]
@@ -60,6 +61,21 @@ impl Wrapper<String> for Mapper {
         KeybindAction::Inner(HomeScreenAction::Reload)
     }
 }
+impl Wrapper<ChangedUserData> for Mapper {
+    type F = KeybindAction<HomeScreenAction>;
+
+    fn wrap(&self, val: ChangedUserData) -> Self::F {
+        KeybindAction::Inner(HomeScreenAction::PotentialReload(
+            val.user_data.playback_position_ticks == 0,
+        ))
+    }
+}
+
+#[derive(Debug)]
+struct Register {
+    folder: Vec<String>,
+    items: Vec<String>,
+}
 
 pub struct HomeScreenState<
     R: ContextRef<Spawner>
@@ -72,7 +88,7 @@ pub struct HomeScreenState<
         + 'static,
 > {
     inner: KeybindState<R, HomeScreenCommand, ItemScreenState<R, EntryState>, Mapper>,
-    register: Option<Vec<String>>,
+    register: Option<Register>,
 }
 
 impl<
@@ -113,7 +129,15 @@ impl<
         libraries: Vec<UserView>,
         library_latest: Vec<(String, Vec<MediaItem>)>,
     ) -> Self {
-        let register: Vec<_> = libraries.iter().map(|l| l.id.clone()).collect();
+        let register = Register {
+            folder: libraries.iter().map(|l| l.id.clone()).collect(),
+            items: cont
+                .iter()
+                .chain(next_up.iter())
+                .chain(library_latest.iter().flat_map(|(_, v)| v))
+                .map(|item| item.id.clone())
+                .collect(),
+        };
         let screen = ItemScreenState::new(
             [
                 ItemListState::new(
@@ -160,7 +184,7 @@ pub struct HomeScreen<
         + 'static,
 > {
     inner: KeybindWidget<R, HomeScreenCommand, ItemScreen<R, Entry>, Mapper>,
-    register: Option<Vec<String>>,
+    register: Option<Register>,
 }
 
 impl<
@@ -201,11 +225,13 @@ impl<
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
-            KeybindAction::Inner(HomeScreenAction::Reload) => {
+            KeybindAction::Inner(HomeScreenAction::Reload)
+            | KeybindAction::Inner(HomeScreenAction::PotentialReload(true)) => {
                 return Ok(Some(Navigation::Replace(Box::new(
                     NextScreen::LoadHomeScreen,
                 ))));
             }
+            KeybindAction::Inner(HomeScreenAction::PotentialReload(false)) => return Ok(None),
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
@@ -263,11 +289,13 @@ impl<
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
-            KeybindAction::Inner(HomeScreenAction::Reload) => {
+            KeybindAction::Inner(HomeScreenAction::Reload)
+            | KeybindAction::Inner(HomeScreenAction::PotentialReload(true)) => {
                 return Ok(Some(Navigation::Replace(Box::new(
                     NextScreen::LoadHomeScreen,
                 ))));
             }
+            KeybindAction::Inner(HomeScreenAction::PotentialReload(false)) => return Ok(None),
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
@@ -297,8 +325,12 @@ impl<
         if let Some(register) = self.register.take() {
             let mut interests = JellyfinEventInterests::get_ref(cx.refs).get();
             let submitter = cx.submitter.wrap_with(Mapper);
-            for item in register {
+            for item in register.folder {
                 interests.register_folder_modified(item, submitter);
+            }
+            let submitter = cx.submitter.wrap_with(Mapper);
+            for item in register.items {
+                interests.register_changed_userdata(item, submitter);
             }
         }
         self.inner

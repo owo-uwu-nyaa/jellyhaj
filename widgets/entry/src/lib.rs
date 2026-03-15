@@ -149,9 +149,30 @@ impl<
             EntryAction::Command(entry_command) => {
                 Ok(self.inner.apply_command(entry_command, cx.refs))
             }
-            EntryAction::UpdatedUserData(user_data) => self.updated_user_data(user_data),
+            EntryAction::UpdatedUserData(user_data) => {
+                updated_user_data(user_data, &mut self.inner, &mut self.watch_status)
+            }
         }
     }
+}
+
+fn updated_user_data(
+    data: UserData,
+    entry: &mut EntryData,
+    watch_status: &mut Option<Cow<'static, str>>,
+) -> Result<Option<Navigation>> {
+    *watch_status = if let Some(num @ 1..) = data.unplayed_item_count {
+        Some(format!("{num}").into())
+    } else if data.played {
+        Some("✓".into())
+    } else {
+        None
+    };
+    entry
+        .item_mut()
+        .expect("should only be requested for item inners")
+        .user_data = Some(data);
+    Ok(None)
 }
 
 pub struct Entry {
@@ -193,17 +214,6 @@ impl EntryState {
             EntryData::Item(media_item) => from_media_item(media_item, cx),
             EntryData::View(user_view) => from_user_view(user_view, cx),
         }
-    }
-
-    fn updated_user_data(
-        &mut self,
-        user_data: UserData,
-    ) -> std::result::Result<Option<Navigation>, color_eyre::eyre::Error> {
-        self.inner
-            .item_mut()
-            .expect("should only be requested for item inners")
-            .user_data = Some(user_data);
-        Ok(None)
     }
 }
 
@@ -270,11 +280,7 @@ impl<
             }
             EntryAction::Command(entry_command) => self.inner.apply_command(entry_command, cx.refs),
             EntryAction::UpdatedUserData(user_data) => {
-                self.inner
-                    .item_mut()
-                    .expect("should only be requested for item inners")
-                    .user_data = Some(user_data);
-                None
+                return updated_user_data(user_data, &mut self.inner, &mut self.watch_status);
             }
         })
     }
