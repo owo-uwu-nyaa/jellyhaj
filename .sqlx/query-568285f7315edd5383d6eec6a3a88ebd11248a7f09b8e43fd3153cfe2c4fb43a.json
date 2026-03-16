@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "delete from image_cache where\n                           item_id = ? and\n                           image_type = ? and\n                           tag = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "568285f7315edd5383d6eec6a3a88ebd11248a7f09b8e43fd3153cfe2c4fb43a"
+}
