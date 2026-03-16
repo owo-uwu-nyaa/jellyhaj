@@ -103,6 +103,8 @@ enter = "activate"
 # all other key value combinations are normal keybinds (and can even be another sub map or an template)
 O = {name = "open-", e = "open-episode", S = "open-season", s = "open-series"}
 R = "refresh-item"
+w = "set-watched"
+u = "unset-watched"
 
 [template.g]
 s = {name="show-", s="show-stats", l="show-logs"}
