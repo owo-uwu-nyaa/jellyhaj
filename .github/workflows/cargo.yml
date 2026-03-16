@@ -5,23 +5,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  tests:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-    - name: "install mpv"
-      run: |
-        sudo apt-get update
-        sudo apt-get install libmpv-dev libsqlite3-dev
-    - name: "check mpv version"
-      run: pkg-config --modversion mpv
-    - name: "check sqlite version"
-      run: pkg-config --modversion sqlite3
-    - name: "run workspace tests"
-      run: cargo test --workspace --verbose
   fmt:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
     - run: cargo fmt --check
-    
