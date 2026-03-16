@@ -9,12 +9,12 @@ use color_eyre::Result;
 use futures_intrusive::sync::ManualResetEvent;
 use jellyfin::{
     JellyfinClient,
-    socket::{ChangedUserData, JellyfinMessage},
+    socket::{ChangedUserData, JellyfinMessage, LibraryChanged, RefreshProgress, UserDataChanged},
 };
 use jellyhaj_async_task::{Cancellation, Stream, StreamExt, TaskSubmitterRef, Wrapper};
 use parking_lot::{Mutex, lock_api::MutexGuard};
 use spawn::Spawner;
-use tracing::{debug, info_span};
+use tracing::{debug, info_span, instrument};
 
 trait InterestInner<T> {
     fn poll_send(
@@ -214,7 +214,7 @@ async fn poll_socket_cancellable(
     cancel: Arc<ManualResetEvent>,
 ) {
     tokio::select! {
-        _ = poll_socket(interests, stream) => {
+        _ = jellyfin_poll_socket(interests, stream) => {
             debug!("socket closed");
         }
         _ = cancel.wait() => {
@@ -223,14 +223,18 @@ async fn poll_socket_cancellable(
     }
 }
 
-async fn poll_socket(
+#[instrument(skip_all)]
+async fn jellyfin_poll_socket(
     interests: Arc<Mutex<Interests>>,
     stream: impl Stream<Item = JellyfinMessage>,
 ) {
     let mut stream = pin!(stream);
     while let Some(message) = stream.next().await {
+        debug!("received message {message:?}");
         match message {
-            JellyfinMessage::RefreshProgress { item_id, progress } => {
+            JellyfinMessage::RefreshProgress {
+                data: RefreshProgress { item_id, progress },
+            } => {
                 let vec = if let Ok(mut guard) =
                     MutexGuard::try_map(interests.lock(), |i| i.refresh_progress.get_mut(&item_id))
                     && clean_vec(&mut guard)
@@ -245,8 +249,11 @@ async fn poll_socket(
                 }
             }
             JellyfinMessage::UserDataChanged {
-                user_data_list,
-                user_id: _,
+                data:
+                    UserDataChanged {
+                        user_data_list,
+                        user_id:_,
+                    },
             } => {
                 for change in user_data_list {
                     let vec = if let Ok(mut guard) = MutexGuard::try_map(interests.lock(), |i| {
@@ -263,12 +270,15 @@ async fn poll_socket(
                 }
             }
             JellyfinMessage::LibraryChanged {
-                collection_folders,
-                folders_added_to: _,
-                folders_removed_from: _,
-                items_added: _,
-                items_removed,
-                items_updated,
+                data:
+                    LibraryChanged {
+                        collection_folders,
+                        folders_added_to:_,
+                        folders_removed_from:_,
+                        items_added:_,
+                        items_removed,
+                        items_updated,
+                    },
             } => {
                 for folder in collection_folders {
                     let vec = if let Ok(mut guard) = MutexGuard::try_map(interests.lock(), |i| {
