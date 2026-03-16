@@ -55,7 +55,7 @@ fn gen_bindings(include_paths: &[PathBuf]) {
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let _libmpv = pkg_config::Config::new()
-        .atleast_version("2.3.0")
+        .atleast_version("2.2.0")
         .probe("mpv")
         .unwrap();
     #[cfg(feature = "use-bindgen")]
