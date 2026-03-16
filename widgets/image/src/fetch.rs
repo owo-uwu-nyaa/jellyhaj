@@ -55,20 +55,47 @@ pub async fn get_image(
     {
         Some(Ok(val)) => {
             stats.db_image_cache_hits.fetch_add(1, Relaxed);
-            let image = parse_image(val.into()).await?;
-            Ok(ParsedImage {
-                image,
-                size,
-                image_size: key.size,
-            })
+            let image = parse_image(val.into())
+                .await
+                .with_context(|| format!("parsing image for item {}", key.item_id))
+                .context("from in memory cache");
+            match image {
+                Ok(image) => Ok(ParsedImage {
+                    image,
+                    size,
+                    image_size: key.size,
+                }),
+                Err(e) => {
+                    tracing::error!("error parsing image - clearing image from cache");
+                    let image_type = key.image_type.name();
+                    let item_id = &key.item_id;
+                    let tag = &key.tag;
+                    sqlx::query!(
+                        "delete from image_cache where
+                           item_id = ? and
+                           image_type = ? and
+                           tag = ?",
+                        item_id,
+                        image_type,
+                        tag,
+                    )
+                    .execute(db.lock().await.deref_mut())
+                    .await
+                    .context("delete image from cache after error")?;
+                    Err(e)
+                }
+            }
         }
         Some(Err(e)) => Err(e),
         None => {
             stats.image_fetches.fetch_add(1, Relaxed);
             let image_size = key.size;
-            match fetch_image(key, jellyfin, db).await {
+            match fetch_image(&key, jellyfin, db).await {
                 Ok(image) => {
-                    let image = parse_image(image).await?;
+                    let image = parse_image(image)
+                        .await
+                        .with_context(|| format!("parsing image for item {}", key.item_id))
+                        .context("from fetch")?;
                     Ok(ParsedImage {
                         image,
                         size,
@@ -83,7 +110,7 @@ pub async fn get_image(
 
 #[instrument(skip_all)]
 async fn fetch_image(
-    key: ImageProtocolKey,
+    key: &ImageProtocolKey,
     jellyfin: JellyfinClient,
     db: Arc<tokio::sync::Mutex<SqliteConnection>>,
 ) -> Result<Bytes> {

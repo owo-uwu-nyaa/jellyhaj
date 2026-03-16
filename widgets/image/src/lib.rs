@@ -99,7 +99,7 @@ impl JellyfinImage {
                     let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
                     let size = self.size;
                     let stats = Stats::get_ref(cx.refs).clone();
-                    cx.submitter.spawn_task(
+                    cx.submitter.spawn_task_suppressed_error(
                         async move { get_image(key, db, jellyfin, size, stats).await },
                         info_span!("get_image"),
                         "get_image",
