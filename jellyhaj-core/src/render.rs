@@ -101,7 +101,7 @@ pub enum NavigationResult {
     },
 }
 enum Hydrated<R: 'static, S: JellyhajWidgetState<R>> {
-    Finished(Result<Navigation>),
+    Finished(NavigationResult),
     Widget {
         state: S,
         submitter: TaskSubmitter<S::Action, IdWrapper>,
@@ -159,7 +159,7 @@ impl<
                 }
                 Ok(Hydrated::Finished(nav)) => {
                     debug!("suspended widget already finished");
-                    nav
+                    return Ready(nav);
                 }
                 Ok(Hydrated::Widget {
                     state,
@@ -234,6 +234,7 @@ fn with_suspend_current<
     }
 }
 
+#[track_caller]
 fn spawn<
     A: Debug + Send + 'static,
     R: Send + 'static,
@@ -254,6 +255,98 @@ fn spawn<
     }
 }
 
+async fn run_suspended<
+    A: Debug + Send + 'static,
+    R: Send + 'static,
+    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+>(
+    mut state: S,
+    task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
+    mut receiver: EventReceiver<KeybindAction<A>>,
+    cx: R,
+    stop: CancellationToken,
+) -> Hydrated<R, S> {
+    let mut stop_fut = pin!(stop.cancelled_owned());
+    loop {
+        let res = select! {
+            biased;
+            _ = &mut stop_fut => {
+                return Hydrated::Widget{ state, submitter: task, receiver, context: cx }
+            }
+            res = receiver.next() => {
+                res
+            }
+        };
+        let action = match res {
+            None => unreachable!(),
+            Some(Err(e)) => {
+                return Hydrated::Finished(NavigationResult::Replace(Box::new(NextScreen::Error(
+                    e,
+                ))));
+            }
+            Some(Ok(a)) => a,
+        };
+        match state.apply_action(
+            WidgetContext {
+                refs: &cx,
+                submitter: task.as_ref(),
+            },
+            action,
+        ) {
+            Err(e) => {
+                return Hydrated::Finished(NavigationResult::Replace(Box::new(NextScreen::Error(
+                    e,
+                ))));
+            }
+            Ok(None) => {}
+            Ok(Some(Navigation::PopContext)) => {
+                return Hydrated::Finished(NavigationResult::Pop);
+            }
+            Ok(Some(Navigation::Exit)) => {
+                return Hydrated::Finished(NavigationResult::Exit);
+            }
+            Ok(Some(Navigation::Replace(next))) => {
+                return Hydrated::Finished(NavigationResult::Replace(next));
+            }
+            Ok(Some(Navigation::Push(next))) => {
+                return Hydrated::Finished(NavigationResult::Push {
+                    current: suspend_state(state, task, receiver, cx),
+                    next,
+                });
+            }
+            Ok(Some(Navigation::PushWithoutTui(without_tui))) => {
+                return Hydrated::Finished(NavigationResult::PushWithoutTui {
+                    current: suspend_state(state, task, receiver, cx),
+                    without_tui,
+                });
+            }
+        }
+    }
+}
+
+fn suspend_state<
+    A: Debug + Send + 'static,
+    R: Send + 'static,
+    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
+>(
+    state: S,
+    task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
+    receiver: EventReceiver<KeybindAction<A>>,
+    cx: R,
+) -> Box<SuspendedWidgetImpl<A, R, S::Widget>> {
+    let stop = CancellationToken::new();
+    Box::new(SuspendedWidgetImpl {
+        task: Some(spawn::<A, R, S::Widget>(run_suspended(
+            state,
+            task,
+            receiver,
+            cx,
+            stop.clone(),
+        ))),
+        stop: Some(stop.drop_guard()),
+    })
+}
+
 fn suspend<
     A: Debug + Send + 'static,
     R: Send + 'static,
@@ -261,50 +354,12 @@ fn suspend<
 >(
     renderer: WidgetRenderer<'_, A, Navigation, R, W>,
 ) -> Box<SuspendedWidgetImpl<A, R, W>> {
-    let WidgetRenderer {
-        term: _,
-        events,
-        widget,
-        task,
-        render: _,
-        cx,
-    } = renderer;
-    let mut receiver = events.receiver;
-    let mut state = widget.into_state();
-    let stop = CancellationToken::new();
-    let stop_fut = stop.clone();
-    let stop = stop.drop_guard();
-
-    Box::new(SuspendedWidgetImpl::<A, R, W> {
-        task: Some(spawn::<A, R, W>(async move {
-            let mut stop_fut = pin!(stop_fut.cancelled_owned());
-            loop {
-                select! {
-                    biased;
-                    _ = &mut stop_fut => {
-                        return Hydrated::Widget{ state, submitter: task, receiver, context: cx }
-                    }
-                    res = receiver.next() => {
-                        match res {
-                            None => return Hydrated::Finished(Ok(Navigation::Exit)),
-                            Some(Err(e)) => return Hydrated::Finished(Err(e)),
-                            Some(Ok(a)) => match state.apply_action(
-                                WidgetContext{
-                                    refs: &cx,
-                                    submitter: task.as_ref()
-                                }, a
-                            ) {
-                                Err(e) => return Hydrated::Finished(Err(e)),
-                                Ok(None) => {}
-                                Ok(Some(n)) => return Hydrated::Finished(Ok(n)),
-                            },
-                        }
-                    }
-                }
-            }
-        })),
-        stop: Some(stop),
-    })
+    suspend_state(
+        renderer.widget.into_state(),
+        renderer.task,
+        renderer.events.receiver,
+        renderer.cx,
+    )
 }
 
 struct Events<'t, A: Debug + Send + 'static> {

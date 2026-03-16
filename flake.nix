@@ -61,6 +61,7 @@
                 pkgs.cargo-nextest
                 pkgs.cargo-audit
                 pkgs.cargo-expand
+                pkgs.cargo-llvm-lines
                 pkgs.rust-bin.nightly.latest.rust-analyzer
                 (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
                 pkgs.rustPlatform.bindgenHook
