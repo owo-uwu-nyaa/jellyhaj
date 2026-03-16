@@ -287,7 +287,7 @@ impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
             name,
         );
     }
-    
+
     #[track_caller]
     pub fn spawn_task_suppressed_error(
         &self,

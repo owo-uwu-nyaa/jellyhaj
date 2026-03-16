@@ -10,7 +10,7 @@ use http::Uri;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{connect::ConnectionConfig, items::UserData, Auth, JellyfinClient, Result};
+use crate::{Auth, JellyfinClient, Result, connect::ConnectionConfig, items::UserData};
 
 trait TraceResult<T> {
     fn trace_err(self) -> Option<T>;

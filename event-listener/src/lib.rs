@@ -252,7 +252,7 @@ async fn jellyfin_poll_socket(
                 data:
                     UserDataChanged {
                         user_data_list,
-                        user_id:_,
+                        user_id: _,
                     },
             } => {
                 for change in user_data_list {
@@ -273,9 +273,9 @@ async fn jellyfin_poll_socket(
                 data:
                     LibraryChanged {
                         collection_folders,
-                        folders_added_to:_,
-                        folders_removed_from:_,
-                        items_added:_,
+                        folders_added_to: _,
+                        folders_removed_from: _,
+                        items_added: _,
                         items_removed,
                         items_updated,
                     },
