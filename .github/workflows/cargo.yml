@@ -13,10 +13,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install libmpv-dev libsqlite3-dev
-    - name: "check pkgconfig"
-      run: pkg-config --list-all
-    - name: "check version"
+    - name: "check mpv version"
       run: pkg-config --modversion mpv
+    - name: "check sqlite version"
+      run: pkg-config --modversion sqlite3
     - name: "run workspace tests"
       run: cargo test --workspace --verbose
   fmt:
