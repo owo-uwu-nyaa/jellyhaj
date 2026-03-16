@@ -1,6 +1,7 @@
 name: "Nix Build"
 on:
-  branches: [ "main" ]
+  push:
+    branches: [ "main" ]
 jobs:
   tests:
     strategy:

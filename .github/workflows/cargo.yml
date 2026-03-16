@@ -9,16 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-    - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
-      with:
-        toolchain: stable
+    - name: "install mpv"
+      run: |
+        sudo apt-get update
+        sudo apt-get install libmpv-dev libsqlite3-dev
     - run: cargo test --workspace --verbose
   fmt:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-    - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
-      with:
-        toolchain: stable
     - run: cargo fmt --check
     
