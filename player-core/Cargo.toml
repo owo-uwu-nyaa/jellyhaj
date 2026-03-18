@@ -2,7 +2,7 @@
 color-eyre = {workspace = true}
 futures-util = {workspace = true}
 jellyfin = {path = "../jellyfin-rs"}
-libmpv = {default-features = false, features = ["tokio", "tracing", "use-bindgen"], path = "../libmpv-rs"}
+libmpv = {default-features = false, features = ["tokio"], path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
 spawn = {path = "../spawn"}
@@ -13,6 +13,7 @@ tracing-core = {workspace = true}
 
 [features]
 use-bindgen = ["libmpv/use-bindgen"]
+tracing = ["libmpv/tracing"]
 
 [package]
 edition = "2024"

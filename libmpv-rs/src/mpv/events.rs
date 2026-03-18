@@ -18,6 +18,8 @@
 
 use libmpv_sys::{mpv_event, mpv_event_id as EventId};
 
+#[cfg(feature = "async")]
+use crate::mpv::drop_handle::CallbackContext;
 use crate::{
     Error, LogLevel, MpvFormat, Result,
     mpv::{
@@ -36,8 +38,9 @@ use std::sync::Arc;
 #[cfg(feature = "async")]
 use std::{
     ffi::c_void,
-    future::{Future, pending, poll_fn},
+    future::{Future, poll_fn},
     process::abort,
+    sync::atomic::Ordering,
     task::Poll,
 };
 
@@ -87,15 +90,22 @@ pub(crate) unsafe extern "C" fn wake_callback(cx: *mut c_void) {
     {
         tracing::trace!("wake_callback called");
     }
+    let context = unsafe { cx.cast_const().cast::<CallbackContext>().as_ref_unchecked() };
+    #[cfg(feature = "tracing")]
+    let _enter = context.resource_span.enter();
+    #[cfg(feature = "tracing")]
+    tracing::trace!(
+        target: "runtime::resource::state_update",
+        event_ready = true,
+        event_ready.op = "override",
+    );
+    let pin = crossbeam_epoch::pin();
     if let Some(waker) = unsafe {
-        cx.cast_const()
-            .cast::<parking_lot::Mutex<Option<std::task::Waker>>>()
+        context
+            .waker
+            .load(std::sync::atomic::Ordering::Acquire, &pin)
             .as_ref()
-            .unwrap_unchecked()
-    }
-    .lock()
-    .as_ref()
-    {
+    } {
         waker.wake_by_ref();
     }
     std::mem::forget(abort_guard);
@@ -190,7 +200,7 @@ pub enum Event<'a> {
 }
 
 pub struct EventContextSync {
-    drop_handle: Arc<MpvDropHandle>,
+    _drop_handle: Arc<MpvDropHandle>,
     /// The handle to the mpv core
     ctx: NonNull<libmpv_sys::mpv_handle>,
 }
@@ -223,12 +233,16 @@ impl EventContext for EventContextAsync {}
 fn setup_waker(ctx: &MpvDropHandle) -> AsyncContext {
     use crate::events::interval::DefaultInterval;
     unsafe {
+        let cx: *const CallbackContext = (&raw const *ctx.callback_cx);
         libmpv_sys::mpv_set_wakeup_callback(
             ctx.ctx.as_ptr(),
             Some(wake_callback),
-            (&raw const ctx.waker).cast_mut().cast(),
+            cx.cast_mut().cast(),
         );
     };
+
+    #[cfg(feature = "tracing")]
+    let _enter = ctx.callback_cx.resource_span.enter();
     AsyncContext {
         interval: <DefaultInterval as interval::Interval>::new(),
     }
@@ -237,7 +251,7 @@ fn setup_waker(ctx: &MpvDropHandle) -> AsyncContext {
 #[cfg(feature = "async")]
 impl EventContextSync {
     pub fn enable_async(self) -> EventContextAsync {
-        let cx = setup_waker(&self.drop_handle);
+        let cx = setup_waker(&self._drop_handle);
         EventContextAsync { inner: self, cx }
     }
 }
@@ -527,54 +541,70 @@ pub trait EventContextExt: sealed::EventContextExt {
 impl<T: sealed::EventContextExt> EventContextExt for T {}
 
 #[cfg(feature = "async")]
-fn poll(handle: &MpvDropHandle, async_cx: &mut AsyncContext, cx: &mut std::task::Context<'_>) {
-    match &mut *handle.waker.lock() {
-        Some(v) => cx.waker().clone_into(v),
-        v @ None => *v = Some(cx.waker().clone()),
-    }
-    //mpv doesn't run the callback on destruction, poll regularly anyway to avoid deadlocks
-    interval::Interval::poll(&mut async_cx.interval, cx);
-}
-
-#[cfg(feature = "async")]
 pub trait EventContextAsyncExt:
     sealed::EventContextAsyncExt + EventContextExt + Send + Sync
 {
-    fn wait_event_async(&mut self) -> impl Future<Output = Result<Event<'_>>> + Send + Sync;
-    fn poll_wait_event(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<Event<'_>>> {
+    fn wait_event_async(&mut self) -> impl Future<Output = Result<Event<'_>>> + Send + Sync {
+        poll_fn(move |cx| unsafe { self.poll_wait_event_inner(cx) })
+    }
+    /**
+    # Safety
+    ensure that 's is properly bound. It must be impossible to call any wait_event while the last returned event is still alive.
+     */
+    unsafe fn poll_wait_event_inner<'s>(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<Event<'s>>> {
+        let callback_cx = self.get_callback_cx();
+        #[cfg(feature = "tracing")]
+        let enter = callback_cx.resource_span.enter();
         if let Some(v) = unsafe { self.wait_event_unsafe(0.0) } {
             return Poll::Ready(v);
         }
-        let (async_cx, drop_handle) = self.get_waker_ctx();
-        poll(drop_handle, async_cx, cx);
-        if let Some(v) = self.wait_event(0.0) {
-            Poll::Ready(v)
-        } else {
-            Poll::Pending
+        {
+            let pin = crossbeam_epoch::pin();
+            let waker = cx.waker();
+            if let Some(current) =
+                unsafe { callback_cx.waker.load(Ordering::Acquire, &pin).as_ref() }
+                && current.will_wake(waker)
+            {
+            } else {
+                callback_cx.waker.store(
+                    crossbeam_epoch::Owned::new(waker.clone()),
+                    Ordering::Release,
+                );
+            }
         }
+        if let Some(v) = unsafe { self.wait_event_unsafe(0.0) } {
+            return Poll::Ready(v);
+        }
+        #[cfg(feature = "tracing")]
+        tracing::trace!(
+            target: "runtime::resource::state_update",
+            event_ready = false,
+            event_ready.op = "override",
+        );
+        #[cfg(feature = "tracing")]
+        drop(enter);
+        //mpv doesn't run the callback on destruction, poll regularly anyway to avoid deadlocks
+        interval::Interval::poll(&mut self.get_async_cx().interval, cx);
+        Poll::Pending
+    }
+    fn poll_wait_event<'s>(
+        &'s mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<Event<'s>>> {
+        unsafe { self.poll_wait_event_inner(cx) }
     }
 }
 
 #[cfg(feature = "async")]
-impl<T: sealed::EventContextAsyncExt + EventContextExt + Send + Sync> EventContextAsyncExt for T {
-    async fn wait_event_async(&mut self) -> Result<Event<'_>> {
-        poll_fn(|cx| {
-            let (async_cx, drop_handle) = self.get_waker_ctx();
-            poll(drop_handle, async_cx, cx);
-            Poll::Ready(())
-        })
-        .await;
-        if let Some(v) = self.wait_event(0.0) {
-            return v;
-        }
-        pending().await
-    }
-}
+impl<T: sealed::EventContextAsyncExt + EventContextExt + Send + Sync> EventContextAsyncExt for T {}
 
 mod sealed {
     use std::ptr::NonNull;
 
-    use crate::{mpv::MpvDropHandle, protocol::ProtocolContextType};
+    use crate::protocol::ProtocolContextType;
 
     #[cfg(feature = "async")]
     use super::{AsyncContext, EventContextAsync};
@@ -609,7 +639,7 @@ mod sealed {
         ) -> Self {
             EventContextSync {
                 ctx: cx.ctx,
-                drop_handle: cx.drop_handle.clone(),
+                _drop_handle: cx.drop_handle.clone(),
             }
         }
         fn to_inlined(self) -> Self::Inlined {}
@@ -665,18 +695,27 @@ mod sealed {
     }
     #[cfg(feature = "async")]
     pub trait EventContextAsyncExt: EventContextExt {
-        fn get_waker_ctx(&mut self) -> (&mut AsyncContext, &MpvDropHandle);
+        fn get_callback_cx(&self) -> &crate::mpv::drop_handle::CallbackContext;
+        fn get_async_cx(&mut self) -> &mut AsyncContext;
     }
     #[cfg(feature = "async")]
     impl EventContextAsyncExt for EventContextAsync {
-        fn get_waker_ctx(&mut self) -> (&mut AsyncContext, &MpvDropHandle) {
-            (&mut self.cx, &self.inner.drop_handle)
+        fn get_callback_cx(&self) -> &crate::mpv::drop_handle::CallbackContext {
+            &self.inner._drop_handle.callback_cx
+        }
+
+        fn get_async_cx(&mut self) -> &mut AsyncContext {
+            &mut self.cx
         }
     }
     #[cfg(feature = "async")]
     impl<Protocol: ProtocolContextType> EventContextAsyncExt for Mpv<EventContextAsync, Protocol> {
-        fn get_waker_ctx(&mut self) -> (&mut AsyncContext, &MpvDropHandle) {
-            (&mut self.event_inline, &self.drop_handle)
+        fn get_callback_cx(&self) -> &crate::mpv::drop_handle::CallbackContext {
+            &self.drop_handle.callback_cx
+        }
+
+        fn get_async_cx(&mut self) -> &mut AsyncContext {
+            &mut self.event_inline
         }
     }
 }

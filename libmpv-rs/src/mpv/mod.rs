@@ -34,6 +34,8 @@ use protocol::{ProtocolContextType, UninitProtocolContext};
 #[cfg(feature = "tracing")]
 use tracing::info;
 
+#[cfg(feature = "async")]
+use crate::mpv::drop_handle::CallbackContext;
 use crate::node::{MpvNodeArrayRef, MpvNodeRef};
 
 pub use self::errors::*;
@@ -280,11 +282,17 @@ use drop_handle::MpvDropHandle;
 
 mod drop_handle {
     use std::ptr::NonNull;
+    #[cfg(feature = "async")]
+    pub struct CallbackContext {
+        pub(crate) waker: crossbeam_epoch::Atomic<std::task::Waker>,
+        #[cfg(feature = "tracing")]
+        pub(crate) resource_span: tracing::Span,
+    }
 
     pub struct MpvDropHandle {
-        pub(super) ctx: NonNull<libmpv_sys::mpv_handle>,
+        pub(crate) ctx: NonNull<libmpv_sys::mpv_handle>,
         #[cfg(feature = "async")]
-        pub(super) waker: parking_lot::Mutex<Option<std::task::Waker>>,
+        pub(crate) callback_cx: Box<CallbackContext>,
     }
 
     impl Drop for MpvDropHandle {
@@ -316,12 +324,14 @@ unsafe impl<Event: EventContextType, Protocol: ProtocolContextType> Sync for Mpv
 impl Mpv {
     /// Create a new `Mpv`.
     /// The default settings can be probed by running: `$ mpv --show-profile=libmpv`.
+    #[cfg_attr(all(feature = "async", feature = "tracing"), track_caller)]
     pub fn new() -> Result<Mpv<EventContextSync, UninitProtocolContext>> {
         Self::with_initializer(|_| Ok(()))
     }
 
     /// Create a new `Mpv`.
     /// The same as `Mpv::new`, but you can set properties before `Mpv` is initialized.
+    #[cfg_attr(all(feature = "async", feature = "tracing"), track_caller)]
     pub fn with_initializer<E: From<Error>, F: FnOnce(MpvInitializer) -> StdResult<(), E>>(
         initializer: F,
     ) -> StdResult<Mpv<EventContextSync, UninitProtocolContext>, E> {
@@ -340,10 +350,34 @@ impl Mpv {
         }
 
         let ctx = unsafe { NonNull::new_unchecked(ctx) };
+        #[cfg(all(feature = "async", feature = "tracing"))]
+        let location = std::panic::Location::caller();
+        #[cfg(all(feature = "async", feature = "tracing"))]
+        let resource_span = tracing::trace_span!(
+            "runtime.resource",
+            concrete_type = "mpv",
+            kind = "Mpv",
+            loc.file = location.file(),
+            loc.line = location.line(),
+            loc.col = location.column(),
+        );
+        #[cfg(all(feature = "async", feature = "tracing"))]
+        resource_span.in_scope(|| {
+            tracing::trace!(
+                target: "runtime::resource::state_update",
+                event_ready = false,
+                event_ready.op = "override",
+            )
+        });
+
         let drop_handle = Arc::new(MpvDropHandle {
             ctx,
             #[cfg(feature = "async")]
-            waker: Default::default(),
+            callback_cx: Box::new(CallbackContext {
+                waker: crossbeam_epoch::Atomic::null(),
+                #[cfg(feature = "tracing")]
+                resource_span,
+            }),
         });
 
         initializer(MpvInitializer { ctx })?;

@@ -54,7 +54,7 @@ mimalloc = { version = "0.1.48", optional = true, features = ["secure", "v3"] }
 [features]
 default = ["mimalloc"]
 mpris = ["dep:player-mpris"]
-console-subscriber = ["dep:console-subscriber"]
+console-subscriber = ["dep:console-subscriber", "player-core/tracing"]
 mimalloc = ["dep:mimalloc"]
 
 [package]
