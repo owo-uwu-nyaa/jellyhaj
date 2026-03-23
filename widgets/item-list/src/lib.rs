@@ -265,7 +265,6 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<R, T> {
             if x_position < self.item_size.width
                 && let Some(item) = self.items.get_mut(index)
             {
-                self.current = index;
                 item.item_click(
                     cx.wrap_with(ListWrapper { index }),
                     Position {
