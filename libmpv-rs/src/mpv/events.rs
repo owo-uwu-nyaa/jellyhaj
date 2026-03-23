@@ -90,7 +90,7 @@ pub(crate) unsafe extern "C" fn wake_callback(cx: *mut c_void) {
     {
         tracing::trace!("wake_callback called");
     }
-    let context = unsafe { cx.cast_const().cast::<CallbackContext>().as_ref_unchecked() };
+    let context = unsafe { &*cx.cast_const().cast::<CallbackContext>() };
     #[cfg(feature = "tracing")]
     let _enter = context.resource_span.enter();
     #[cfg(feature = "tracing")]
