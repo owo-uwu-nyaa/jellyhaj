@@ -6,7 +6,7 @@ use jellyfin::{
     user_library::GetLatestQuery,
     user_views::{CollectionType, GetUserViewsQuery, UserView, UserViewType},
 };
-use jellyhaj_core::state::{Next, NextScreen};
+use jellyhaj_core::state::NextScreen;
 use tokio::try_join;
 
 async fn user_views(client: &JellyfinClient) -> Result<Vec<UserView>> {
@@ -125,16 +125,16 @@ async fn latest_user_views(
     Ok((user_view, latest))
 }
 
-pub async fn fetch(client: JellyfinClient) -> Result<Next> {
+pub async fn fetch(client: JellyfinClient) -> Result<NextScreen> {
     let (resume, next_up, (user_views, latest)) = try_join!(
         resume(&client),
         next_up(&client),
         latest_user_views(&client)
     )?;
-    Ok(Box::new(NextScreen::HomeScreen {
+    Ok(NextScreen::HomeScreen {
         cont: resume,
         next_up,
         libraries: user_views,
         library_latest: latest,
-    }))
+    })
 }

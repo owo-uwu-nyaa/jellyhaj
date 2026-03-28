@@ -175,14 +175,14 @@ pub struct ItemDisplayState {
 }
 
 impl ItemDisplayState {
-    pub fn new(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>) -> Self {
+    pub fn new(item: Box<MediaItem>, cx: &impl ContextRef<ImageProtocolCache>) -> Self {
         let overview = item
             .overview
             .as_ref()
             .map(|o| Overview::new(o.clone(), "Overview".to_string()));
         let register = Some(item.id.clone());
         Self {
-            entry: EntryState::new(item, cx),
+            entry: EntryState::new(*item, cx),
             overview,
             register,
         }
@@ -252,9 +252,9 @@ impl<
                 }
                 Ok(None)
             }
-            DisplayAction::Reload(id) => Ok(Some(Navigation::Replace(Box::new(
-                NextScreen::FetchItemDetails(id),
-            )))),
+            DisplayAction::Reload(id) => {
+                Ok(Some(Navigation::Replace(NextScreen::FetchItemDetails(id))))
+            }
             DisplayAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }
@@ -342,9 +342,9 @@ impl<
                 }
                 Ok(None)
             }
-            DisplayAction::Reload(id) => Ok(Some(Navigation::Replace(Box::new(
-                NextScreen::FetchItemDetails(id),
-            )))),
+            DisplayAction::Reload(id) => {
+                Ok(Some(Navigation::Replace(NextScreen::FetchItemDetails(id))))
+            }
             DisplayAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }
@@ -496,7 +496,7 @@ impl<
         + 'static,
 > ItemListDisplayState<R>
 {
-    pub fn new(children: Vec<MediaItem>, item: MediaItem, cx: &R) -> Self {
+    pub fn new(children: Vec<MediaItem>, item: Box<MediaItem>, cx: &R) -> Self {
         let overview = item
             .overview
             .as_ref()
@@ -510,7 +510,7 @@ impl<
             ItemListState::new(children.into_iter().map(|i| EntryState::new(i, cx)), title);
         Self {
             children,
-            item,
+            item: *item,
             overview,
             register,
         }
@@ -586,9 +586,9 @@ impl<
                 cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
-            DisplayListAction::Reload => Ok(Some(Navigation::Replace(Box::new(
+            DisplayListAction::Reload => Ok(Some(Navigation::Replace(
                 NextScreen::FetchItemListDetailsRef(self.item.id.clone()),
-            )))),
+            ))),
             DisplayListAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }
@@ -676,9 +676,9 @@ impl<
                 cx.wrap_with(DisplayListAction::Inner),
                 ItemListAction::Right,
             ),
-            DisplayListAction::Reload => Ok(Some(Navigation::Replace(Box::new(
+            DisplayListAction::Reload => Ok(Some(Navigation::Replace(
                 NextScreen::FetchItemListDetailsRef(self.item.id.clone()),
-            )))),
+            ))),
             DisplayListAction::Remove => Ok(Some(Navigation::PopContext)),
         }
     }

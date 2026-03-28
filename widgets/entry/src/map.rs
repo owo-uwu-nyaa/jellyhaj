@@ -24,7 +24,7 @@ impl EntryData {
                 play_item(item.clone())?
             }
             (EntryData::View(view), EntryCommand::Activate | EntryCommand::Open) => {
-                NextScreen::LoadUserView(view.clone())
+                NextScreen::LoadUserView(Box::new(view.clone()))
             }
             (
                 EntryData::Item(MediaItem { id, .. }) | EntryData::View(UserView { id, .. }),
@@ -64,7 +64,7 @@ impl EntryData {
                 | EntryCommand::UnsetWatched,
             ) => return None,
         };
-        Some(Navigation::Push(Box::new(next)))
+        Some(Navigation::Push(next))
     }
 }
 
@@ -73,7 +73,7 @@ pub fn play_item(item: MediaItem) -> Option<NextScreen> {
         v @ MediaItem {
             item_type: ItemType::Movie,
             ..
-        } => LoadPlay::Movie(v),
+        } => LoadPlay::Movie(Box::new(v)),
         MediaItem {
             id,
             item_type: ItemType::Playlist | ItemType::Folder,
@@ -116,7 +116,7 @@ fn open_item(item: &MediaItem) -> Option<NextScreen> {
         v @ MediaItem {
             item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
             ..
-        } => NextScreen::ItemDetails(v.clone()),
+        } => NextScreen::ItemDetails(Box::new(v.clone())),
         v @ MediaItem {
             item_type:
                 ItemType::Playlist
@@ -126,7 +126,7 @@ fn open_item(item: &MediaItem) -> Option<NextScreen> {
                 | ItemType::CollectionFolder
                 | ItemType::Season { .. },
             ..
-        } => NextScreen::FetchItemListDetails(v.clone()),
+        } => NextScreen::FetchItemListDetails(Box::new(v.clone())),
         MediaItem {
             item_type: ItemType::Unknown,
             ..
@@ -138,12 +138,12 @@ fn item_episode(item: &MediaItem) -> Option<NextScreen> {
         v @ MediaItem {
             item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
             ..
-        } => NextScreen::ItemDetails(v.clone()),
+        } => NextScreen::ItemDetails(Box::new(v.clone())),
         i @ MediaItem {
             item_type:
                 ItemType::Playlist | ItemType::MusicAlbum | ItemType::Series | ItemType::Season { .. },
             ..
-        } => NextScreen::ItemDetails(i.clone()),
+        } => NextScreen::ItemDetails(Box::new(i.clone())),
         MediaItem {
             item_type: ItemType::Unknown | ItemType::Folder | ItemType::CollectionFolder,
             ..
@@ -164,11 +164,11 @@ pub fn item_season(item: &MediaItem) -> Option<NextScreen> {
         i @ MediaItem {
             item_type: ItemType::Season { .. },
             ..
-        } => NextScreen::FetchItemListDetails(i.clone()),
+        } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
         i @ MediaItem {
             item_type: ItemType::Series,
             ..
-        } => NextScreen::FetchItemListDetails(i.clone()),
+        } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
         MediaItem {
             item_type: ItemType::Music { album_id, .. },
             ..
@@ -176,7 +176,7 @@ pub fn item_season(item: &MediaItem) -> Option<NextScreen> {
         i @ MediaItem {
             item_type: ItemType::MusicAlbum,
             ..
-        } => NextScreen::FetchItemListDetails(i.clone()),
+        } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
         _ => return None,
     })
 }
@@ -190,7 +190,7 @@ fn item_series(item: &MediaItem) -> Option<NextScreen> {
         i @ MediaItem {
             item_type: ItemType::Series,
             ..
-        } => Some(NextScreen::FetchItemListDetails(i.clone())),
+        } => Some(NextScreen::FetchItemListDetails(Box::new(i.clone()))),
         _ => None,
     }
 }

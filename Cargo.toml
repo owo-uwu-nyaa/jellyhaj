@@ -37,7 +37,7 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 spawn = {path = "spawn"}
 sqlx = {workspace = true}
-tokio = {features = ["macros", "parking_lot", "rt", "signal", "time", "tracing"], workspace = true}
+tokio = {features = ["macros", "parking_lot", "rt", "signal", "time"], workspace = true}
 tokio-util = {workspace = true}
 toml = {workspace = true}
 tracing = {workspace = true}
@@ -54,7 +54,7 @@ mimalloc = { version = "0.1.48", optional = true, features = ["secure", "v3"] }
 [features]
 default = ["mimalloc"]
 mpris = ["dep:player-mpris"]
-console-subscriber = ["dep:console-subscriber", "player-core/tracing"]
+console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
 
 [package]

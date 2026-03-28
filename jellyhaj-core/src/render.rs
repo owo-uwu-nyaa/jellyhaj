@@ -29,7 +29,7 @@ use spawn::{CancellationToken, Spawner};
 use tokio::{select, task::JoinHandle};
 use tracing::debug;
 
-use crate::state::{Navigation, Next, NextScreen};
+use crate::state::{Navigation, NextScreen};
 
 #[derive(Debug)]
 pub enum KeybindAction<A: Debug + Send + 'static> {
@@ -90,10 +90,10 @@ impl<
 pub enum NavigationResult {
     Exit,
     Pop,
-    Replace(Next),
+    Replace(NextScreen),
     Push {
         current: Suspended,
-        next: Next,
+        next: NextScreen,
     },
     PushWithoutTui {
         current: Suspended,
@@ -219,7 +219,7 @@ fn with_suspend_current<
     renderer: WidgetRenderer<'_, A, Navigation, R, W>,
 ) -> NavigationResult {
     match res {
-        Err(e) => NavigationResult::Replace(Box::new(NextScreen::Error(e))),
+        Err(e) => NavigationResult::Replace(NextScreen::Error(e) ),
         Ok(Navigation::Exit) => NavigationResult::Exit,
         Ok(Navigation::PopContext) => NavigationResult::Pop,
         Ok(Navigation::Replace(n)) => NavigationResult::Replace(n),
@@ -280,9 +280,9 @@ async fn run_suspended<
         let action = match res {
             None => unreachable!(),
             Some(Err(e)) => {
-                return Hydrated::Finished(NavigationResult::Replace(Box::new(NextScreen::Error(
+                return Hydrated::Finished(NavigationResult::Replace(NextScreen::Error(
                     e,
-                ))));
+                ) ));
             }
             Some(Ok(a)) => a,
         };
@@ -294,9 +294,9 @@ async fn run_suspended<
             action,
         ) {
             Err(e) => {
-                return Hydrated::Finished(NavigationResult::Replace(Box::new(NextScreen::Error(
+                return Hydrated::Finished(NavigationResult::Replace(NextScreen::Error(
                     e,
-                ))));
+                ) ));
             }
             Ok(None) => {}
             Ok(Some(Navigation::PopContext)) => {
@@ -423,7 +423,6 @@ struct WidgetRenderer<
     cx: R,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub async fn render_widget_bare<
     A: Debug + Send + 'static,
     T: Debug,

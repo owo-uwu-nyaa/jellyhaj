@@ -13,7 +13,7 @@ use jellyhaj_core::{
     context::TuiContext,
     keybinds::LoadingCommand,
     render::{NavigationResult, render_widget},
-    state::{Navigation, Next},
+    state::{Navigation, NextScreen},
 };
 use jellyhaj_fetch_widget::{FetchAction, FetchState};
 use jellyhaj_keybinds_widget::KeybindState;
@@ -45,7 +45,7 @@ pub fn make_fetch(
     events: &mut KeybindEvents,
     cx: TuiContext,
     title: impl Into<Cow<'static, str>>,
-    fut: impl Future<Output = Result<Next>> + Send + 'static,
+    fut: impl Future<Output = Result<NextScreen>> + Send + 'static,
 ) -> impl Future<Output = NavigationResult> {
     let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
         FetchState::new(fut, title.into()),

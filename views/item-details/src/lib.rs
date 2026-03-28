@@ -32,7 +32,7 @@ pub fn render_fetch_episode(
         let item = fetch_child_of_type(&jellyfin, "Episode, Movie, Music", &parent)
             .await
             .context("fetching episode")?;
-        Ok(Box::new(NextScreen::ItemDetails(item)))
+        Ok(NextScreen::ItemDetails(Box::new(item)))
     };
     make_fetch(term, events, cx, "Fetching single item", fut)
 }
@@ -42,13 +42,13 @@ pub fn render_fetch_item_list(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
-    parent: MediaItem,
+    parent: Box<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
     let jellyfin = cx.jellyfin.clone();
     let title = format!("Loading {}", &parent.name);
     let fut = async move {
         let items = fetch_all_children(&jellyfin, &parent.id).await?;
-        Ok(Box::new(NextScreen::ItemListDetails(parent, items)))
+        Ok(NextScreen::ItemListDetails(parent, items))
     };
     make_fetch(term, events, cx, title, fut)
 }
@@ -66,7 +66,7 @@ pub fn render_fetch_item_list_ref(
             fetch_item(&jellyfin, &parent),
             fetch_all_children(&jellyfin, &parent)
         )?;
-        Ok(Box::new(NextScreen::ItemListDetails(parent, children)))
+        Ok(NextScreen::ItemListDetails(Box::new(parent), children))
     };
     make_fetch(term, events, cx, "Loading item list", fut)
 }
@@ -83,9 +83,9 @@ impl CommandMapper<ItemDetailsCommand> for DetailsMapper {
             ItemDetailsCommand::Quit => ControlFlow::Break(Navigation::PopContext),
             ItemDetailsCommand::Up => ControlFlow::Continue(DisplayAction::Up),
             ItemDetailsCommand::Down => ControlFlow::Continue(DisplayAction::Down),
-            ItemDetailsCommand::Reload => ControlFlow::Break(Navigation::Replace(Box::new(
+            ItemDetailsCommand::Reload => ControlFlow::Break(Navigation::Replace(
                 NextScreen::FetchItemDetails(self.id.clone()),
-            ))),
+            )),
             ItemDetailsCommand::Entry(entry_command) => {
                 ControlFlow::Continue(DisplayAction::Inner(EntryAction::Command(entry_command)))
             }
@@ -105,7 +105,7 @@ pub fn render_item_details(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
-    item: MediaItem,
+    item: Box<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
     let id = item.id.clone();
     let state = ItemDisplayState::new(item, &cx);
@@ -132,9 +132,9 @@ impl CommandMapper<ItemListDetailsCommand> for ListMapper {
     fn map(&self, command: ItemListDetailsCommand) -> ControlFlow<Navigation, Self::A> {
         match command {
             ItemListDetailsCommand::Quit => ControlFlow::Break(Navigation::PopContext),
-            ItemListDetailsCommand::Reload => ControlFlow::Break(Navigation::Replace(Box::new(
+            ItemListDetailsCommand::Reload => ControlFlow::Break(Navigation::Replace(
                 NextScreen::FetchItemListDetailsRef(self.id.clone()),
-            ))),
+            )),
             ItemListDetailsCommand::Up => ControlFlow::Continue(DisplayListAction::Up),
             ItemListDetailsCommand::Down => ControlFlow::Continue(DisplayListAction::Down),
             ItemListDetailsCommand::Left => ControlFlow::Continue(DisplayListAction::Left),
@@ -144,9 +144,9 @@ impl CommandMapper<ItemListDetailsCommand> for ListMapper {
                     EntryAction::Command(entry_command),
                 )))
             }
-            ItemListDetailsCommand::RefreshParentItem => ControlFlow::Break(Navigation::Push(
-                Box::new(NextScreen::RefreshItem(self.id.clone())),
-            )),
+            ItemListDetailsCommand::RefreshParentItem => {
+                ControlFlow::Break(Navigation::Push(NextScreen::RefreshItem(self.id.clone())))
+            }
             ItemListDetailsCommand::Global(g) => ControlFlow::Break(g.into()),
         }
     }
@@ -163,7 +163,7 @@ pub fn render_item_list_details(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
-    parent: MediaItem,
+    parent: Box<MediaItem>,
     children: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
     let id = parent.id.clone();

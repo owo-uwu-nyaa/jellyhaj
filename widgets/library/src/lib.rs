@@ -33,9 +33,9 @@ impl CommandMapper<UserViewCommand> for Mapper {
     fn map(&self, command: UserViewCommand) -> ControlFlow<Navigation, Self::A> {
         match command {
             UserViewCommand::Quit => ControlFlow::Break(Navigation::PopContext),
-            UserViewCommand::Reload => ControlFlow::Break(Navigation::Replace(Box::new(
-                NextScreen::LoadUserView(self.view.clone()),
-            ))),
+            UserViewCommand::Reload => ControlFlow::Break(Navigation::Replace(
+                NextScreen::LoadUserView(Box::new(self.view.clone())),
+            )),
             UserViewCommand::Prev => ControlFlow::Continue(ItemGridAction::Left),
             UserViewCommand::Next => ControlFlow::Continue(ItemGridAction::Right),
             UserViewCommand::Up => ControlFlow::Continue(ItemGridAction::Up),
@@ -108,7 +108,7 @@ impl<
         + 'static,
 > LibraryState<R>
 {
-    pub fn new(view: UserView, items: Vec<MediaItem>, cx: &R) -> Self {
+    pub fn new(view: Box<UserView>, items: Vec<MediaItem>, cx: &R) -> Self {
         let inner = ItemGridState::<R, EntryState>::new(
             items.into_iter().map(|i| EntryState::new(i, cx)).collect(),
             view.name.clone(),
@@ -117,12 +117,12 @@ impl<
         let inner = KeybindState::new(
             inner,
             Config::get_ref(cx).keybinds.user_view.clone(),
-            Mapper { view: view.clone() },
+            Mapper { view: UserView::clone(&view)},
         );
 
         Self {
             inner,
-            user_view: view,
+            user_view: *view,
             registered: false,
         }
     }
@@ -167,8 +167,8 @@ impl<
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
             KeybindAction::Inner(LibraryAction::Reload) => {
-                return Ok(Some(Navigation::Replace(Box::new(
-                    NextScreen::LoadUserView(self.user_view.clone()),
+                return Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
+                    Box::new(self.user_view.clone()),
                 ))));
             }
             KeybindAction::Inner(LibraryAction::Remove) => {
@@ -248,8 +248,8 @@ impl<
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
             KeybindAction::Inner(LibraryAction::Reload) => {
-                return Ok(Some(Navigation::Replace(Box::new(
-                    NextScreen::LoadUserView(self.user_view.clone()),
+                return Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
+                    Box::new(self.user_view.clone()),
                 ))));
             }
             KeybindAction::Inner(LibraryAction::Remove) => {

@@ -7,12 +7,12 @@ use jellyfin::{
 use jellyhaj_core::{
     context::{DefaultTerminal, KeybindEvents, TuiContext},
     render::{NavigationResult, render_widget},
-    state::{Next, NextScreen},
+    state::NextScreen,
 };
 use jellyhaj_fetch_view::make_fetch;
 use jellyhaj_library_widget::LibraryState;
 
-async fn fetch_user_view(jellyfin: JellyfinClient, view: UserView) -> Result<Next> {
+async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Result<NextScreen> {
     let user_id = jellyfin.get_auth().user.id.as_str();
     let items = JellyfinVec::collect(async |start| {
         jellyfin
@@ -39,14 +39,14 @@ async fn fetch_user_view(jellyfin: JellyfinClient, view: UserView) -> Result<Nex
             .context("deserializing items")
     })
     .await?;
-    Ok(Box::new(NextScreen::UserView { view, items }))
+    Ok(NextScreen::UserView { view, items })
 }
 
 pub fn render_fetch_user_view(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
-    view: UserView,
+    view: Box<UserView>,
 ) -> impl Future<Output = NavigationResult> {
     let title = format!("Loading user view {}", view.name);
     let inner = fetch_user_view(cx.jellyfin.clone(), view);
@@ -57,7 +57,7 @@ pub fn render_user_view(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
-    view: UserView,
+    view: Box<UserView>,
     items: Vec<MediaItem>,
 ) -> impl Future<Output = NavigationResult> {
     let state = LibraryState::new(view, items, &cx);

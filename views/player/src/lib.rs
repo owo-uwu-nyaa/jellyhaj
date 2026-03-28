@@ -12,7 +12,7 @@ use jellyhaj_core::{
     context::{DefaultTerminal, KeybindEvents, TuiContext},
     keybinds::MpvCommand,
     render::{NavigationResult, render_widget},
-    state::{LoadPlay, Navigation, Next, NextScreen},
+    state::{LoadPlay, Navigation, NextScreen},
 };
 use jellyhaj_keybinds_widget::KeybindState;
 use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
@@ -76,7 +76,7 @@ pub fn render_fetch_play(
     jellyhaj_fetch_view::make_fetch(term, events, cx, "Loading related items for playlist", fut)
 }
 
-async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<Next> {
+async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
     let (items, index) = match item {
         LoadPlay::Series { id } => (fetch_series(&cx, &id).await?, 0),
         LoadPlay::Season { series_id, id } => {
@@ -151,7 +151,7 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<Next> {
             .await?;
             (items, 0)
         }
-        LoadPlay::Movie(item) => (vec![item], 0),
+        LoadPlay::Movie(item) => (vec![*item], 0),
         LoadPlay::Music { id, album_id } => {
             let items = fetch_childs(&cx, &album_id).await?;
             let pos = item_position(&id, &items).unwrap_or(0);
@@ -175,7 +175,7 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<Next> {
         return Err(eyre!("Unable to play, item is empty"));
     }
 
-    Ok(Box::new(NextScreen::Play { items, index }))
+    Ok(NextScreen::Play { items, index })
 }
 
 fn item_position(id: &str, items: &[MediaItem]) -> Option<usize> {

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Debug};
 
-use jellyhaj_core::state::{Navigation, Next};
+use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading, LoadingState};
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
 use tracing::info_span;
@@ -8,15 +8,16 @@ use tracing::info_span;
 #[derive(Debug)]
 pub enum FetchAction {
     Inner(AdvanceLoadingScreen),
-    FetchFinished(Next),
+    FetchFinished(NextScreen),
+    FetchTimeout,
 }
 
-pub struct FetchState<F: Future<Output = Result<Next>> + Send + 'static> {
+pub struct FetchState<F: Future<Output = Result<NextScreen>> + Send + 'static> {
     fut: Option<F>,
     inner: LoadingState,
 }
 
-impl<F: Future<Output = Result<Next>> + Send + 'static> FetchState<F> {
+impl<F: Future<Output = Result<NextScreen>> + Send + 'static> FetchState<F> {
     pub fn new(fut: F, title: Cow<'static, str>) -> Self {
         Self {
             fut: Some(fut),
@@ -25,7 +26,7 @@ impl<F: Future<Output = Result<Next>> + Send + 'static> FetchState<F> {
     }
 }
 
-impl<F: Future<Output = Result<Next>> + Send + 'static> Debug for FetchState<F> {
+impl<F: Future<Output = Result<NextScreen>> + Send + 'static> Debug for FetchState<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FetchState")
             .field("inner", &self.inner)
@@ -33,7 +34,7 @@ impl<F: Future<Output = Result<Next>> + Send + 'static> Debug for FetchState<F> 
     }
 }
 
-impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidgetState<R>
+impl<R: 'static, F: Future<Output = Result<NextScreen>> + Send + 'static> JellyhajWidgetState<R>
     for FetchState<F>
 {
     type Action = FetchAction;
@@ -68,16 +69,19 @@ impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidg
                 Ok(None)
             }
             FetchAction::FetchFinished(next_screen) => Ok(Some(Navigation::Replace(next_screen))),
+            FetchAction::FetchTimeout => Ok(Some(Navigation::Replace(NextScreen::Error(
+                color_eyre::eyre::eyre!("fetch timeout reached.\n\n(this can be configured)"),
+            )))),
         }
     }
 }
 
-pub struct FetchWidget<F: Future<Output = Result<Next>> + Send + 'static> {
+pub struct FetchWidget<F: Future<Output = Result<NextScreen>> + Send + 'static> {
     fut: Option<F>,
     inner: Loading,
 }
 
-impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidget<R>
+impl<R: 'static, F: Future<Output = Result<NextScreen>> + Send + 'static> JellyhajWidget<R>
     for FetchWidget<F>
 {
     type Action = FetchAction;
@@ -126,6 +130,9 @@ impl<R: 'static, F: Future<Output = Result<Next>> + Send + 'static> JellyhajWidg
                 Ok(None)
             }
             FetchAction::FetchFinished(next_screen) => Ok(Some(Navigation::Replace(next_screen))),
+            FetchAction::FetchTimeout => Ok(Some(Navigation::Replace(NextScreen::Error(
+                color_eyre::eyre::eyre!("fetch timeout reached.\n\n(this can be configured)"),
+            )))),
         }
     }
 

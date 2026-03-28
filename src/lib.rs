@@ -8,7 +8,7 @@ use config::{Config, init_config};
 use jellyhaj_core::{
     context::TuiContext,
     render::{NavigationResult, Suspended},
-    state::{Next, NextScreen},
+    state::NextScreen,
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::cache::ImageProtocolCache;
@@ -23,12 +23,12 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error_span, info, instrument};
 
 async fn show_screen(
-    screen: Next,
+    screen: NextScreen,
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     cx: TuiContext,
 ) -> NavigationResult {
-    match *screen {
+    match screen {
         NextScreen::LoadHomeScreen => {
             jellyhaj_home_screen_view::render_fetch_home_screen(term, events, cx).await
         }
@@ -97,7 +97,7 @@ async fn show_screen(
 #[instrument(skip_all, level = "debug")]
 async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
     let mut state: Vec<Suspended> = Vec::new();
-    let mut top: Option<Next> = None;
+    let mut top: Option<NextScreen> = None;
     info!("reached main application loop");
     loop {
         let res = if let Some(top) = top.take() {
@@ -124,7 +124,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
             } => {
                 state.push(current);
                 if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
-                    top = Some(Box::new(NextScreen::Error(e)))
+                    top = Some(NextScreen::Error(e))
                 }
             }
         }

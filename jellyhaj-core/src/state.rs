@@ -20,10 +20,9 @@ pub fn flatten_control_flow(
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum LoadPlay {
-    Movie(MediaItem),
+    Movie(Box<MediaItem>),
     Series { id: String },
     Season { series_id: String, id: String },
     Episode { series_id: String, id: String },
@@ -42,9 +41,9 @@ pub enum NextScreen {
         libraries: Vec<UserView>,
         library_latest: Vec<(String, Vec<MediaItem>)>,
     },
-    LoadUserView(UserView),
+    LoadUserView(Box<UserView>),
     UserView {
-        view: UserView,
+        view: Box<UserView>,
         items: Vec<MediaItem>,
     },
     FetchPlay(LoadPlay),
@@ -53,9 +52,9 @@ pub enum NextScreen {
         index: usize,
     },
     Error(Report),
-    ItemDetails(MediaItem),
-    ItemListDetails(MediaItem, Vec<MediaItem>),
-    FetchItemListDetails(MediaItem),
+    ItemDetails(Box<MediaItem>),
+    ItemListDetails(Box<MediaItem>, Vec<MediaItem>),
+    FetchItemListDetails(Box<MediaItem>),
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),
     RefreshItem(String),
@@ -63,13 +62,11 @@ pub enum NextScreen {
     Logs,
 }
 
-pub type Next = Box<NextScreen>;
-
 #[allow(clippy::large_enum_variant)]
 pub enum Navigation {
     PopContext,
-    Push(Next),
-    Replace(Next),
+    Push(NextScreen),
+    Replace(NextScreen),
     Exit,
     PushWithoutTui(BoxFuture<'static, Result<()>>),
 }
@@ -83,8 +80,8 @@ impl From<Infallible> for Navigation {
 impl From<GlobalCommand> for Navigation {
     fn from(value: GlobalCommand) -> Self {
         match value {
-            GlobalCommand::ShowStats => Navigation::Push(Box::new(NextScreen::Stats)),
-            GlobalCommand::ShowLogs => Navigation::Push(Box::new(NextScreen::Logs)),
+            GlobalCommand::ShowStats => Navigation::Push(NextScreen::Stats),
+            GlobalCommand::ShowLogs => Navigation::Push(NextScreen::Logs),
         }
     }
 }

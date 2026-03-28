@@ -31,7 +31,7 @@ impl CommandMapper<HomeScreenCommand> for Mapper {
         match command {
             HomeScreenCommand::Quit => ControlFlow::Break(Navigation::Exit),
             HomeScreenCommand::Reload => {
-                ControlFlow::Break(Navigation::Replace(Box::new(NextScreen::LoadHomeScreen)))
+                ControlFlow::Break(Navigation::Replace(NextScreen::LoadHomeScreen))
             }
             HomeScreenCommand::Left => ControlFlow::Continue(ItemScreenAction::Left),
             HomeScreenCommand::Right => ControlFlow::Continue(ItemScreenAction::Right),
@@ -227,9 +227,7 @@ impl<
         let action = match action {
             KeybindAction::Inner(HomeScreenAction::Reload)
             | KeybindAction::Inner(HomeScreenAction::PotentialReload(true)) => {
-                return Ok(Some(Navigation::Replace(Box::new(
-                    NextScreen::LoadHomeScreen,
-                ))));
+                return Ok(Some(Navigation::Replace(NextScreen::LoadHomeScreen)));
             }
             KeybindAction::Inner(HomeScreenAction::PotentialReload(false)) => return Ok(None),
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
@@ -291,9 +289,7 @@ impl<
         let action = match action {
             KeybindAction::Inner(HomeScreenAction::Reload)
             | KeybindAction::Inner(HomeScreenAction::PotentialReload(true)) => {
-                return Ok(Some(Navigation::Replace(Box::new(
-                    NextScreen::LoadHomeScreen,
-                ))));
+                return Ok(Some(Navigation::Replace(NextScreen::LoadHomeScreen)));
             }
             KeybindAction::Inner(HomeScreenAction::PotentialReload(false)) => return Ok(None),
             KeybindAction::Inner(HomeScreenAction::Inner(a)) => KeybindAction::Inner(a),
