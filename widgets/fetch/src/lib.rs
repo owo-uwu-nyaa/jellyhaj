@@ -1,8 +1,13 @@
-use std::{borrow::Cow, fmt::Debug};
+use std::{borrow::Cow, fmt::Debug, time::Duration};
 
-use jellyhaj_core::state::{Navigation, NextScreen};
+use jellyhaj_core::{
+    Config,
+    state::{Navigation, NextScreen},
+};
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading, LoadingState};
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper,
+};
 use tracing::info_span;
 
 #[derive(Debug)]
@@ -34,8 +39,8 @@ impl<F: Future<Output = Result<NextScreen>> + Send + 'static> Debug for FetchSta
     }
 }
 
-impl<R: 'static, F: Future<Output = Result<NextScreen>> + Send + 'static> JellyhajWidgetState<R>
-    for FetchState<F>
+impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<NextScreen>> + Send + 'static>
+    JellyhajWidgetState<R> for FetchState<F>
 {
     type Action = FetchAction;
 
@@ -81,8 +86,8 @@ pub struct FetchWidget<F: Future<Output = Result<NextScreen>> + Send + 'static> 
     inner: Loading,
 }
 
-impl<R: 'static, F: Future<Output = Result<NextScreen>> + Send + 'static> JellyhajWidget<R>
-    for FetchWidget<F>
+impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<NextScreen>> + Send + 'static>
+    JellyhajWidget<R> for FetchWidget<F>
 {
     type Action = FetchAction;
 
@@ -166,7 +171,16 @@ impl<R: 'static, F: Future<Output = Result<NextScreen>> + Send + 'static> Jellyh
                 async move { Ok(FetchAction::FetchFinished(fut.await?)) },
                 info_span!("do_fetch"),
                 "do_fetch",
-            )
+            );
+            cx.submitter
+                .wrap_with(|_| FetchAction::FetchTimeout)
+                .spawn_task_infallible(
+                    tokio::time::sleep(Duration::from_secs(
+                        Config::get_ref(cx.refs).fetch_timeout.into(),
+                    )),
+                    info_span!("fetch_timeout"),
+                    "fetch_timeout",
+                );
         }
         self.inner
             .render_fallible_inner(area, buf, cx.wrap_with(FetchAction::Inner))

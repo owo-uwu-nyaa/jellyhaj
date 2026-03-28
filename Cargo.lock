@@ -2010,6 +2010,7 @@ dependencies = [
  "jellyhaj-core",
  "jellyhaj-loading-widget",
  "jellyhaj-widgets-core",
+ "tokio",
  "tracing",
 ]
 

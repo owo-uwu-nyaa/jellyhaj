@@ -25,6 +25,7 @@ pub struct Config {
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: u16,
     pub jellyfin_concurrent_connections: u8,
+    pub fetch_timeout: u16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +38,7 @@ struct ParseConfig {
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: Option<u16>,
     pub jellyfin_concurrent_connections: Option<u8>,
+    pub fetch_timeout: Option<u16>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -157,6 +159,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         mpv_config_file: config.mpv_config_file,
         entry_image_width: config.entry_image_width.unwrap_or(32),
         jellyfin_concurrent_connections: config.jellyfin_concurrent_connections.unwrap_or(2),
+        fetch_timeout: config.fetch_timeout.unwrap_or(15),
     })
 }
 

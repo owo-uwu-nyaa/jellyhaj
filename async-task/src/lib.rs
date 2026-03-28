@@ -254,6 +254,32 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
             name,
         );
     }
+
+    #[track_caller]
+    pub fn spawn_task_infallible(
+        &self,
+        fut: impl Future<Output = A> + Send + 'static,
+        span: Span,
+        name: &'static str,
+    ) {
+        let wrapper = self.wrapper;
+        let mut sender = self.sender.clone();
+        let cancel = self.cancel.clone();
+        self.spawner.spawn(
+            async move {
+                let inner = async {
+                    let _ = sender.feed(Ok(wrapper.wrap(fut.await))).await;
+                };
+                Cancelled {
+                    f: inner,
+                    cancel: cancel.cancelled(),
+                }
+                .await
+            },
+            span,
+            name,
+        );
+    }
 }
 
 impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {

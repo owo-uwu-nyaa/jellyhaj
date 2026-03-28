@@ -117,7 +117,9 @@ impl<
         let inner = KeybindState::new(
             inner,
             Config::get_ref(cx).keybinds.user_view.clone(),
-            Mapper { view: UserView::clone(&view)},
+            Mapper {
+                view: UserView::clone(&view),
+            },
         );
 
         Self {
