@@ -191,7 +191,7 @@ pub async fn login(
                 version: version.into(),
             },
             device_name.clone(),
-            config.jellyfin_concurrent_connections.into(),
+            config.concurrent_jellyfin_connections.into(),
         ) {
             Ok(client) => client,
             Err(e) => {

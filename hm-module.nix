@@ -71,6 +71,18 @@ in
         type = types.nullOr types.path;
         default = null;
       };
+      entry_image_with = mkOption {
+        type = lib.types.ints.u16;
+        default = 32;
+      };
+      concurrent_jellyfin_connections = mkOption {
+        type = lib.types.ints.u8;
+        default = 2;
+      };
+      fetch_timeout = mkOption {
+        type = lib.types.ints.u16;
+        default = 15;
+      };
     };
     keybinds = mkOption {
       type = types.nullOr (types.attrsOf types.anything);
