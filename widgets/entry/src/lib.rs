@@ -365,7 +365,7 @@ impl<
 
 fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>) -> EntryState {
     let (title, subtitle) = match &item.item_type {
-        ItemType::Movie | ItemType::Unknown | ItemType::CollectionFolder => {
+        ItemType::Movie | ItemType::Unknown{ item_type: _ } | ItemType::CollectionFolder => {
             (item.name.clone(), None)
         }
         ItemType::Episode {

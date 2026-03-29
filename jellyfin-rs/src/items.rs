@@ -202,8 +202,11 @@ pub enum ItemType {
         album_id: String,
         album: String,
     },
-    #[serde(other)]
-    Unknown,
+    #[serde(untagged)]
+    Unknown{
+        #[serde(rename = "Type")]
+        item_type: String
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -234,7 +237,6 @@ pub struct MediaItem {
     pub sort_name: Option<String>,
     pub overview: Option<String>,
     #[serde(flatten)]
-    #[serde(rename = "type")]
     pub item_type: ItemType,
     pub user_data: Option<UserData>,
     #[serde(rename = "IndexNumber")]
