@@ -1,4 +1,3 @@
-nix-rust-build:
 {
   config,
   lib,
@@ -16,19 +15,15 @@ let
     ;
   cfg = config.programs.jellyhaj;
   jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
-  jellyhaj-incremental =
-    (pkgs.extend nix-rust-build.overlays.default).callPackage ./jellyhaj-incremental.nix
-      { };
 in
 {
   options.programs.jellyhaj = {
     enable = mkEnableOption "enable jellyhaj tui";
     package = mkOption {
       type = types.package;
-      default = if cfg.useIncremental then jellyhaj-incremental else jellyhaj;
+      default = jellyhaj;
       description = "package with jellyhaj";
     };
-    useIncremental = mkEnableOption "use the incrementaly build of the jellyhaj package";
     config = {
       mpv_profile = mkOption {
         type = types.enum [

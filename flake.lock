@@ -1,51 +1,5 @@
 {
   "nodes": {
-    "flake-utils": {
-      "inputs": {
-        "systems": [
-          "systems"
-        ]
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "nix-rust-build": {
-      "inputs": {
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "systems": [
-          "systems"
-        ]
-      },
-      "locked": {
-        "lastModified": 1767182050,
-        "narHash": "sha256-+Mo7zCNngS0KKgY09cPX6PIy3YRUGZcm63SrgyoSZNg=",
-        "owner": "RobinMarchart",
-        "repo": "nix-rust-build",
-        "rev": "5600b900890fe47c5253cae761384bd515437e9b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "RobinMarchart",
-        "repo": "nix-rust-build",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1774610258,
@@ -64,8 +18,6 @@
     },
     "root": {
       "inputs": {
-        "flake-utils": "flake-utils",
-        "nix-rust-build": "nix-rust-build",
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay",
         "systems": "systems"

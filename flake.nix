@@ -8,50 +8,49 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.systems.follows = "systems";
-    };
-    nix-rust-build = {
-      url = "github:RobinMarchart/nix-rust-build";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.systems.follows = "systems";
-      inputs.flake-utils.follows = "flake-utils";
-    };
   };
 
   outputs =
     {
       nixpkgs,
       rust-overlay,
-      flake-utils,
-      nix-rust-build,
+      systems,
       ...
     }:
+    let
+      lib = nixpkgs.lib;
+      eachSystem =
+        f:
+        let
+          forSystem = system: builtins.mapAttrs (name: val: { ${system} = val; }) (f system);
+          sets = map forSystem (import systems);
+        in
+        builtins.foldl' lib.attrsets.recursiveUpdate { } sets;
+    in
     (
-      flake-utils.lib.eachDefaultSystem (
+      eachSystem (
         system:
         let
           overlays = [
             rust-overlay.overlays.default
-            nix-rust-build.overlays.default
           ];
           pkgs = import nixpkgs {
             inherit system overlays;
           };
           jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
-          jellyhaj-incremental = pkgs.callPackage ./jellyhaj-incremental.nix { };
         in
         {
           formatter = pkgs.nixfmt-tree;
           packages = {
             default = jellyhaj;
-            inherit jellyhaj jellyhaj-incremental;
+            inherit jellyhaj;
           };
+          checks = { inherit jellyhaj; };
           apps = {
             default = {
               type = "app";
               program = "${jellyhaj}/bin/jellyhaj";
+              meta = jellyhaj.meta;
             };
           };
           devShells = {
@@ -95,7 +94,7 @@
             default = jellyhaj;
           };
           hmModules = {
-            default = import ./hm-module.nix nix-rust-build;
+            default = import ./hm-module.nix;
           };
         }
       )
