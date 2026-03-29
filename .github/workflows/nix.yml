@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
     - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15
-    - uses: cachix/cachix-action@0fc020193b5a1fa3ac4575aa3a7d3aa6a35435ad
+    - uses: cachix/cachix-action@1eb2ef646ac0255473d23a5907ad7b04ce94065c
       with:
         name:
             owo-uwu-nyaa
