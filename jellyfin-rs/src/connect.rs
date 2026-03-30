@@ -211,6 +211,8 @@ enum ConnectionInner {
     H1(http1::SendRequest<String>),
 }
 
+const MAX_RETRIES: u8 = 4;
+
 impl Connection {
     pub fn new(authority: Authority, tls: bool, concurrency: usize) -> Result<Self> {
         Ok(Self {
@@ -260,13 +262,18 @@ impl Connection {
                 }
                 panic!("all states are currently locked")
             };
+            let mut retries = 0u8;
             let res = loop {
+                if retries > MAX_RETRIES{
+                    color_eyre::eyre::bail!("sending request failed after {MAX_RETRIES} retries")
+                }
                 let resp = loop {
                     let inner = match state.deref_mut() {
                         ConnectionInner::Disconnected => self.config.connection().await?,
                         ConnectionInner::H2(send_request) => {
                             if let Err(e) = send_request.ready().await {
                                 error!("error sending request: {e:?}");
+                                retries += 1;
                                 ConnectionInner::Disconnected
                             } else {
                                 break send_request.send_request(req.clone()).left_future();
@@ -275,6 +282,7 @@ impl Connection {
                         ConnectionInner::H1(send_request) => {
                             if let Err(e) = send_request.ready().await {
                                 error!("error sending request: {e:?}");
+                                retries += 1;
                                 ConnectionInner::Disconnected
                             } else {
                                 break send_request.send_request(req.clone()).right_future();
@@ -287,6 +295,7 @@ impl Connection {
                     Ok(resp) => break recv_response(check_status(resp)?).await,
                     Err(e) => {
                         warn!("received connection error: {e:?}");
+                        retries += 1;
                         warn!("retrying request");
                     }
                 }
