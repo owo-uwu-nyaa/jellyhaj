@@ -208,7 +208,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
         }
     }
 
-    #[instrument(skip(self, buf,cx), name = "render_list")]
+    #[instrument(skip(self, buf, cx), name = "render_list")]
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,

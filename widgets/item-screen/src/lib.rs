@@ -7,7 +7,9 @@ use std::{
 
 pub use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, WidgetContext, Wrapper, spawn::tracing::instrument, valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value}
+    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, WidgetContext, Wrapper,
+    spawn::tracing::instrument,
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -232,7 +234,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         }
     }
 
-    #[instrument(skip(self, buf,cx), name = "render_screen")]
+    #[instrument(skip(self, buf, cx), name = "render_screen")]
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,

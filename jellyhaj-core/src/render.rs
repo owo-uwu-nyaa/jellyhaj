@@ -503,7 +503,7 @@ impl StateEntry {
     /// # Safety
     /// the ListAccessToken must be from this list
     unsafe fn get_list_mut<'a>(&'a self, _token: &'a mut ListAccessToken) -> &'a mut ListEntry {
-        unsafe { &mut*self.list.get() }
+        unsafe { &mut *self.list.get() }
     }
 
     fn new(val: StateValue) -> Self {
