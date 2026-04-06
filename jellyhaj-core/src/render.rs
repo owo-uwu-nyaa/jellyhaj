@@ -498,12 +498,12 @@ impl StateEntry {
     /// # Safety
     /// the ListAccessToken must be from this list
     unsafe fn get_list<'a>(&'a self, _token: &'a ListAccessToken) -> &'a ListEntry {
-        unsafe { self.list.get().as_ref_unchecked() }
+        unsafe { &*self.list.get() }
     }
     /// # Safety
     /// the ListAccessToken must be from this list
     unsafe fn get_list_mut<'a>(&'a self, _token: &'a mut ListAccessToken) -> &'a mut ListEntry {
-        unsafe { self.list.get().as_mut_unchecked() }
+        unsafe { &mut*self.list.get() }
     }
 
     fn new(val: StateValue) -> Self {
