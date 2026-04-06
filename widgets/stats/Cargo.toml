@@ -5,6 +5,7 @@ tokio = {features = ["time"], workspace = true}
 futures-util.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
+valuable.workspace = true
 
 [package]
 edition = "2024"

@@ -1,24 +1,26 @@
 use std::{convert::Infallible, ops::ControlFlow};
 
+use color_eyre::Report;
 use jellyhaj_core::Config;
 use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
 use jellyhaj_form_widget::button::{ActionCreator, Button};
+use jellyhaj_form_widget::form::FormData;
 use jellyhaj_form_widget::form_widget;
 use jellyhaj_form_widget::label::Label;
 use jellyhaj_form_widget::{
-    form::{FormCommandMapper, FormData},
-    label_block::LabelBlock,
-    secret_field::SecretField,
+    form::FormCommandMapper, label_block::LabelBlock, secret_field::SecretField,
     text_field::TextField,
 };
-use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_widgets_core::JellyhajWidget;
+use jellyhaj_widgets_core::flatten::FlattenWidget;
+use jellyhaj_widgets_core::valuable::Valuable;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper,
 };
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, flatten::FlattenState};
 use ratatui::prelude::{Buffer, Position, Rect, Size};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Submit;
 impl From<Infallible> for Submit {
     fn from(_: Infallible) -> Self {
@@ -34,7 +36,7 @@ impl ActionCreator for Submit {
 }
 
 #[form_widget("Enter Jellyfin Server / Login Information", Submit)]
-#[derive(Debug)]
+#[derive(Debug, Valuable)]
 pub struct LoginData {
     #[descr("Jellyfin URL")]
     server_url: TextField,
@@ -54,29 +56,13 @@ pub struct LoginData {
     error: LabelBlock,
 }
 
-type InnerState<R> = FlattenState<
-    R,
-    Navigation,
-    Submit,
-    KeybindState<R, FormCommand, LoginDataState, FormCommandMapper<LoginDataAction>>,
->;
+type InnerWidget =
+    FlattenWidget<KeybindWidget<FormCommand, LoginDataWidget, FormCommandMapper<LoginDataAction>>>;
 
-type InnerWidget<R> = <InnerState<R> as JellyhajWidgetState<R>>::Widget;
-
-pub struct LoginState<R: ContextRef<Config> + 'static> {
-    inner: InnerState<R>,
-}
-
-impl<R: ContextRef<Config> + 'static> std::fmt::Debug for LoginState<R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LoginState")
-            .field("inner", &self.inner)
-            .finish()
-    }
-}
-
-pub struct LoginWidget<R: ContextRef<Config> + 'static> {
-    inner: InnerWidget<R>,
+#[derive(Valuable)]
+pub struct LoginWidget {
+    #[valuable(skip)]
+    inner: InnerWidget,
 }
 
 #[derive(Debug)]
@@ -89,74 +75,39 @@ pub enum LoginResult {
     },
 }
 
-impl<R: ContextRef<Config> + 'static> JellyhajWidgetState<R> for LoginState<R> {
-    type Action = <InnerState<R> as JellyhajWidgetState<R>>::Action;
+impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
+    type Action = <InnerWidget as JellyhajWidget<R>>::Action;
 
     type ActionResult = LoginResult;
-
-    type Widget = LoginWidget<R>;
 
     const NAME: &str = "login";
 
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<R, InnerState<R>>();
+    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit::<R, InnerWidget>(&self.inner);
     }
 
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        LoginWidget {
-            inner: self.inner.into_widget(cx),
-        }
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        self.inner.init(cx);
     }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        self.inner.apply_action(cx, action).map(|v| {
-            v.map(|v| match v {
-                ControlFlow::Continue(_) => LoginResult::Data {
-                    server_url: self.inner.inner.inner.data.server_url.text.clone(),
-                    username: self.inner.inner.inner.data.username.text.clone(),
-                    password: self.inner.inner.inner.data.password.secret.clone(),
-                },
-                ControlFlow::Break(_) => LoginResult::Quit,
-            })
-        })
-    }
-}
-
-impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget<R> {
-    type Action = <InnerWidget<R> as JellyhajWidget<R>>::Action;
-
-    type ActionResult = LoginResult;
-
-    type State = LoginState<R>;
 
     fn min_width(&self) -> Option<u16> {
-        self.inner.min_width()
+        JellyhajWidget::<R>::min_width(&self.inner)
     }
 
     fn min_height(&self) -> Option<u16> {
-        self.inner.min_height()
-    }
-
-    fn into_state(self) -> Self::State {
-        LoginState {
-            inner: self.inner.into_state(),
-        }
+        JellyhajWidget::<R>::min_height(&self.inner)
     }
 
     fn accepts_text_input(&self) -> bool {
-        self.inner.accepts_text_input()
+        JellyhajWidget::<R>::accepts_text_input(&self.inner)
     }
 
     fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
+        JellyhajWidget::<R>::accept_char(&mut self.inner, text);
     }
 
     fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
+        JellyhajWidget::<R>::accept_text(&mut self.inner, text);
     }
 
     fn apply_action(
@@ -190,10 +141,78 @@ impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget<R> {
     }
 }
 
-impl<R: ContextRef<Config> + 'static> LoginWidget<R> {
+pub fn new_login_widget<R: ContextRef<Config> + 'static>(
+    server_url: String,
+    username: String,
+    password: String,
+    password_cmd_set: bool,
+    error: String,
+    cx: &R,
+) -> LoginWidget {
+    let server_unset = server_url.is_empty();
+    let data = LoginData {
+        server_url: TextField { text: server_url },
+        username: TextField { text: username },
+        password: SecretField { secret: password },
+        password_cmd: password_cmd_set,
+        password_set: Label,
+        submit: Button::new(Submit),
+        error: LabelBlock { text: error },
+    };
+    let data = data.make_with(if server_unset {
+        LoginDataSelection::ServerUrl(())
+    } else {
+        LoginDataSelection::Submit(())
+    });
+    let keybinds = KeybindWidget::new(
+        data,
+        Config::get_ref(cx).keybinds.form.clone(),
+        FormCommandMapper::<LoginDataAction>::default(),
+    );
+    LoginWidget {
+        inner: InnerWidget::new(keybinds),
+    }
+}
+
+impl LoginWidget {
+    pub fn new(
+        server_url: String,
+        username: String,
+        password: String,
+        password_cmd_set: bool,
+        error: Report,
+        c: &Config,
+    ) -> Self {
+        let selection = if server_url.is_empty() {
+            LoginDataSelection::ServerUrl(())
+        } else if username.is_empty() {
+            LoginDataSelection::Username(())
+        } else if !password_cmd_set && password.is_empty() {
+            LoginDataSelection::Password(())
+        } else {
+            LoginDataSelection::Submit(())
+        };
+        LoginWidget {
+            inner: FlattenWidget::new(KeybindWidget::new(
+                LoginData {
+                    server_url: TextField::new(server_url),
+                    username: TextField::new(username),
+                    password: SecretField::new(password),
+                    password_set: Default::default(),
+                    password_cmd: password_cmd_set,
+                    submit: Default::default(),
+                    error: LabelBlock::new(format!("{error:?}")),
+                }
+                .make_with(selection),
+                c.keybinds.form.clone(),
+                Default::default(),
+            )),
+        }
+    }
+
     fn map_res(
         &mut self,
-        res: Result<Option<<InnerWidget<R> as JellyhajWidget<R>>::ActionResult>>,
+        res: Result<Option<ControlFlow<Navigation, Submit>>>,
     ) -> Result<Option<LoginResult>, color_eyre::eyre::Error> {
         res.map(|v| {
             v.map(|v| match v {
@@ -205,38 +224,5 @@ impl<R: ContextRef<Config> + 'static> LoginWidget<R> {
                 ControlFlow::Break(_) => LoginResult::Quit,
             })
         })
-    }
-
-    pub fn new(
-        server_url: String,
-        username: String,
-        password: String,
-        password_cmd_set: bool,
-        error: String,
-        cx: &R,
-    ) -> Self {
-        let server_unset = server_url.is_empty();
-        let data = LoginData {
-            server_url: TextField { text: server_url },
-            username: TextField { text: username },
-            password: SecretField { secret: password },
-            password_cmd: password_cmd_set,
-            password_set: Label,
-            submit: Button::new(Submit),
-            error: LabelBlock { text: error },
-        };
-        let data = data.make_state_with(if server_unset {
-            LoginDataSelection::ServerUrl(())
-        } else {
-            LoginDataSelection::Submit(())
-        });
-        let keybinds = KeybindWidget::new(
-            data.into_widget(),
-            Config::get_ref(cx).keybinds.form.clone(),
-            FormCommandMapper::<LoginDataAction>::default(),
-        );
-        Self {
-            inner: InnerWidget::new(keybinds),
-        }
     }
 }

@@ -5,12 +5,12 @@ use jellyfin::{
     user_views::UserView,
 };
 use jellyhaj_core::{
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
-    render::{NavigationResult, render_widget},
+    context::TuiContext,
+    render::{Erased, make_new_erased},
     state::NextScreen,
 };
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_library_widget::LibraryState;
+use jellyhaj_library_widget::LibraryWidget;
 
 async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Result<NextScreen> {
     let user_id = jellyfin.get_auth().user.id.as_str();
@@ -42,24 +42,13 @@ async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Resul
     Ok(NextScreen::UserView { view, items })
 }
 
-pub fn render_fetch_user_view(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    view: Box<UserView>,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_fetch_user_view(cx: TuiContext, view: Box<UserView>) -> Erased {
     let title = format!("Loading user view {}", view.name);
     let inner = fetch_user_view(cx.jellyfin.clone(), view);
-    make_fetch(term, events, cx, title, inner)
+    make_fetch(cx, title, inner)
 }
 
-pub fn render_user_view(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    view: Box<UserView>,
-    items: Vec<MediaItem>,
-) -> impl Future<Output = NavigationResult> {
-    let state = LibraryState::new(view, items, &cx);
-    render_widget(term, events, cx, state)
+pub fn render_user_view(cx: TuiContext, view: Box<UserView>, items: Vec<MediaItem>) -> Erased {
+    let widget = LibraryWidget::new(view, items, &cx);
+    make_new_erased(cx, widget)
 }

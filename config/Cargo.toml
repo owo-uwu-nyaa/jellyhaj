@@ -9,6 +9,7 @@ sqlx = {workspace = true}
 tokio = { features = ["macros", "process", "rt", "time"], workspace = true }
 toml = {workspace = true}
 tracing = {workspace = true}
+valuable.workspace = true
 
 [package]
 edition = "2024"

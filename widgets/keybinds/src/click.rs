@@ -17,14 +17,14 @@ pub fn apply_click<
     W: JellyhajWidget<R>,
     M: CommandMapper<T, A = W::Action>,
 >(
-    this: &mut KeybindWidget<R, T, W, M>,
+    this: &mut KeybindWidget<T, W, M>,
     cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
     mut position: ratatui::prelude::Position,
     size: ratatui::prelude::Size,
     kind: ratatui::crossterm::event::MouseEventKind,
     modifier: ratatui::crossterm::event::KeyModifiers,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
-    let len: usize = this.next_maps.iter().map(|v| v.len()).sum();
+    let len: usize = this.current_map.iter().map(|v| v.len()).sum();
     if len > 0 {
         let width = (size.width - 4) / 20;
         let full_usable_height = len.div_ceil(width as usize);
@@ -54,7 +54,7 @@ pub fn apply_click<
 
             let items_per_screen = width as usize * usable_height;
             if let Some(c) = this
-                .next_maps
+                .current_map
                 .iter()
                 .flat_map(|m| m.iter())
                 .skip(items_per_screen * this.current_view)
@@ -72,7 +72,7 @@ pub fn apply_click<
                 match c {
                     KeyBinding::Command(c) => {
                         debug!("found matching command");
-                        this.next_maps = None;
+                        this.current_map = None;
                         debug!("executing command {c:?}");
                         let mapped = this.mapper.map(c);
                         debug!("triggering action {mapped:?}");
@@ -89,11 +89,11 @@ pub fn apply_click<
                     }
                     KeyBinding::Group { map, name } => {
                         debug!(name, "found matching group");
-                        this.next_maps = Some(map.clone());
+                        this.current_map = Some(map.clone());
                     }
                     KeyBinding::Invalid(name) => {
                         warn!("'{name}' is an invalid command");
-                        this.next_maps = None;
+                        this.current_map = None;
                     }
                 }
             }

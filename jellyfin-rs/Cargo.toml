@@ -18,12 +18,14 @@ tokio = {features = ["time"], workspace = true}
 tokio-rustls = {workspace = true}
 tokio-websockets = {workspace = true}
 tracing = {workspace = true}
+valuable = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = {features = ["macros"], version = "1.28.2"}
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
+valuable = ["dep:valuable"]
 
 [package]
 categories = ["api-bindings"]

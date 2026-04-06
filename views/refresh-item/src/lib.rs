@@ -1,15 +1,10 @@
 use jellyhaj_core::{
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
-    render::render_widget,
+    context::TuiContext,
+    render::{Erased, make_new_erased},
 };
-use jellyhaj_refresh_item_widget::RefreshState;
+use jellyhaj_refresh_item_widget::RefreshWidget;
 
-pub fn render_refresh_item_form(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    id: String,
-) -> impl Future<Output = jellyhaj_core::render::NavigationResult> {
-    let state = RefreshState::new(id, &cx);
-    render_widget(term, events, cx, state)
+pub fn render_refresh_item_form(cx: TuiContext, id: String) -> Erased {
+    let widget = RefreshWidget::new(id, &cx);
+    make_new_erased(cx, widget)
 }

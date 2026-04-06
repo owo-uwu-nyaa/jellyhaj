@@ -179,10 +179,12 @@ pub struct JellyfinEventInterests {
 }
 
 impl JellyfinEventInterests {
-    pub fn get(&self) -> parking_lot::MutexGuard<'_, Interests> {
+    #[track_caller]
+    pub fn with(&self, f: impl FnOnce(&mut Interests)) {
+        debug!("modifying interests");
         let mut guard = self.inner.lock();
+        f(&mut guard);
         guard.clean();
-        guard
     }
     pub fn new(spawn: &Spawner, jellyfin: &JellyfinClient) -> Result<Self> {
         let this = JellyfinEventInterests {

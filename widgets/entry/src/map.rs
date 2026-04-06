@@ -128,7 +128,7 @@ fn open_item(item: &MediaItem) -> Option<NextScreen> {
             ..
         } => NextScreen::FetchItemListDetails(Box::new(v.clone())),
         MediaItem {
-            item_type: ItemType::Unknown{ item_type: _ },
+            item_type: ItemType::Unknown { item_type: _ },
             ..
         } => return None,
     })
@@ -145,7 +145,8 @@ fn item_episode(item: &MediaItem) -> Option<NextScreen> {
             ..
         } => NextScreen::ItemDetails(Box::new(i.clone())),
         MediaItem {
-            item_type: ItemType::Unknown{ item_type: _ } | ItemType::Folder | ItemType::CollectionFolder,
+            item_type:
+                ItemType::Unknown { item_type: _ } | ItemType::Folder | ItemType::CollectionFolder,
             ..
         } => return None,
     })

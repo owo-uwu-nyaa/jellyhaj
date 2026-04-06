@@ -4,15 +4,14 @@ pub use image_cache as cache;
 pub use image_cache::ImageSize;
 use jellyhaj_core::context::DB;
 use std::{cmp::min, convert::Infallible, mem};
+use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
 use image_cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef};
 
 use crate::fetch::get_image;
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
-use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{ContextRef, GetFromContext, JellyhajWidget, WidgetContext, Wrapper};
 use ratatui::{
     layout::{Rect, Size},
     widgets::Widget,
@@ -34,6 +33,45 @@ struct ImageCacher {
     tag: String,
 }
 
+static IMAGE_CACHER_FIELDS: &[NamedField] = &[
+    NamedField::new("image"),
+    NamedField::new("image_type"),
+    NamedField::new("item_id"),
+    NamedField::new("tag"),
+];
+
+static IMAGE_NONE: &Option<&str> = &None;
+static IMAGE_SOME: &Option<&str> = &Some("image not inspectable");
+
+impl Valuable for ImageCacher {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            IMAGE_CACHER_FIELDS,
+            &[
+                if self.image.is_none() {
+                    IMAGE_NONE
+                } else {
+                    IMAGE_SOME
+                }
+                .as_value(),
+                self.image_type.as_value(),
+                self.item_id.as_value(),
+                self.tag.as_value(),
+            ],
+        ));
+    }
+}
+
+impl Structable for ImageCacher {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("ImageCacher", Fields::Named(IMAGE_CACHER_FIELDS))
+    }
+}
+
 impl std::fmt::Debug for ImageCacher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ImageCacher")
@@ -45,7 +83,9 @@ impl std::fmt::Debug for ImageCacher {
     }
 }
 
+#[derive(Valuable)]
 pub struct JellyfinImage {
+    #[valuable(skip)]
     size: Size,
     loading: bool,
     image: ImageCacher,
@@ -66,6 +106,25 @@ impl Drop for ImageCacher {
 }
 
 impl JellyfinImage {
+    pub fn new(
+        item_id: String,
+        tag: String,
+        image_type: ImageType,
+        cx: &impl ContextRef<ImageProtocolCache>,
+    ) -> Self {
+        Self {
+            size: Size::ZERO,
+            loading: false,
+            image: ImageCacher {
+                image: None,
+                cache: cx.as_ref().clone(),
+                image_type,
+                item_id,
+                tag,
+            },
+        }
+    }
+
     fn get_image<
         R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB>,
     >(
@@ -75,7 +134,7 @@ impl JellyfinImage {
         if self.image.image.is_some() {
             self.image.image.as_ref().map(|(p, _)| p)
         } else {
-            let image_picker: &Picker = cx.refs.get_ref();
+            let image_picker: &Picker = cx.refs.as_ref();
             let p_height = (self.size.height as u32) * (image_picker.font_size().1 as u32);
             let p_width = (self.size.width as u32) * (image_picker.font_size().0 as u32);
             if !self.loading {
@@ -150,71 +209,6 @@ fn add_image<
     Ok(None)
 }
 
-#[derive(Debug)]
-pub struct JellyfinImageState {
-    size: Size,
-    loading: bool,
-    image: ImageCacher,
-}
-
-impl JellyfinImageState {
-    pub fn new(
-        item_id: String,
-        tag: String,
-        image_type: ImageType,
-        cx: &impl ContextRef<ImageProtocolCache>,
-    ) -> Self {
-        Self {
-            size: Size::ZERO,
-            loading: false,
-            image: ImageCacher {
-                image: None,
-                cache: cx.get_ref().clone(),
-                image_type,
-                item_id,
-                tag,
-            },
-        }
-    }
-}
-
-impl<
-    R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB> + 'static,
-> JellyhajWidgetState<R> for JellyfinImageState
-{
-    type Action = ParsedImage;
-
-    type ActionResult = Infallible;
-
-    type Widget = JellyfinImage;
-
-    const NAME: &str = "image";
-
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, _cx: &R) -> Self::Widget {
-        JellyfinImage {
-            size: self.size,
-            loading: self.loading,
-            image: self.image,
-        }
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        add_image(
-            &mut self.loading,
-            self.size,
-            &mut self.image.image,
-            cx,
-            action,
-        )
-    }
-}
-
 impl<
     R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB> + 'static,
 > JellyhajWidget<R> for JellyfinImage
@@ -223,15 +217,11 @@ impl<
 
     type ActionResult = Infallible;
 
-    type State = JellyfinImageState;
+    const NAME: &str = "image";
 
-    fn into_state(self) -> Self::State {
-        JellyfinImageState {
-            size: self.size,
-            loading: self.loading,
-            image: self.image,
-        }
-    }
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn render_fallible_inner(
         &mut self,

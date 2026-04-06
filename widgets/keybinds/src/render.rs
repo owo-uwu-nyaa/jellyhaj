@@ -22,13 +22,13 @@ pub fn render_keybinds<
     W: JellyhajWidget<R>,
     M: CommandMapper<T, A = W::Action>,
 >(
-    this: &mut KeybindWidget<R, T, W, M>,
+    this: &mut KeybindWidget<T, W, M>,
     area: Rect,
     buf: &mut ratatui::buffer::Buffer,
     cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
 ) -> Result<()> {
     let task = cx.wrap_with(KeybindWrapper);
-    let len: usize = this.next_maps.iter().map(|v| v.len()).sum();
+    let len: usize = this.current_map.iter().map(|v| v.len()).sum();
     if len > 0 {
         let width = (area.width - 4) / 20;
         let full_usable_height = len.div_ceil(width as usize);
@@ -64,7 +64,7 @@ pub fn render_keybinds<
         let main = block.inner(area);
         let items_per_screen = width as usize * usable_height;
         for ((key, binding), pos) in this
-            .next_maps
+            .current_map
             .iter()
             .map(|v| v.iter())
             .kmerge_by(|(a, _), (b, _)| a < b)

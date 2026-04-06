@@ -8,6 +8,7 @@ use crate::{
 use color_eyre::Result;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum TaskState {
     Idle,
     Cancelling,
@@ -15,6 +16,7 @@ pub enum TaskState {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum ExecutionResultStatus {
     Completed,
     Failed,
@@ -24,6 +26,7 @@ pub enum ExecutionResultStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct ExecutionResult {
     pub start_time_utc: String,
     pub end_time_utc: String,
@@ -33,6 +36,7 @@ pub struct ExecutionResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct ScheduledTask {
     pub name: String,
     pub state: TaskState,

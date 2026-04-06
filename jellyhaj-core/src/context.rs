@@ -34,83 +34,83 @@ pub struct TuiContext {
 
 impl ContextRef<JellyfinClient> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &JellyfinClient {
+    fn as_ref(&self) -> &JellyfinClient {
         &self.jellyfin
     }
 }
 impl ContextRef<JellyfinEventInterests> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &JellyfinEventInterests {
+    fn as_ref(&self) -> &JellyfinEventInterests {
         &self.jellyfin_events
     }
 }
 impl ContextRef<Arc<Config>> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &Arc<Config> {
+    fn as_ref(&self) -> &Arc<Config> {
         &self.config
     }
 }
 impl ContextRef<Config> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &Config {
+    fn as_ref(&self) -> &Config {
         &self.config
     }
 }
 impl ContextRef<ImagePicker> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &ImagePicker {
+    fn as_ref(&self) -> &ImagePicker {
         &self.image_picker
     }
 }
 impl ContextRef<Picker> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &Picker {
+    fn as_ref(&self) -> &Picker {
         &self.image_picker
     }
 }
 impl ContextRef<DB> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &DB {
+    fn as_ref(&self) -> &DB {
         &self.cache
     }
 }
 impl ContextRef<DBInner> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &DBInner {
+    fn as_ref(&self) -> &DBInner {
         &self.cache
     }
 }
 impl ContextRef<ImageProtocolCache> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &ImageProtocolCache {
+    fn as_ref(&self) -> &ImageProtocolCache {
         &self.image_cache
     }
 }
 
 impl ContextRef<PlayerHandle> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &PlayerHandle {
+    fn as_ref(&self) -> &PlayerHandle {
         &self.mpv_handle
     }
 }
 
 impl ContextRef<Stats> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &Stats {
+    fn as_ref(&self) -> &Stats {
         &self.stats
     }
 }
 
 impl ContextRef<StatsData> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &StatsData {
+    fn as_ref(&self) -> &StatsData {
         &self.stats
     }
 }
 
 impl ContextRef<Spawner> for TuiContext {
     #[inline]
-    fn get_ref(&self) -> &Spawner {
+    fn as_ref(&self) -> &Spawner {
         &self.spawn
     }
 }

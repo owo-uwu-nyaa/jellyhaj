@@ -1,7 +1,10 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{MouseEventKind, Rect, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    MouseEventKind, Rect, Result, WidgetContext, Wrapper,
+    valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value},
+};
 use ratatui::{
     crossterm::event::MouseButton,
     widgets::{Block, BorderType, Widget},
@@ -18,6 +21,22 @@ pub trait ActionCreator: Debug {
 pub struct Button<Creator: ActionCreator> {
     creator: Creator,
     width: u16,
+}
+
+impl<Creator: ActionCreator> Valuable for Button<Creator> {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn jellyhaj_widgets_core::valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(&[], &[]));
+    }
+}
+
+impl<Creator: ActionCreator> Structable for Button<Creator> {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("Button", Fields::Named(&[]))
+    }
 }
 
 impl<Creator: ActionCreator> std::fmt::Debug for Button<Creator> {

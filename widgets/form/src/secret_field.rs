@@ -3,6 +3,7 @@ use std::{convert::Infallible, ops::ControlFlow};
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
+use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
 use crate::{FormAction, FormItem, FormItemInfo};
 
@@ -10,6 +11,34 @@ use crate::{FormAction, FormItem, FormItemInfo};
 pub struct SecretField {
     pub secret: String,
 }
+
+impl SecretField {
+    pub fn new(secret: String) -> Self {
+        Self { secret }
+    }
+}
+
+static SECRET_FIELD_FIELDS: &[NamedField] = &[NamedField::new("secret")];
+
+impl Valuable for SecretField {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            SECRET_FIELD_FIELDS,
+            &["redacted".as_value()],
+        ));
+    }
+}
+
+impl Structable for SecretField {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("SecretField", Fields::Named(SECRET_FIELD_FIELDS))
+    }
+}
+
 #[cfg(feature = "serde")]
 mod s {
     use serde::{Deserialize, Serialize};

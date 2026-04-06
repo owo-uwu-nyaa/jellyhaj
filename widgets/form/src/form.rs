@@ -7,8 +7,9 @@ use std::{
 
 use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, JellyhajWidgetState, KeyModifiers, MouseEventKind, Position, Rect,
-    Size, WidgetContext, Wrapper,
+    Buffer, JellyhajWidget, KeyModifiers, MouseEventKind, Position, Rect, Size, WidgetContext,
+    Wrapper,
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use tui_scrollview::{ScrollView, ScrollViewState};
@@ -16,8 +17,8 @@ use tui_scrollview::{ScrollView, ScrollViewState};
 use crate::{FormAction, FormItem};
 use color_eyre::Result;
 
-pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug + 'static {
-    type Selector: Debug + Send;
+pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Valuable + 'static {
+    type Selector: Debug + Send + Valuable;
     type AR: Debug + From<Infallible>;
     type Action: Debug + Send + 'static;
 
@@ -63,75 +64,26 @@ pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Debug + 'sta
     fn index(sel: &Self::Selector) -> usize;
     const TITLE: &str;
 
-    fn make_state_with(self, selection: Self::Selector) -> FormState<{ TOTAL_SIZE }, Self> {
-        FormState {
+    fn make_with(self, selection: Self::Selector) -> Form<{ TOTAL_SIZE }, Self> {
+        Form {
             sel: selection,
             data: self,
+            store: [0; _],
+            offset: 0,
         }
     }
 }
 
 pub trait FormDataDefaultExt<const TOTAL_SIZE: usize>: FormData<TOTAL_SIZE> {
-    fn make_state_with_default(self) -> FormState<{ TOTAL_SIZE }, Self>;
+    fn make_with_default(self) -> Form<{ TOTAL_SIZE }, Self>;
 }
 
 impl<const TOTAL_SIZE: usize, F: FormData<TOTAL_SIZE>> FormDataDefaultExt<TOTAL_SIZE> for F
 where
     F::Selector: Default,
 {
-    fn make_state_with_default<'s>(self) -> FormState<{ TOTAL_SIZE }, Self> {
-        Self::make_state_with(self, Self::Selector::default())
-    }
-}
-
-#[derive(Debug)]
-pub struct FormState<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> {
-    pub sel: Data::Selector,
-    pub data: Data,
-}
-
-impl<const TOTAL_SIZE: usize, Data: FormData<TOTAL_SIZE>> FormState<TOTAL_SIZE, Data> {
-    pub fn into_widget(self) -> Form<{ TOTAL_SIZE }, Data> {
-        Form {
-            sel: self.sel,
-            data: self.data,
-            store: [0; TOTAL_SIZE],
-            offset: 0,
-        }
-    }
-}
-
-impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<TOTAL_SIZE>> JellyhajWidgetState<R>
-    for FormState<{ TOTAL_SIZE }, Data>
-{
-    type Action = FormAction<Data::Action>;
-
-    type ActionResult = ControlFlow<Navigation, Data::AR>;
-
-    type Widget = Form<{ TOTAL_SIZE }, Data>;
-
-    const NAME: &str = Data::TITLE;
-
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        self.into_widget()
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        match action {
-            FormAction::Inner(action) => Data::with_action_mut(
-                action,
-                cx.wrap_with(FormAction::Inner),
-                &mut self.data,
-                ApplyAction,
-            ),
-            _ => Ok(None),
-        }
+    fn make_with_default<'s>(self) -> Form<{ TOTAL_SIZE }, Self> {
+        Self::make_with(self, Self::Selector::default())
     }
 }
 
@@ -142,6 +94,28 @@ pub struct Form<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> {
     offset: u16,
 }
 
+static FORM_FIELDS: &[NamedField] = &[NamedField::new("sel"), NamedField::new("data")];
+
+impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> Valuable for Form<TOTAL_SIZE, Data> {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn jellyhaj_widgets_core::valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            FORM_FIELDS,
+            &[self.sel.as_value(), self.data.as_value()],
+        ));
+    }
+}
+impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> Structable
+    for Form<TOTAL_SIZE, Data>
+{
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("Form", Fields::Named(FORM_FIELDS))
+    }
+}
+
 impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget<R>
     for Form<{ TOTAL_SIZE }, Data>
 {
@@ -149,7 +123,11 @@ impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> Jellyh
 
     type ActionResult = ControlFlow<Navigation, Data::AR>;
 
-    type State = FormState<{ TOTAL_SIZE }, Data>;
+    const NAME: &str = "form";
+
+    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(10)
@@ -157,13 +135,6 @@ impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> Jellyh
 
     fn min_height(&self) -> Option<u16> {
         Some(10)
-    }
-
-    fn into_state(self) -> Self::State {
-        FormState {
-            sel: self.sel,
-            data: self.data,
-        }
     }
 
     fn accepts_text_input(&self) -> bool {

@@ -1,69 +1,44 @@
-use std::{
-    borrow::Cow,
-    cmp::min,
-    convert::Infallible,
-    ops::Deref,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::{borrow::Cow, cmp::min, convert::Infallible, ops::Deref, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Rect, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, Rect, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
-
-struct Stop(Arc<AtomicBool>);
+use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
 pub struct Loading {
     title: Cow<'static, str>,
     timeout: u8,
     lines: Vec<u16>,
-    spawned: bool,
-    stop: Stop,
 }
 
-#[derive(Debug)]
-pub struct LoadingState {
-    title: Cow<'static, str>,
-}
+static LOADING_FIELDS: &[NamedField] = &[
+    NamedField::new("title"),
+    NamedField::new("timeout"),
+    NamedField::new("lines"),
+];
 
-impl LoadingState {
-    pub fn new(title: Cow<'static, str>) -> Self {
-        Self { title }
+impl Valuable for Loading {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            LOADING_FIELDS,
+            &[
+                self.title.as_ref().as_value(),
+                self.timeout.as_value(),
+                self.lines.as_value(),
+            ],
+        ));
     }
 }
 
-impl<R: 'static> JellyhajWidgetState<R> for LoadingState {
-    type Action = AdvanceLoadingScreen;
-
-    type ActionResult = Infallible;
-
-    type Widget = Loading;
-
-    const NAME: &str = "loading";
-
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, _: &R) -> Self::Widget {
-        Loading::new(self.title)
-    }
-
-    fn apply_action(
-        &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        _: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        Ok(None)
-    }
-}
-
-impl Drop for Stop {
-    fn drop(&mut self) {
-        self.0.store(true, Ordering::Relaxed);
+impl Structable for Loading {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("Loading", Fields::Named(LOADING_FIELDS))
     }
 }
 
@@ -73,8 +48,6 @@ impl Loading {
             title: title.into(),
             timeout: 0,
             lines: Vec::new(),
-            spawned: false,
-            stop: Stop(Arc::new(AtomicBool::new(false))),
         }
     }
 }
@@ -87,19 +60,27 @@ const TICK_INTERVAL: Duration = Duration::from_millis(200);
 pub struct AdvanceLoadingScreen;
 
 impl<R: 'static> JellyhajWidget<R> for Loading {
-    type State = LoadingState;
     type Action = AdvanceLoadingScreen;
     type ActionResult = Infallible;
+
+    const NAME: &str = "loading";
+
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        let timer = unfold(interval(TICK_INTERVAL), move |mut interval| async move {
+            interval.tick().await;
+            Some((Ok(AdvanceLoadingScreen), interval))
+        });
+        cx.submitter
+            .spawn_stream(timer, info_span!("update-loading"), "update-loading")
+    }
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
     }
     fn min_height(&self) -> Option<u16> {
         Some(5)
-    }
-
-    fn into_state(self) -> Self::State {
-        LoadingState { title: self.title }
     }
 
     fn apply_action(
@@ -133,25 +114,8 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
-        if !self.spawned {
-            self.spawned = true;
-            let stop = self.stop.0.clone();
-            let timer = unfold(interval(TICK_INTERVAL), move |mut interval| {
-                let stop = stop.load(Ordering::Relaxed);
-                async move {
-                    if stop {
-                        None
-                    } else {
-                        interval.tick().await;
-                        Some((Ok(AdvanceLoadingScreen), interval))
-                    }
-                }
-            });
-            cx.submitter
-                .spawn_stream(timer, info_span!("update-loading"), "update-loading")
-        }
         let outer = Block::bordered().title(self.title.deref());
         let main = outer.inner(area);
         let max_size = (min(main.width, main.height) - 1) / 2;

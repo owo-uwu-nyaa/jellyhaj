@@ -4,7 +4,7 @@ use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, Result, WidgetContext, Wrapper};
 use player_core::{
     Command, Events, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
@@ -14,11 +14,13 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Widget},
 };
 use tracing::{info_span, instrument};
+use valuable::Valuable;
 
+#[derive(Valuable)]
 pub struct PlayerWidget {
+    #[valuable(skip)]
     handle: PlayerHandle,
     state: Option<SharedPlayerState>,
-    send: bool,
 }
 
 impl Drop for PlayerWidget {
@@ -27,22 +29,11 @@ impl Drop for PlayerWidget {
     }
 }
 
-impl std::fmt::Debug for PlayerWidget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PlayerWidget")
-            .field("handle", &self.handle)
-            .field("state", &self.state)
-            .field("send", &self.send)
-            .finish()
-    }
-}
-
 impl PlayerWidget {
     pub fn new(handle: PlayerHandle) -> Self {
         Self {
             handle,
             state: None,
-            send: false,
         }
     }
 }
@@ -58,36 +49,27 @@ pub enum PlayerAction {
 #[derive(Debug)]
 pub struct PlayerQuit;
 
-impl<R: 'static> JellyhajWidgetState<R> for PlayerWidget {
-    type Action = PlayerAction;
-
-    type ActionResult = Navigation;
-
-    type Widget = Self;
-
-    const NAME: &str = "player";
-
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, _: &R) -> Self::Widget {
-        self
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        JellyhajWidget::apply_action(self, cx, action)
-    }
-}
-
 impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
     type Action = PlayerAction;
 
     type ActionResult = Navigation;
 
-    type State = Self;
+    const NAME: &str = "player";
+
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        let res = self.handle.get_state();
+        cx.submitter.spawn_task(
+            async move {
+                Ok(PlayerAction::Events(
+                    res.await.context("receiving player event receiver")?,
+                ))
+            },
+            info_span!("get_event_receiver"),
+            "get_event_receiver",
+        )
+    }
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
@@ -95,10 +77,6 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
 
     fn min_height(&self) -> Option<u16> {
         Some(5)
-    }
-
-    fn into_state(self) -> Self::State {
-        self
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -180,21 +158,8 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
-        if !self.send {
-            self.send = true;
-            let res = self.handle.get_state();
-            cx.submitter.spawn_task(
-                async move {
-                    Ok(PlayerAction::Events(
-                        res.await.context("receiving player event receiver")?,
-                    ))
-                },
-                info_span!("get_event_receiver"),
-                "get_event_receiver",
-            )
-        }
         let block = Block::bordered()
             .title("Now playing")
             .padding(Padding::uniform(1));

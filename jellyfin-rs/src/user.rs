@@ -18,6 +18,7 @@ pub(crate) struct UserIdQuery<'id> {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct User {
     pub name: String,
     pub server_id: String,
@@ -37,6 +38,7 @@ pub struct User {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaStream {
     //         "Codec": "string",
     //         "CodecTag": "string",
@@ -100,6 +102,7 @@ pub struct MediaStream {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaSource {
     pub protocol: String,
     pub id: String,
@@ -165,6 +168,7 @@ pub struct MediaSource {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserItem {
     pub name: String,
     pub original_title: Option<String>,
@@ -550,6 +554,7 @@ pub struct UserItem {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserConfiguration {
     pub audio_language_preference: Option<String>,
     pub play_default_audio_track: bool,
@@ -570,6 +575,7 @@ pub struct UserConfiguration {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserPolicy {
     pub is_administrator: bool,
     pub is_hidden: bool,
@@ -614,6 +620,7 @@ pub struct UserPolicy {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserAccessSchedule {
     pub user_id: String,
     pub day_of_week: String,

@@ -1,7 +1,10 @@
 [dependencies]
 color-eyre = {workspace = true}
 config = {path = "../config"}
+crossbeam-epoch = "0.9.18"
 either.workspace = true
+futures-channel.workspace = true
+futures-intrusive.workspace = true
 futures-util.workspace = true
 image = {workspace = true}
 image-cache = { version = "0.1.0", path = "../image-cache" }
@@ -19,8 +22,8 @@ spawn = {path = "../spawn", version = "0.1.0"}
 sqlx = {workspace = true}
 stats-data = {path = "../stats-data", version = "0.1.0"}
 tokio = {workspace = true}
-tokio-util.workspace = true
 tracing = {workspace = true}
+valuable.workspace = true
 
 [package]
 edition = "2024"

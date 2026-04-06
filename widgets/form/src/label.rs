@@ -3,10 +3,11 @@ use std::{convert::Infallible, ops::ControlFlow};
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::Widget;
+use valuable::Valuable;
 
 use crate::{FormItem, FormItemInfo};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Valuable)]
 pub struct Label;
 
 impl<AR: From<Infallible>> FormItemInfo<AR> for Label {

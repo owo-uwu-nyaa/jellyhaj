@@ -12,6 +12,7 @@ use std::{
 use jellyfin::items::{MediaItem, PlaybackInfo};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
+use valuable::Valuable;
 
 use crate::state::EventReceiver;
 
@@ -34,7 +35,7 @@ impl PlaylistItemIdGen {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Valuable)]
 pub struct PlaylistItemId {
     pub id: u64,
 }
@@ -125,7 +126,7 @@ pub enum Events {
     Volume(i64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Valuable)]
 pub struct PlayerState {
     pub playlist: Arc<Vec<Arc<PlaylistItem>>>,
     pub current: Option<usize>,
@@ -137,7 +138,7 @@ pub struct PlayerState {
     pub volume: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Valuable)]
 pub struct PlaylistItem {
     pub item: MediaItem,
     pub id: PlaylistItemId,

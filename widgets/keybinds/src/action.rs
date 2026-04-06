@@ -15,7 +15,7 @@ pub fn apply_key_event<
     W: JellyhajWidget<R>,
     M: CommandMapper<T, A = W::Action>,
 >(
-    this: &mut KeybindWidget<R, T, W, M>,
+    this: &mut KeybindWidget<T, W, M>,
     cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
     action: KeybindAction<W::Action>,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
@@ -47,6 +47,12 @@ pub fn apply_key_event<
                 Ok(None)
             }
             KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
+                state: _,
+            } => Ok(Some(ControlFlow::Break(Navigation::Exit))),
+            KeyEvent {
                 code,
                 modifiers,
                 kind: KeyEventKind::Press | KeyEventKind::Repeat,
@@ -54,7 +60,7 @@ pub fn apply_key_event<
             } => {
                 if this.inner.accepts_text_input()
                     && let KeyCode::Char(c) = code
-                    && this.next_maps.is_none()
+                    && this.current_map.is_none()
                     && modifiers
                         .intersection(KeyModifiers::CONTROL | KeyModifiers::ALT)
                         .is_empty()
@@ -63,16 +69,16 @@ pub fn apply_key_event<
                     this.inner.accept_char(c);
                     Ok(None)
                 } else {
-                    let current_map = mem::take(&mut this.next_maps);
+                    let current_map = mem::take(&mut this.current_map);
                     debug!(?current_map, "matching on active keymaps");
-                    match current_map.as_ref().unwrap_or(&this.top).get(&Key {
+                    match current_map.as_ref().unwrap_or(&this.top_map).get(&Key {
                         inner: code,
                         control: modifiers.contains(KeyModifiers::CONTROL),
                         alt: modifiers.contains(KeyModifiers::ALT),
                     }) {
                         Some(KeyBinding::Command(c)) => {
                             debug!("found matching command");
-                            this.next_maps = None;
+                            this.current_map = None;
                             debug!("executing command {c:?}");
                             let mapped = this.mapper.map(*c);
                             debug!("triggering action {mapped:?}");
@@ -89,11 +95,11 @@ pub fn apply_key_event<
                         }
                         Some(KeyBinding::Group { map, name }) => {
                             debug!(name, "found matching group");
-                            this.next_maps = Some(map.clone());
+                            this.current_map = Some(map.clone());
                         }
                         Some(KeyBinding::Invalid(name)) => {
                             warn!("'{name}' is an invalid command");
-                            this.next_maps = None;
+                            this.current_map = None;
                         }
                         None => {}
                     }

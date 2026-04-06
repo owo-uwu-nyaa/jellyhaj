@@ -2,6 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
+use valuable::Valuable;
 
 use crate::{Events, PlayerState};
 
@@ -41,7 +42,26 @@ impl State for PlayerState {
     }
 }
 
-pub type SharedPlayerState = Arc<Mutex<PlayerState>>;
+#[derive(Clone)]
+pub struct SharedPlayerState(Arc<Mutex<PlayerState>>);
+
+impl Deref for SharedPlayerState {
+    type Target = Mutex<PlayerState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Valuable for SharedPlayerState {
+    fn as_value(&self) -> valuable::Value<'_> {
+        "PlayerState not displayable".as_value()
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        "PlayerState not displayable".visit(visit);
+    }
+}
 
 impl State for SharedPlayerState {
     fn update(&mut self, event: Events) {
@@ -86,9 +106,9 @@ impl<S: State> Deref for EventReceiver<S> {
 }
 
 impl EventReceiver<PlayerState> {
-    pub fn with_shared_state(self) -> EventReceiver<Arc<Mutex<PlayerState>>> {
+    pub fn with_shared_state(self) -> EventReceiver<SharedPlayerState> {
         EventReceiver {
-            state: Arc::new(Mutex::new(self.state)),
+            state: SharedPlayerState(Arc::new(Mutex::new(self.state))),
             receive: self.receive,
         }
     }

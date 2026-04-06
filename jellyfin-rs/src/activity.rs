@@ -10,6 +10,7 @@ use crate::request::RequestBuilderExt;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct ActivityLogEntry {
     pub id: u32,
     pub name: String,

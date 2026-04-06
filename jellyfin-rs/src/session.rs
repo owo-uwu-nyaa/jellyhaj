@@ -38,6 +38,7 @@ pub struct SessionInfo {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct PlayState {
     pub position_ticks: Option<i64>,
     pub can_seek: bool,
@@ -54,6 +55,7 @@ pub struct PlayState {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct AdditionalUser {
     pub user_id: String,
     pub user_name: String,
@@ -120,6 +122,7 @@ pub struct DeviceProfile {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct Identification {
     pub friendly_name: String,
     pub model_number: String,
@@ -134,6 +137,7 @@ pub struct Identification {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct Header {
     pub name: String,
     pub value: String,
@@ -142,6 +146,7 @@ pub struct Header {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct XmlRootAttribute {
     pub name: String,
     pub value: String,
@@ -149,6 +154,7 @@ pub struct XmlRootAttribute {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct DirectPlayProfile {
     pub container: String,
     pub audio_codec: String,
@@ -207,6 +213,7 @@ pub struct ResponseProfile {
     pub conditions: Vec<Value>,
 }
 
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SubtitleProfile {
@@ -217,6 +224,7 @@ pub struct SubtitleProfile {
     pub container: String,
 }
 
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TranscodingInfo {

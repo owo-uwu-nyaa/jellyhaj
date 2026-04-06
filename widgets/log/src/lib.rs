@@ -1,6 +1,9 @@
 use std::convert::Infallible;
 
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
+};
 use ratatui::{
     style::{Color, Style},
     widgets::{Block, Padding, Widget},
@@ -11,6 +14,27 @@ use tui_logger::{TuiLoggerLevelOutput, TuiWidgetState};
 #[derive(Default)]
 pub struct LogWidget {
     state: TuiWidgetState,
+}
+
+static LOG_WIDGET_FIELDS: &[NamedField] = &[NamedField::new("state")];
+
+impl Valuable for LogWidget {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn jellyhaj_widgets_core::valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            LOG_WIDGET_FIELDS,
+            &["state not inspectable".as_value()],
+        ));
+    }
+}
+
+impl Structable for LogWidget {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("LogWidget", Fields::Named(LOG_WIDGET_FIELDS))
+    }
 }
 
 impl std::fmt::Debug for LogWidget {
@@ -27,37 +51,16 @@ impl LogWidget {
     }
 }
 
-impl<R: 'static> JellyhajWidgetState<R> for LogWidget {
-    type Action = TuiWidgetEvent;
-
-    type ActionResult = Infallible;
-
-    type Widget = Self;
-
+impl<R: 'static> JellyhajWidget<R> for LogWidget {
     const NAME: &str = "log-view";
 
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, _: &R) -> Self::Widget {
-        self
-    }
-
-    fn apply_action(
-        &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        self.state.transition(action);
-        Ok(None)
-    }
-}
-
-impl<R: 'static> JellyhajWidget<R> for LogWidget {
-    type State = Self;
-
     type Action = TuiWidgetEvent;
 
     type ActionResult = Infallible;
+
+    fn visit_children(&self, _visitor: &mut impl WidgetTreeVisitor) {}
+
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(15)
@@ -65,10 +68,6 @@ impl<R: 'static> JellyhajWidget<R> for LogWidget {
 
     fn min_height(&self) -> Option<u16> {
         Some(15)
-    }
-
-    fn into_state(self) -> Self::State {
-        self
     }
 
     fn accepts_text_input(&self) -> bool {

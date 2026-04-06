@@ -17,7 +17,9 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
 pub use jellyhaj_form_derive::{Selection, form_widget};
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Size, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    KeyModifiers, MouseEventKind, Size, WidgetContext, Wrapper, valuable::Valuable,
+};
 use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
@@ -36,10 +38,10 @@ pub enum FormAction<A: Debug + Send + 'static> {
     Inner(A),
 }
 
-pub trait FormItemInfo<AR> {
+pub trait FormItemInfo<AR>: Valuable {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;
-    type SelectionInner: Default + Debug;
+    type SelectionInner: Default + Debug + Valuable;
     type Ret: Into<AR>;
     type Action: Debug + Send + 'static;
 }

@@ -8,10 +8,11 @@ use ratatui::{
     prelude::Rect,
     widgets::{Block, Clear, Padding, Paragraph, Widget},
 };
+use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemInfo};
 
-#[derive(Debug)]
+#[derive(Debug, Valuable)]
 pub struct LabelBlock {
     pub text: String,
 }
@@ -22,12 +23,42 @@ impl LabelBlock {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Valuable)]
+pub struct Pos {
+    x: u16,
+    y: u16,
+}
+
+impl From<Pos> for Position {
+    fn from(value: Pos) -> Self {
+        Position {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+impl From<Pos> for (u16, u16) {
+    fn from(value: Pos) -> Self {
+        (value.x, value.y)
+    }
+}
+
+impl From<Position> for Pos {
+    fn from(value: Position) -> Self {
+        Pos {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
 impl<AR: From<Infallible>> FormItemInfo<AR> for LabelBlock {
     const HEIGHT: u16 = 5;
 
     const HEIGHT_BUF: u16 = 0;
 
-    type SelectionInner = Option<Position>;
+    type SelectionInner = Option<Pos>;
 
     type Ret = Infallible;
 
@@ -118,7 +149,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Self::Ret>>,
     )> {
-        Ok((Some(Some(Position::ORIGIN)), None))
+        Ok((Some(Some(Position::ORIGIN.into())), None))
     }
 
     fn render_pass_main(

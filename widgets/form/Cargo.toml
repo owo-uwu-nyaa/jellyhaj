@@ -7,6 +7,7 @@ color-eyre.workspace = true
 ratatui.workspace = true
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 crossterm = { workspace = true, features = ["osc52"] }
+valuable.workspace = true
 
 [features]
 serde = ["dep:serde"]

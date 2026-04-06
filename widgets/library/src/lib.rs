@@ -8,12 +8,12 @@ use jellyhaj_core::{
     render::KeybindAction,
     state::{Navigation, NextScreen, flatten_control_flow},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, EntryState, ImageProtocolCache, Picker, Stats};
-use jellyhaj_item_grid::{ItemGrid, ItemGridAction, ItemGridState};
-use jellyhaj_keybinds_widget::{KeybindState, KeybindWidget};
+use jellyhaj_entry_widget::{Entry, EntryAction, ImageProtocolCache, Picker, Stats};
+use jellyhaj_item_grid::{ItemGrid, ItemGridAction, new_item_grid};
+use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, Result, WidgetContext,
-    WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, JellyhajWidget, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
+    valuable::Valuable,
 };
 
 #[derive(Debug)]
@@ -49,8 +49,8 @@ impl CommandMapper<UserViewCommand> for Mapper {
 }
 
 #[derive(Clone, Copy)]
-struct W;
-impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for W {
+struct Wrap;
+impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for Wrap {
     type F = KeybindAction<LibraryAction>;
 
     fn wrap(&self, val: KeybindAction<ItemGridAction<EntryAction>>) -> Self::F {
@@ -61,60 +61,28 @@ impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for W {
     }
 }
 
-pub struct LibraryState<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + 'static,
-> {
-    inner: KeybindState<R, UserViewCommand, ItemGridState<R, EntryState>, Mapper>,
-    user_view: UserView,
-    registered: bool,
-}
-
-impl<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + 'static,
-> Debug for LibraryState<R>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LibraryState")
-            .field("inner", &self.inner)
-            .field("user_view", &self.user_view)
-            .field("registered", &self.registered)
-            .finish()
-    }
-}
-
-impl<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + ContextRef<ImageProtocolCache>
-        + 'static,
-> LibraryState<R>
-{
-    pub fn new(view: Box<UserView>, items: Vec<MediaItem>, cx: &R) -> Self {
-        let inner = ItemGridState::<R, EntryState>::new(
-            items.into_iter().map(|i| EntryState::new(i, cx)).collect(),
+impl LibraryWidget {
+    pub fn new(
+        view: Box<UserView>,
+        items: Vec<MediaItem>,
+        cx: &(
+             impl ContextRef<Spawner>
+             + ContextRef<Config>
+             + ContextRef<Picker>
+             + ContextRef<Stats>
+             + ContextRef<JellyfinClient>
+             + ContextRef<JellyfinEventInterests>
+             + ContextRef<DB>
+             + ContextRef<ImageProtocolCache>
+             + 'static
+         ),
+    ) -> Self {
+        let inner = new_item_grid(
+            items.into_iter().map(|i| Entry::new(i, cx)).collect(),
             view.name.clone(),
-            0,
+            cx,
         );
-        let inner = KeybindState::new(
+        let inner = KeybindWidget::new(
             inner,
             Config::get_ref(cx).keybinds.user_view.clone(),
             Mapper {
@@ -125,9 +93,15 @@ impl<
         Self {
             inner,
             user_view: *view,
-            registered: false,
         }
     }
+}
+
+#[derive(Valuable)]
+pub struct LibraryWidget {
+    #[valuable(skip)]
+    inner: KeybindWidget<UserViewCommand, ItemGrid<Entry>, Mapper>,
+    user_view: UserView,
 }
 
 impl<
@@ -139,108 +113,36 @@ impl<
         + ContextRef<JellyfinEventInterests>
         + ContextRef<DB>
         + 'static,
-> JellyhajWidgetState<R> for LibraryState<R>
+> JellyhajWidget<R> for LibraryWidget
 {
     type Action = KeybindAction<LibraryAction>;
 
     type ActionResult = Navigation;
-
-    type Widget = LibraryWidget<R>;
 
     const NAME: &str = "library";
 
-    fn visit_children(visitor: &mut impl WidgetTreeVisitor) {
-        visitor
-            .visit::<R, KeybindState<R, UserViewCommand, ItemGridState<R, EntryState>, Mapper>>();
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit::<R, _>(&self.inner);
     }
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        LibraryWidget {
-            inner: self.inner.into_widget(cx),
-            user_view: self.user_view,
-            registered: self.registered,
-        }
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        let action = match action {
-            KeybindAction::Inner(LibraryAction::Reload) => {
-                return Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
-                    Box::new(self.user_view.clone()),
-                ))));
-            }
-            KeybindAction::Inner(LibraryAction::Remove) => {
-                return Ok(Some(Navigation::PopContext));
-            }
-            KeybindAction::Inner(LibraryAction::Inner(action)) => KeybindAction::Inner(action),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        };
-        flatten_control_flow(self.inner.apply_action(cx.wrap_with(W), action))
-    }
-}
-
-pub struct LibraryWidget<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + 'static,
-> {
-    inner: KeybindWidget<R, UserViewCommand, ItemGrid<R, Entry>, Mapper>,
-    user_view: UserView,
-    registered: bool,
-}
-
-impl<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + 'static,
-> JellyhajWidget<R> for LibraryWidget<R>
-{
-    type Action = KeybindAction<LibraryAction>;
-
-    type ActionResult = Navigation;
-
-    type State = LibraryState<R>;
 
     fn min_width(&self) -> Option<u16> {
-        self.inner.min_width()
+        JellyhajWidget::<R>::min_width(&self.inner)
     }
 
     fn min_height(&self) -> Option<u16> {
-        self.inner.min_height()
-    }
-
-    fn into_state(self) -> Self::State {
-        LibraryState {
-            inner: self.inner.into_state(),
-            user_view: self.user_view,
-            registered: self.registered,
-        }
+        JellyhajWidget::<R>::min_height(&self.inner)
     }
 
     fn accepts_text_input(&self) -> bool {
-        self.inner.accepts_text_input()
+        JellyhajWidget::<R>::accepts_text_input(&self.inner)
     }
 
     fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
+        JellyhajWidget::<R>::accept_char(&mut self.inner, text);
     }
 
     fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
+        JellyhajWidget::<R>::accept_text(&mut self.inner, text);
     }
 
     fn apply_action(
@@ -260,7 +162,7 @@ impl<
             KeybindAction::Inner(LibraryAction::Inner(action)) => KeybindAction::Inner(action),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
-        flatten_control_flow(self.inner.apply_action(cx.wrap_with(W), action))
+        flatten_control_flow(self.inner.apply_action(cx.wrap_with(Wrap), action))
     }
 
     fn click(
@@ -273,19 +175,12 @@ impl<
     ) -> Result<Option<Self::ActionResult>> {
         flatten_control_flow(
             self.inner
-                .click(cx.wrap_with(W), position, size, kind, modifier),
+                .click(cx.wrap_with(Wrap), position, size, kind, modifier),
         )
     }
 
-    fn render_fallible_inner(
-        &mut self,
-        area: jellyhaj_widgets_core::Rect,
-        buf: &mut jellyhaj_widgets_core::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        if !self.registered {
-            self.registered = true;
-            let mut events = JellyfinEventInterests::get_ref(cx.refs).get();
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        JellyfinEventInterests::get_ref(cx.refs).with(|events| {
             events.register_folder_modified(
                 self.user_view.id.clone(),
                 cx.submitter
@@ -296,7 +191,16 @@ impl<
                 cx.submitter
                     .wrap_with(|_| KeybindAction::Inner(LibraryAction::Remove)),
             );
-        }
-        self.inner.render_fallible_inner(area, buf, cx.wrap_with(W))
+        });
+    }
+
+    fn render_fallible_inner(
+        &mut self,
+        area: jellyhaj_widgets_core::Rect,
+        buf: &mut jellyhaj_widgets_core::Buffer,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+    ) -> Result<()> {
+        self.inner
+            .render_fallible_inner(area, buf, cx.wrap_with(Wrap))
     }
 }

@@ -6,10 +6,8 @@ pub mod outer;
 
 pub use color_eyre::Result;
 pub use config::Config;
-pub use item::{ItemState, ItemWidget, ItemWidgetExt};
-pub use jellyhaj::{
-    JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, TreeVisitor, WidgetTreeVisitor,
-};
+pub use item::{ItemWidget, ItemWidgetExt};
+pub use jellyhaj::{JellyhajWidget, JellyhajWidgetExt, TreeVisitor, WidgetTreeVisitor};
 pub use jellyhaj_async_task as async_task;
 pub use jellyhaj_async_task::Wrapper;
 use jellyhaj_async_task::{TaskSubmitterRef, Wrapped};
@@ -21,6 +19,7 @@ pub use ratatui::{
 };
 pub use ratatui_image::FontSize;
 pub use spawn;
+pub use valuable;
 
 pub trait RectExt {
     fn contains(self, pos: Position) -> bool;
@@ -36,7 +35,7 @@ impl RectExt for Rect {
 }
 
 pub trait ContextRef<O> {
-    fn get_ref(&self) -> &O;
+    fn as_ref(&self) -> &O;
 }
 
 pub trait GetFromContext<CX> {
@@ -46,7 +45,7 @@ pub trait GetFromContext<CX> {
 impl<O, CX: ContextRef<O>> GetFromContext<CX> for O {
     #[inline]
     fn get_ref(cx: &CX) -> &Self {
-        cx.get_ref()
+        cx.as_ref()
     }
 }
 

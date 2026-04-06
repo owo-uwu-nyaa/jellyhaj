@@ -12,10 +12,11 @@ use ratatui::{
         Widget,
     },
 };
+use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemInfo, offset::calc_offset};
 
-pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + 'static {
+pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + Valuable + 'static {
     fn descr(self) -> &'static str;
     fn index(self) -> usize;
     const MAX_LEN: usize;

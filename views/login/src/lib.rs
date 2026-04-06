@@ -17,7 +17,7 @@ use jellyhaj_core::{
     CommandMapper, Config,
     context::ContextRef,
     keybinds::LoadingCommand,
-    render::{RenderResult, render_widget_bare},
+    render::{WidgetResult, make_new_erased, render_widget},
     state::Navigation,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
@@ -31,11 +31,18 @@ use tracing::{info, instrument};
 
 struct LoginContext {
     config: Arc<Config>,
+    spawner: Spawner,
 }
 
 impl ContextRef<Config> for LoginContext {
-    fn get_ref(&self) -> &Config {
+    fn as_ref(&self) -> &Config {
         &self.config
+    }
+}
+
+impl ContextRef<Spawner> for LoginContext {
+    fn as_ref(&self) -> &Spawner {
+        &self.spawner
     }
 }
 
@@ -50,27 +57,24 @@ async fn edit_login_info(
     spawner: Spawner,
     config: Arc<Config>,
 ) -> Result<bool> {
-    let error = error.to_string();
-    let cx = LoginContext { config };
-
     let widget = LoginWidget::new(
         info.server_url.clone(),
         info.username.clone(),
         info.password.clone(),
         info.password_cmd.is_some(),
         error,
-        &cx,
+        &config,
     );
-    match render_widget_bare(term, events, spawner, widget, cx).await {
-        RenderResult::Ok((LoginResult::Quit, _)) => Ok(false),
-        RenderResult::Ok((
-            LoginResult::Data {
-                server_url,
-                username,
-                password,
-            },
-            _,
-        )) => {
+    let cx = LoginContext { config, spawner };
+    let mut widget = make_new_erased(cx, widget);
+
+    match render_widget(widget.as_mut(), events, term).await {
+        WidgetResult::Ok(LoginResult::Quit) | WidgetResult::Pop | WidgetResult::Exit => Ok(false),
+        WidgetResult::Ok(LoginResult::Data {
+            server_url,
+            username,
+            password,
+        }) => {
             if server_url != info.server_url {
                 info.server_url = server_url;
                 *changed = true;
@@ -85,8 +89,7 @@ async fn edit_login_info(
             }
             Ok(true)
         }
-        RenderResult::Err(report) => Err(report),
-        RenderResult::Exit => Ok(false),
+        WidgetResult::Err(report) => Err(report),
     }
 }
 
@@ -118,11 +121,12 @@ async fn render_fetch(
         config.keybinds.fetch.clone(),
         LoadingMapper,
     );
-    let cx = LoginContext { config };
-    match render_widget_bare(term, events, spawner, widget, cx).await {
-        RenderResult::Ok((ControlFlow::Break(_), _)) => Ok(()),
-        RenderResult::Err(report) => Err(report),
-        RenderResult::Exit => Ok(()),
+    let cx = LoginContext { config, spawner };
+    let mut widget = make_new_erased(cx, widget);
+    match render_widget(widget.as_mut(), events, term).await {
+        WidgetResult::Ok(ControlFlow::Break(_)) => Ok(()),
+        WidgetResult::Err(report) => Err(report),
+        WidgetResult::Exit | WidgetResult::Pop => Ok(()),
     }
 }
 

@@ -2,7 +2,7 @@ use std::{cmp::min, convert::Infallible};
 
 use ansi_to_tui::IntoText;
 use color_eyre::eyre::Context;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, WidgetContext, Wrapper};
 use ratatui::{
     layout::Margin,
     widgets::{
@@ -10,19 +10,15 @@ use ratatui::{
         Widget,
     },
 };
+use valuable::Valuable;
 
+#[derive(Valuable)]
 pub struct ErrorWidget {
     text: String,
+    #[valuable(skip)]
     pos_x: usize,
+    #[valuable(skip)]
     pos_y: usize,
-}
-
-impl std::fmt::Debug for ErrorWidget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ErrorWidget")
-            .field("text", &self.text)
-            .finish()
-    }
 }
 
 impl ErrorWidget {
@@ -43,36 +39,16 @@ pub enum ErrorAction {
     Right,
 }
 
-impl<R: 'static> JellyhajWidgetState<R> for ErrorWidget {
+impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
     type Action = ErrorAction;
 
     type ActionResult = Infallible;
-
-    type Widget = ErrorWidget;
 
     const NAME: &str = "error";
 
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
 
-    fn into_widget(self, _: &R) -> Self::Widget {
-        self
-    }
-
-    fn apply_action(
-        &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        _: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        Ok(None)
-    }
-}
-
-impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
-    type State = ErrorWidget;
-
-    type Action = ErrorAction;
-
-    type ActionResult = Infallible;
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
@@ -80,10 +56,6 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
 
     fn min_height(&self) -> Option<u16> {
         Some(5)
-    }
-
-    fn into_state(self) -> Self::State {
-        self
     }
 
     fn accepts_text_input(&self) -> bool {

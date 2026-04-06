@@ -10,3 +10,4 @@ jellyhaj-entry-widget = { version = "0.1.0", path = "../entry" }
 jellyhaj-item-grid = { version = "0.1.0", path = "../item-grid" }
 jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+valuable.workspace = true

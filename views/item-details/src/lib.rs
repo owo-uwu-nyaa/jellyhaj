@@ -4,29 +4,24 @@ use color_eyre::eyre::Context;
 use jellyfin::items::MediaItem;
 use jellyhaj_core::{
     CommandMapper,
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
+    context::TuiContext,
     keybinds::{ItemDetailsCommand, ItemListDetailsCommand},
-    render::{NavigationResult, render_widget},
+    render::{Erased, make_new_erased},
     state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::EntryAction;
 use jellyhaj_fetch_view::{fetch_all_children, fetch_child_of_type, fetch_item, make_fetch};
 use jellyhaj_item_details_widget::{
-    DisplayAction, DisplayListAction, ItemDisplayState, ItemListDisplayState,
+    DisplayAction, DisplayListAction, ItemDetails, ItemListDetails,
 };
 use jellyhaj_item_list::ItemListAction;
-use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_widgets_core::outer::{Named, OuterState};
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 use tokio::try_join;
 use tracing::instrument;
 
 #[instrument(skip_all)]
-pub fn render_fetch_episode(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    parent: String,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_fetch_episode(cx: TuiContext, parent: String) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {
         let item = fetch_child_of_type(&jellyfin, "Episode, Movie, Music", &parent)
@@ -34,32 +29,22 @@ pub fn render_fetch_episode(
             .context("fetching episode")?;
         Ok(NextScreen::ItemDetails(Box::new(item)))
     };
-    make_fetch(term, events, cx, "Fetching single item", fut)
+    make_fetch(cx, "Fetching single item", fut)
 }
 
 #[instrument(skip_all)]
-pub fn render_fetch_item_list(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    parent: Box<MediaItem>,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_fetch_item_list(cx: TuiContext, parent: Box<MediaItem>) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let title = format!("Loading {}", &parent.name);
     let fut = async move {
         let items = fetch_all_children(&jellyfin, &parent.id).await?;
         Ok(NextScreen::ItemListDetails(parent, items))
     };
-    make_fetch(term, events, cx, title, fut)
+    make_fetch(cx, title, fut)
 }
 
 #[instrument(skip_all)]
-pub fn render_fetch_item_list_ref(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    parent: String,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_fetch_item_list_ref(cx: TuiContext, parent: String) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {
         let (parent, children) = try_join!(
@@ -68,7 +53,7 @@ pub fn render_fetch_item_list_ref(
         )?;
         Ok(NextScreen::ItemListDetails(Box::new(parent), children))
     };
-    make_fetch(term, events, cx, "Loading item list", fut)
+    make_fetch(cx, "Loading item list", fut)
 }
 
 struct DetailsMapper {
@@ -101,25 +86,15 @@ impl Named for DetailsName {
 }
 
 #[instrument(skip_all)]
-pub fn render_item_details(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    item: Box<MediaItem>,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_item_details(cx: TuiContext, item: Box<MediaItem>) -> Erased {
     let id = item.id.clone();
-    let state = ItemDisplayState::new(item, &cx);
-    let state = KeybindState::new(
-        state,
+    let widget = ItemDetails::new(item, &cx);
+    let widget = KeybindWidget::new(
+        widget,
         cx.config.keybinds.item_details.clone(),
         DetailsMapper { id },
     );
-    render_widget(
-        term,
-        events,
-        cx,
-        OuterState::<DetailsName, _, _, _, _>::new(state),
-    )
+    make_new_erased(cx, OuterWidget::<DetailsName, _>::new(widget))
 }
 
 struct ListMapper {
@@ -160,23 +135,16 @@ impl Named for ListName {
 
 #[instrument(skip_all)]
 pub fn render_item_list_details(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
     cx: TuiContext,
     parent: Box<MediaItem>,
     children: Vec<MediaItem>,
-) -> impl Future<Output = NavigationResult> {
+) -> Erased {
     let id = parent.id.clone();
-    let state = ItemListDisplayState::new(children, parent, &cx);
-    let state = KeybindState::new(
+    let state = ItemListDetails::new(children, parent, &cx);
+    let state = KeybindWidget::new(
         state,
         cx.config.keybinds.item_list_details.clone(),
         ListMapper { id },
     );
-    render_widget(
-        term,
-        events,
-        cx,
-        OuterState::<ListName, _, _, _, _>::new(state),
-    )
+    make_new_erased(cx, OuterWidget::<ListName, _>::new(state))
 }

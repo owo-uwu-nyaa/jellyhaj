@@ -56,7 +56,7 @@ rustPlatform.buildRustPackage {
   cargoTestFlags = [ "--workspace" ];
   cargoBuildFlags = lib.optional withTools "--workspace";
   buildFeatures = lib.optional withMpris "mpris";
-
+  separateDebugInfo = true;
   meta = {
     description = "Terminal client for Jellyfin reimplementing parts of the web ui";
     license = lib.licenses.mit;

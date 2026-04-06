@@ -3,12 +3,19 @@ use std::{convert::Infallible, ops::ControlFlow};
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
+use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemInfo};
 
-#[derive(Debug)]
+#[derive(Debug, Valuable)]
 pub struct TextField {
     pub text: String,
+}
+
+impl TextField {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
 }
 #[cfg(feature = "serde")]
 mod s {

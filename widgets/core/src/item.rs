@@ -5,36 +5,24 @@ use ratatui::{
     crossterm::event::{KeyModifiers, MouseEventKind},
     layout::{Position, Rect, Size},
 };
+use tracing::instrument;
 
 use crate::{WidgetContext, WidgetTreeVisitor, Wrapper};
 use color_eyre::Result;
+use valuable::Valuable;
 
-pub trait ItemState<R: 'static>: Debug + Send + 'static {
+pub trait ItemWidget<R: 'static>: Valuable + Send + Sized + 'static {
     type IAction: Debug + Send + 'static;
     type IActionResult: Debug;
-    type IWidget: ItemWidget<R, IState = Self, IAction = Self::IAction, IActionResult = Self::IActionResult>;
 
     const NAME: &str;
 
-    fn item_visit_children(visitor: &mut impl WidgetTreeVisitor);
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
 
-    fn item_into_widget(self, cx: &R) -> Self::IWidget;
-    fn item_apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
-        action: Self::IAction,
-    ) -> Result<Option<Self::IActionResult>>;
-}
-
-pub trait ItemWidget<R: 'static>: Send + Sized + 'static {
-    type IAction: Debug + Send + 'static;
-    type IActionResult: Debug;
-    type IState: ItemState<R, IWidget = Self, IAction = Self::IAction, IActionResult = Self::IActionResult>;
+    fn init(&mut self, cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>);
 
     fn dimensions(&self) -> Size;
     fn dimensions_static(par: &R) -> Size;
-
-    fn item_into_state(self) -> Self::IState;
 
     fn item_accepts_text_input(&self) -> bool;
     fn item_accept_char(&mut self, text: char);
@@ -72,6 +60,7 @@ pub trait ItemWidgetExt<R: 'static>: ItemWidget<R> {
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
     ) -> Result<()> {
+        #[instrument(name = "check_item_size")]
         fn inner(dim: Size, area: &mut Rect) {
             assert!(dim.width <= area.width, "width is too small");
             assert!(dim.height <= area.height, "height is too small");

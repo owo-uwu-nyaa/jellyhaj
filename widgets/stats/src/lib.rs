@@ -1,17 +1,7 @@
-use std::{
-    cmp::max,
-    convert::Infallible,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering::Relaxed},
-    },
-    time::Duration,
-};
+use std::{cmp::max, convert::Infallible, sync::atomic::Ordering::Relaxed, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetState, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{ContextRef, GetFromContext, JellyhajWidget, WidgetContext, Wrapper};
 use ratatui::{
     layout::Constraint,
     symbols::merge::MergeStrategy,
@@ -20,6 +10,7 @@ use ratatui::{
 use stats_data::StatsData;
 use tokio::time::interval;
 use tracing::{info_span, instrument};
+use valuable::Valuable;
 
 struct BorderedTable<'r> {
     rows: &'r [&'r [&'r str]],
@@ -76,45 +67,11 @@ impl Widget for &BorderedTable<'_> {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct StatsState;
-
-impl<R: 'static + ContextRef<StatsData>> JellyhajWidgetState<R> for StatsState {
-    type Action = StatsUpdate;
-
-    type ActionResult = Infallible;
-
-    type Widget = StatsWidget;
-
-    const NAME: &str = "stats";
-
-    fn visit_children(_: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        StatsWidget::new(cx.get_ref())
-    }
-
-    fn apply_action(
-        &mut self,
-        _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        _: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        Ok(None)
-    }
-}
-
+#[derive(Valuable)]
 pub struct StatsWidget {
     image_fetches: String,
     db_image_cache_hits: String,
     memory_image_cache_hits: String,
-    spawned: bool,
-    stop: Arc<AtomicBool>,
-}
-
-impl Drop for StatsWidget {
-    fn drop(&mut self) {
-        self.stop.store(true, Relaxed);
-    }
 }
 
 impl StatsWidget {
@@ -123,8 +80,6 @@ impl StatsWidget {
             image_fetches: stats.image_fetches.load(Relaxed).to_string(),
             db_image_cache_hits: stats.db_image_cache_hits.load(Relaxed).to_string(),
             memory_image_cache_hits: stats.memory_image_cache_hits.load(Relaxed).to_string(),
-            spawned: false,
-            stop: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -133,11 +88,24 @@ impl StatsWidget {
 pub struct StatsUpdate;
 
 impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
-    type State = StatsState;
-
     type Action = StatsUpdate;
 
     type ActionResult = Infallible;
+
+    const NAME: &str = "stats";
+
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        cx.submitter.spawn_stream(
+            unfold(interval(Duration::from_secs(5)), |mut i| async move {
+                i.tick().await;
+                Some((Ok(StatsUpdate), i))
+            }),
+            info_span!("update_stats_tick"),
+            "update_stats_tick",
+        );
+    }
 
     fn min_width(&self) -> Option<u16> {
         Some(
@@ -160,10 +128,6 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
 
     fn min_height(&self) -> Option<u16> {
         Some(11)
-    }
-
-    fn into_state(self) -> Self::State {
-        StatsState
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -206,27 +170,8 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
-        if !self.spawned {
-            self.spawned = true;
-            let stop = self.stop.clone();
-            cx.submitter.spawn_stream(
-                unfold(interval(Duration::from_secs(5)), move |mut i| {
-                    let stop = stop.load(Relaxed);
-                    async move {
-                        i.tick().await;
-                        if stop {
-                            None
-                        } else {
-                            Some((Ok(StatsUpdate), i))
-                        }
-                    }
-                }),
-                info_span!("update_stats_tick"),
-                "update_stats_tick",
-            );
-        }
         let block = Block::bordered().title("Program stats");
         let memory_image_cache_hits = [MEMORY_IMAGE_CACHE_HITS, &self.memory_image_cache_hits];
         let db_image_cache_hits = [DB_IMAGE_CACHE_HITS, &self.db_image_cache_hits];

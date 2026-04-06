@@ -30,6 +30,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserView {
     pub name: String,
     pub id: String,
@@ -41,6 +42,7 @@ pub struct UserView {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum UserViewType {
     CollectionFolder,
     UserView,
@@ -48,6 +50,7 @@ pub enum UserViewType {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum CollectionType {
     Playlists,
     Movies,

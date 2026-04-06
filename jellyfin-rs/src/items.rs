@@ -126,6 +126,7 @@ pub struct GetNextUpQuery<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum ImageType {
     Primary,
     Art,
@@ -168,6 +169,7 @@ impl Display for ImageType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum MediaType {
     Unknown,
     Video,
@@ -178,6 +180,7 @@ pub enum MediaType {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "Type")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum ItemType {
     #[serde(rename_all = "PascalCase")]
     Movie,
@@ -203,14 +206,15 @@ pub enum ItemType {
         album: String,
     },
     #[serde(untagged)]
-    Unknown{
+    Unknown {
         #[serde(rename = "Type")]
-        item_type: String
+        item_type: String,
     },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserData {
     pub playback_position_ticks: u64,
     pub unplayed_item_count: Option<u64>,
@@ -229,6 +233,7 @@ pub struct SetUserData {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaItem {
     pub id: String,
     pub image_tags: Option<HashMap<ImageType, String>>,

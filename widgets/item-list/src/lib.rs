@@ -1,13 +1,12 @@
 use std::{
     cmp::min,
     fmt::Debug,
-    marker::PhantomData,
-    ops::{Index, IndexMut},
+    ops::{Deref, DerefMut},
 };
 
 use jellyhaj_widgets_core::{
-    ItemState, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetState, WidgetContext,
-    Wrapper,
+    ItemWidget, ItemWidgetExt, JellyhajWidget, WidgetContext, WidgetTreeVisitor, Wrapper,
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit},
 };
 use ratatui::{
     layout::{Position, Rect, Size},
@@ -19,50 +18,76 @@ use ratatui::{
 use tracing::instrument;
 
 #[derive(Debug)]
-pub struct ItemList<R: 'static, T: ItemWidget<R>> {
+pub struct ItemList<T> {
     items: Vec<T>,
     current: usize,
     title: String,
     pub active: bool,
     offset: usize,
     item_size: Size,
-    _r: PhantomData<fn(R) -> ()>,
 }
 
-impl<R: 'static, T: ItemWidget<R>> ItemList<R, T> {
-    pub fn new(items: impl IntoIterator<Item = T>, current: usize, title: String, cx: &R) -> Self {
-        Self {
-            items: items.into_iter().collect(),
-            current,
-            title,
-            active: false,
-            offset: 0,
-            item_size: <T as ItemWidget<R>>::dimensions_static(cx),
-            _r: PhantomData,
-        }
+pub fn new_item_list<R: 'static, T: ItemWidget<R>>(
+    items: impl IntoIterator<Item = T>,
+    title: String,
+    cx: &R,
+) -> ItemList<T> {
+    ItemList {
+        items: items.into_iter().collect(),
+        current: 0,
+        title,
+        active: false,
+        offset: 0,
+        item_size: T::dimensions_static(cx),
     }
-    pub fn get(&self, index: usize) -> Option<&T> {
-        self.items.get(index)
+}
+
+static ITEM_LIST_FIELDS: &[NamedField] = &[
+    NamedField::new("current"),
+    NamedField::new("title"),
+    NamedField::new("active"),
+];
+
+impl<T> Valuable for ItemList<T> {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
     }
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        self.items.get_mut(index)
+
+    fn visit(&self, visit: &mut dyn Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            ITEM_LIST_FIELDS,
+            &[
+                self.current.as_value(),
+                self.title.as_value(),
+                self.active.as_value(),
+            ],
+        ))
     }
+}
+
+impl<T> Structable for ItemList<T> {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("ItemList", Fields::Named(ITEM_LIST_FIELDS))
+    }
+}
+
+impl<T> ItemList<T> {
     pub fn height(&self) -> u16 {
         self.item_size.height + 4
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> Index<usize> for ItemList<R, T> {
-    type Output = T;
+impl<T> Deref for ItemList<T> {
+    type Target = [T];
 
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.items[index]
+    fn deref(&self) -> &Self::Target {
+        &self.items
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> IndexMut<usize> for ItemList<R, T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.items[index]
+impl<T> DerefMut for ItemList<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
     }
 }
 
@@ -72,103 +97,6 @@ pub enum ItemListAction<T> {
     CurrentInner(T),
     Left,
     Right,
-}
-
-pub struct ItemListState<R: 'static, T: ItemState<R>> {
-    pub items: Vec<T>,
-    pub title: String,
-    pub current: usize,
-    _r: PhantomData<fn(R) -> ()>,
-}
-
-impl<R: 'static, T: ItemState<R>> std::fmt::Debug for ItemListState<R, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ItemListData")
-            .field("items", &self.items)
-            .field("title", &self.title)
-            .field("current", &self.current)
-            .finish()
-    }
-}
-
-impl<R: 'static, T: ItemState<R>> JellyhajWidgetState<R> for ItemListState<R, T> {
-    type Action = ItemListAction<T::IAction>;
-
-    type ActionResult = <T as ItemState<R>>::IActionResult;
-
-    type Widget = ItemList<R, T::IWidget>;
-
-    const NAME: &str = "item-list";
-
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit_item::<R, T>();
-    }
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        let item_size = <T::IWidget>::dimensions_static(cx);
-        ItemList {
-            items: self
-                .items
-                .into_iter()
-                .map(|i| i.item_into_widget(cx))
-                .collect(),
-            current: self.current,
-            title: self.title,
-            active: false,
-            offset: 0,
-            item_size,
-            _r: PhantomData,
-        }
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        match action {
-            ItemListAction::SpecificInner(index, action) => self
-                .items
-                .get_mut(index)
-                .and_then(|v| {
-                    v.item_apply_action(cx.wrap_with(ListWrapper { index }), action)
-                        .transpose()
-                })
-                .transpose(),
-            ItemListAction::CurrentInner(action) => self
-                .items
-                .get_mut(self.current)
-                .and_then(|v| {
-                    v.item_apply_action(
-                        cx.wrap_with(ListWrapper {
-                            index: self.current,
-                        }),
-                        action,
-                    )
-                    .transpose()
-                })
-                .transpose(),
-            ItemListAction::Left => {
-                self.current = self.current.saturating_sub(1);
-                Ok(None)
-            }
-            ItemListAction::Right => {
-                self.current = self.current.saturating_add(1);
-                Ok(None)
-            }
-        }
-    }
-}
-
-impl<R: 'static, T: ItemState<R>> ItemListState<R, T> {
-    pub fn new(items: impl IntoIterator<Item = T>, title: String) -> Self {
-        Self {
-            items: items.into_iter().collect(),
-            title,
-            current: 0,
-            _r: PhantomData,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -184,23 +112,22 @@ impl<T: Send + 'static> Wrapper<T> for ListWrapper {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<R, T> {
-    type State = ItemListState<R, T::IState>;
-
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
     type Action = ItemListAction<<T as ItemWidget<R>>::IAction>;
 
     type ActionResult = <T as ItemWidget<R>>::IActionResult;
 
-    fn into_state(self) -> Self::State {
-        ItemListState {
-            items: self
-                .items
-                .into_iter()
-                .map(ItemWidget::item_into_state)
-                .collect(),
-            title: self.title,
-            current: self.current,
-            _r: PhantomData,
+    const NAME: &str = "item-list";
+
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
+        for item in &self.items {
+            visitor.visit_item(item);
+        }
+    }
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        for (index, item) in self.items.iter_mut().enumerate() {
+            item.init(cx.wrap_with(ListWrapper { index }));
         }
     }
 
@@ -281,7 +208,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<R, T> {
         }
     }
 
-    #[instrument(skip_all, name = "render_list")]
+    #[instrument(skip(self, buf,cx), name = "render_list")]
     fn render_fallible_inner(
         &mut self,
         area: ratatui::prelude::Rect,
@@ -353,7 +280,8 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<R, T> {
     }
 
     fn accept_char(&mut self, text: char) {
-        if let Some(i) = self.get_mut(self.current)
+        let cur = self.current;
+        if let Some(i) = self.get_mut(cur)
             && i.item_accepts_text_input()
         {
             i.item_accept_char(text);
@@ -361,7 +289,8 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<R, T> {
     }
 
     fn accept_text(&mut self, text: String) {
-        if let Some(i) = self.get_mut(self.current)
+        let cur = self.current;
+        if let Some(i) = self.get_mut(cur)
             && i.item_accepts_text_input()
         {
             i.item_accept_text(text);

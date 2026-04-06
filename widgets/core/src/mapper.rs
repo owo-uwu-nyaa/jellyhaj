@@ -2,113 +2,63 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use color_eyre::eyre::Result;
 use jellyhaj_async_task::Wrapper;
+use valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value, Visit};
 
-use crate::{JellyhajWidget, JellyhajWidgetState, WidgetContext};
+use crate::{JellyhajWidget, WidgetContext};
 
 pub trait Named: 'static {
     const NAME: &str;
 }
 
-pub trait ResultMapper<CX: 'static, S: JellyhajWidgetState<CX>>: Default + Send + 'static {
+pub trait ResultMapper<I> {
     type R: Debug + 'static;
-    fn map_widget(this: &mut S::Widget, res: S::ActionResult) -> Result<Option<Self::R>>;
-    fn map_state(this: &mut S, res: S::ActionResult) -> Result<Option<Self::R>>;
+    fn map(res: I) -> Result<Option<Self::R>>;
 }
 
-pub struct MapperWidget<CX: 'static, N: Named, W: JellyhajWidget<CX>, M: ResultMapper<CX, W::State>>
-{
+pub struct MapperWidget<N: Named, W: 'static, M: 'static> {
     pub inner: W,
-    named: PhantomData<fn(N) -> N>,
-    cx: PhantomData<fn(CX) -> ()>,
-    mapper: M,
+    named: PhantomData<fn(N) -> ()>,
+    mapper: PhantomData<fn(M) -> ()>,
 }
 
-impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> MapperWidget<R, N, W, M> {
+impl<N: Named, W, M> MapperWidget<N, W, M> {
     pub fn new(inner: W) -> Self {
         Self {
             inner,
             named: PhantomData,
-            mapper: Default::default(),
-            cx: PhantomData,
+            mapper: PhantomData,
         }
     }
 }
 
-pub struct MapperState<R: 'static, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> {
-    pub inner: S,
-    named: PhantomData<fn(N) -> N>,
-    r: PhantomData<fn(R) -> ()>,
-    mapper: M,
-}
+impl<N: Named, W, M> Valuable for MapperWidget<N, W, M> {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
 
-impl<R: 'static, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>>
-    MapperState<R, N, S, M>
-{
-    pub fn new(inner: S) -> Self {
-        Self {
-            inner,
-            named: PhantomData,
-            mapper: Default::default(),
-            r: PhantomData,
-        }
+    fn visit(&self, visit: &mut dyn Visit) {
+        visit.visit_named_fields(&NamedValues::new(&[], &[]))
     }
 }
 
-impl<R, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> Debug
-    for MapperState<R, N, S, M>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("OuterState")
-            .field("inner", &self.inner)
-            .field("named", &N::NAME)
-            .finish()
+impl<N: Named, W, M> Structable for MapperWidget<N, W, M> {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("MapperState", Fields::Named(&[]))
     }
 }
 
-impl<R, N: Named, S: JellyhajWidgetState<R>, M: ResultMapper<R, S>> JellyhajWidgetState<R>
-    for MapperState<R, N, S, M>
-{
-    type Action = S::Action;
-
-    type ActionResult = M::R;
-
-    type Widget = MapperWidget<R, N, S::Widget, M>;
-
-    const NAME: &str = N::NAME;
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        MapperWidget {
-            inner: self.inner.into_widget(cx),
-            named: self.named,
-            mapper: self.mapper,
-            cx: PhantomData,
-        }
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        match self.inner.apply_action(cx, action)? {
-            None => Ok(None),
-            Some(v) => M::map_state(&mut self.inner, v),
-        }
-    }
-
-    fn visit_children(visitor: &mut impl crate::WidgetTreeVisitor) {
-        visitor.visit::<R, S>();
-    }
-}
-
-impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> JellyhajWidget<R>
-    for MapperWidget<R, N, W, M>
+impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult>> JellyhajWidget<R>
+    for MapperWidget<N, W, M>
 {
     type Action = W::Action;
 
     type ActionResult = M::R;
 
-    type State = MapperState<R, N, W::State, M>;
+    const NAME: &str = N::NAME;
+
+    fn visit_children(&self, visitor: &mut impl crate::WidgetTreeVisitor) {
+        visitor.visit::<R, W>(&self.inner);
+    }
 
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
@@ -118,13 +68,8 @@ impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> JellyhajWi
         self.inner.min_height()
     }
 
-    fn into_state(self) -> Self::State {
-        MapperState {
-            inner: self.inner.into_state(),
-            named: self.named,
-            mapper: self.mapper,
-            r: PhantomData,
-        }
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        self.inner.init(cx);
     }
 
     fn accepts_text_input(&self) -> bool {
@@ -146,7 +91,7 @@ impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> JellyhajWi
     ) -> Result<Option<Self::ActionResult>> {
         match self.inner.apply_action(cx, action)? {
             None => Ok(None),
-            Some(v) => M::map_widget(&mut self.inner, v),
+            Some(v) => M::map(v),
         }
     }
 
@@ -160,7 +105,7 @@ impl<R, N: Named, W: JellyhajWidget<R>, M: ResultMapper<R, W::State>> JellyhajWi
     ) -> Result<Option<Self::ActionResult>> {
         match self.inner.click(cx, position, size, kind, modifier)? {
             None => Ok(None),
-            Some(v) => M::map_widget(&mut self.inner, v),
+            Some(v) => M::map(v),
         }
     }
 

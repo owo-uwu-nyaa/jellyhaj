@@ -10,62 +10,49 @@ use std::any::type_name;
 use std::fmt::Debug;
 use tracing::warn;
 
-use crate::{ItemState, WidgetContext};
+use crate::{ItemWidget, WidgetContext};
+use valuable::Valuable;
 
 pub trait TreeVisitor {
-    fn enter(&mut self, name: &'static str, visit_children: fn(&mut dyn TreeVisitor));
+    fn enter(
+        &mut self,
+        name: &'static str,
+        state: &dyn Valuable,
+        visit_children: &dyn Fn(&mut dyn TreeVisitor),
+    );
 }
 
 pub trait WidgetTreeVisitor: Sized {
-    fn visit<R: 'static, S: JellyhajWidgetState<R>>(&mut self);
-    fn visit_item<R: 'static, S: ItemState<R>>(&mut self);
+    fn visit<R: 'static, S: JellyhajWidget<R>>(&mut self, state: &S);
+    fn visit_item<R: 'static, S: ItemWidget<R>>(&mut self, state: &S);
 }
 
 impl WidgetTreeVisitor for &mut dyn TreeVisitor {
-    fn visit<R: 'static, S: JellyhajWidgetState<R>>(&mut self) {
-        self.enter(S::NAME, |mut this| {
-            S::visit_children(&mut this);
+    fn visit<R: 'static, S: JellyhajWidget<R>>(&mut self, state: &S) {
+        self.enter(S::NAME, state, &|mut this| {
+            state.visit_children(&mut this);
         });
     }
 
-    fn visit_item<R: 'static, S: ItemState<R>>(&mut self) {
-        self.enter(S::NAME, |mut this| {
-            S::item_visit_children(&mut this);
+    fn visit_item<R: 'static, S: ItemWidget<R>>(&mut self, state: &S) {
+        self.enter(S::NAME, state, &|mut this| {
+            state.visit_children(&mut this);
         });
     }
 }
 
-pub trait JellyhajWidgetState<R: 'static>: Debug + Send + 'static {
+pub trait JellyhajWidget<R: 'static>: Valuable + Send + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
-    type Widget: JellyhajWidget<R, State = Self, Action = Self::Action, ActionResult = Self::ActionResult>;
 
     const NAME: &str;
 
-    fn visit_children(visitor: &mut impl WidgetTreeVisitor);
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
 
-    fn into_widget(self, cx: &R) -> Self::Widget;
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>>;
-}
-
-pub trait JellyhajWidget<R: 'static>: Send + Sized + 'static {
-    type Action: Debug + Send + 'static;
-    type ActionResult: Debug;
-    type State: JellyhajWidgetState<
-            R,
-            Widget = Self,
-            Action = Self::Action,
-            ActionResult = Self::ActionResult,
-        >;
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
 
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
-
-    fn into_state(self) -> Self::State;
 
     fn accepts_text_input(&self) -> bool;
     fn accept_char(&mut self, text: char);

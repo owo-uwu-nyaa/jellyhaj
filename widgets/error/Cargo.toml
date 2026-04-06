@@ -3,6 +3,7 @@ jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 ansi-to-tui.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
+valuable.workspace = true
 
 [package]
 edition = "2024"

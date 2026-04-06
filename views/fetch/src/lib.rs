@@ -12,14 +12,12 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::LoadingCommand,
-    render::{NavigationResult, render_widget},
+    render::{Erased, make_new_erased},
     state::{Navigation, NextScreen},
 };
-use jellyhaj_fetch_widget::{FetchAction, FetchState};
-use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_widgets_core::outer::{Named, OuterState};
-use keybinds::KeybindEvents;
-use ratatui::DefaultTerminal;
+use jellyhaj_fetch_widget::{FetchAction, FetchWidget};
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 use tracing::instrument;
 
 struct FetchMapper;
@@ -41,18 +39,16 @@ impl Named for Name {
 }
 
 pub fn make_fetch(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
     cx: TuiContext,
     title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<NextScreen>> + Send + 'static,
-) -> impl Future<Output = NavigationResult> {
-    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
-        FetchState::new(fut, title.into()),
+) -> Erased {
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+        FetchWidget::new(fut, title),
         cx.config.keybinds.fetch.clone(),
         FetchMapper,
     ));
-    render_widget(term, events, cx, state)
+    make_new_erased(cx, widget)
 }
 
 #[instrument(skip(jellyfin))]

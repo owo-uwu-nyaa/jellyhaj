@@ -1,4 +1,4 @@
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::{Literal, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{Expr, Ident, ItemStruct, LitStr, Path, Result, Type, parse_quote, spanned::Spanned};
 
@@ -41,6 +41,10 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         state_name,
         widget_name,
     } = parse::parse(args, input)?;
+    let private_mod: Ident = Ident::new(
+        &("form_impl_".to_string() + &state_name.to_string()),
+        Span::mixed_site(),
+    );
     let exports: Path = parse_quote!(::jellyhaj_form_widget::macro_impl::exports);
     let form_item_info_tr: Type =
         parse_quote!(::jellyhaj_form_widget::FormItemInfo<#action_result>);
@@ -53,7 +57,6 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let with_iter_items_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItems);
     let with_iter_items_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItemsMut);
     let with_action_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithActionMut);
-    let form_state: Path = parse_quote!(::jellyhaj_form_widget::form::FormState);
     let form: Path = parse_quote!(::jellyhaj_form_widget::form::Form);
     let total_size = Literal::usize_suffixed(fields.len());
     let show_if_fns = fields.iter().filter_map(|item| {
@@ -71,6 +74,23 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         let ty = &item.ty;
         quote! {#name(<#ty as #form_item_info_tr>::SelectionInner)}
     });
+
+    let selection_variant_defs = fields.iter().map(|item| {
+        let name = LitStr::new(&item.enum_id.to_string(), item.enum_id.span());
+        quote! {#exports::VariantDef::new(#name, #exports::Fields::Unnamed(1))}
+    });
+
+    let selection_variant_pats = fields.iter().enumerate().map(|(i, item)| {
+        let sel = &item.selection;
+        let i = Literal::usize_suffixed(i);
+        quote! {super::#sel(_) => #exports::Variant::Static(&DEFS[#i])}
+    });
+
+    let selection_value_pats = fields.iter().map(|item| {
+        let sel = &item.selection;
+        quote! {super::#sel(v) => #exports::Valuable::as_value(v)}
+    });
+
     let action_items = fields.iter().map(|item| {
         let name = &item.enum_id;
         let ty = &item.ty;
@@ -184,6 +204,39 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         #vis enum #selection_ty {
             #(#selection_items),*
         }
+
+        mod #private_mod{
+
+            static DEFS: &[#exports::VariantDef] = &[
+                #(#selection_variant_defs),*
+            ];
+
+            impl #exports::Valuable for super::#selection_ty{
+                fn as_value(&self) -> #exports::Value<'_>{
+                    #exports::Value::Enumerable(self)
+                }
+                fn visit(&self, visit: &mut dyn #exports::Visit){
+                    let val = match self{
+                        #(#selection_value_pats),*
+                    };
+                    visit.visit_unnamed_fields(&[val])
+                }
+            }
+
+            impl #exports::Enumerable for super::#selection_ty{
+                fn definition(&self) -> #exports::EnumDef<'_>{
+                    #exports::EnumDef::new_static(
+                        #name, DEFS
+                    )
+                }
+                fn variant(&self) -> #exports::Variant<'_>{
+                    match self{
+                        #(#selection_variant_pats),*
+                    }
+                }
+            }
+        }
+
         #[derive(Debug)]
         #vis enum #action_ty {
             #(#action_items),*
@@ -276,7 +329,6 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
             }
 
         }
-        #vis type #state_name = #form_state<{#total_size}, #data_ty>;
         #vis type #widget_name = #form<{#total_size}, #data_ty>;
     })
 }

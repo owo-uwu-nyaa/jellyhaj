@@ -2,14 +2,14 @@ use std::ops::ControlFlow;
 
 use jellyhaj_core::{
     CommandMapper,
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
+    context::TuiContext,
     keybinds::LoggerCommand,
-    render::{NavigationResult, render_widget},
+    render::{Erased, make_new_erased},
     state::Navigation,
 };
-use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_log_widget::{LogWidget, TuiWidgetEvent};
-use jellyhaj_widgets_core::outer::{Named, OuterState};
+use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 
 struct Mapper;
 
@@ -42,15 +42,11 @@ impl Named for Name {
     const NAME: &str = "log-view";
 }
 
-pub fn render_log(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-) -> impl Future<Output = NavigationResult> {
-    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
+pub fn render_log(cx: TuiContext) -> Erased {
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         LogWidget::new(),
         cx.config.keybinds.logger.clone(),
         Mapper,
     ));
-    render_widget(term, events, cx, state)
+    make_new_erased(cx, widget)
 }

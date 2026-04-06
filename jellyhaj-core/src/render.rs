@@ -1,33 +1,37 @@
 use std::{
+    cell::UnsafeCell,
     fmt::Debug,
-    future::poll_fn,
     io::Write,
-    mem,
-    pin::{Pin, pin},
+    pin::Pin,
+    ptr::null,
+    sync::{Arc, Weak},
     task::{
         Context,
-        Poll::{self, Ready},
+        Poll::{self},
         ready,
     },
 };
 
 use color_eyre::Report;
-use either::Either;
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
+use futures_intrusive::sync::ManualResetEvent;
 use futures_util::future::BoxFuture;
 use jellyfin::Result;
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetExt, JellyhajWidgetState, Position,
-    TreeVisitor, WidgetContext, WidgetTreeVisitor,
-    async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter},
+    ContextRef, JellyhajWidget, JellyhajWidgetExt, Position, Size, TreeVisitor, WidgetContext,
+    WidgetTreeVisitor,
+    async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter, new_task_pair},
 };
 use keybinds::KeybindEvents;
+use parking_lot::{Mutex, RwLock};
+use pin_project_lite::pin_project;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{Event, KeyEvent, MouseEvent},
 };
-use spawn::{CancellationToken, Spawner};
+use spawn::Spawner;
 use tokio::{select, task::JoinHandle};
-use tracing::debug;
+use tracing::instrument;
 
 use crate::state::{Navigation, NextScreen};
 
@@ -37,556 +41,627 @@ pub enum KeybindAction<A: Debug + Send + 'static> {
     Key(KeyEvent),
 }
 
-pub type Suspended = Box<dyn SuspendedWidget + Send>;
-
-pub trait SuspendedWidget {
+pub trait ErasedWidget<Res>:
+    Stream<Item = Option<WidgetResult<Res>>> + Send + 'static + Unpin
+{
     fn name(&self) -> &'static str;
-    fn resume<'p>(
-        &mut self,
-        term: &'p mut DefaultTerminal,
-        events: &'p mut KeybindEvents,
-    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'p>>;
-    fn visit_widget_tree(&self, visitor: &mut dyn TreeVisitor);
+    fn submit_event(&mut self, event: Event, size: Size) -> (Option<WidgetResult<Res>>, bool);
+    fn render(&mut self, term: &mut DefaultTerminal) -> Result<Option<Report>>;
+    fn visit(&self, visitor: &mut dyn TreeVisitor);
 }
 
-struct SuspendedWidgetImpl<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> {
-    task: Option<JoinHandle<Hydrated<R, W::State>>>,
-    stop: Option<tokio_util::sync::DropGuard>,
+pin_project! {
+    struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
+        widget: W,
+        submitter: TaskSubmitter<W::Action, IdWrapper>,
+        receiver: EventReceiver<W::Action>,
+        context: R,
+    }
 }
 
-impl<
+pub type Erased = Box<dyn ErasedWidget<Navigation>>;
+
+pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> Erased + Send + Sync>;
+
+impl<R: 'static, W: JellyhajWidget<R, ActionResult = Navigation>> ErasedWidgetImpl<R, W> {}
+
+pub fn make_new_erased<
+    R: ContextRef<Spawner> + Send + 'static,
     A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> SuspendedWidget for SuspendedWidgetImpl<A, R, W>
+    W: JellyhajWidget<R, Action = KeybindAction<A>>,
+>(
+    cx: R,
+    mut widget: W,
+) -> Box<dyn ErasedWidget<W::ActionResult>> {
+    let (submitter, receiver) = new_task_pair(cx.as_ref().clone());
+    widget.init(WidgetContext {
+        refs: &cx,
+        submitter: submitter.as_ref(),
+    });
+    let state = ErasedWidgetImpl {
+        widget,
+        context: cx,
+        submitter,
+        receiver,
+    };
+    Box::new(state)
+}
+
+pub enum WidgetResult<T> {
+    Ok(T),
+    Err(Report),
+    Pop,
+    Exit,
+}
+
+impl From<WidgetResult<Navigation>> for Navigation {
+    fn from(value: WidgetResult<Navigation>) -> Self {
+        match value {
+            WidgetResult::Ok(v) => v,
+            WidgetResult::Err(report) => Navigation::Replace(NextScreen::Error(report)),
+            WidgetResult::Pop => Navigation::PopContext,
+            WidgetResult::Exit => Navigation::Exit,
+        }
+    }
+}
+
+impl<R: 'static, W: JellyhajWidget<R>> Stream for ErasedWidgetImpl<R, W> {
+    type Item = Option<WidgetResult<W::ActionResult>>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        Poll::Ready(Some(match ready!(this.receiver.poll_next_unpin(cx)) {
+            Some(Ok(action)) => match this.widget.apply_action(
+                WidgetContext {
+                    refs: this.context,
+                    submitter: this.submitter.as_ref(),
+                },
+                action,
+            ) {
+                Ok(Some(n)) => Some(WidgetResult::Ok(n)),
+                Ok(None) => None,
+                Err(e) => Some(WidgetResult::Err(e)),
+            },
+            Some(Err(e)) => Some(WidgetResult::Err(e)),
+            None => Some(WidgetResult::Pop),
+        }))
+    }
+}
+
+impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = KeybindAction<A>>>
+    ErasedWidget<W::ActionResult> for ErasedWidgetImpl<R, W>
 {
     fn name(&self) -> &'static str {
-        <W::State as JellyhajWidgetState<R>>::NAME
+        W::NAME
     }
 
-    fn resume<'p>(
+    fn visit(&self, mut visitor: &mut dyn TreeVisitor) {
+        visitor.visit(&self.widget);
+    }
+
+    fn submit_event(
         &mut self,
-        term: &'p mut DefaultTerminal,
-        events: &'p mut KeybindEvents,
-    ) -> Pin<Box<dyn Future<Output = NavigationResult> + Send + 'p>> {
-        self.stop = None;
-        let renderer: HydrateRenderer<'_, A, R, W> = HydrateRenderer::Hydrating {
-            task: self.task.take().expect("tried to hydrate twice"),
-            term,
-            events,
-        };
-        Box::pin(renderer)
-    }
-
-    fn visit_widget_tree(&self, mut visitor: &mut dyn TreeVisitor) {
-        visitor.visit::<_, W::State>();
-    }
-}
-
-pub enum NavigationResult {
-    Exit,
-    Pop,
-    Replace(NextScreen),
-    Push {
-        current: Suspended,
-        next: NextScreen,
-    },
-    PushWithoutTui {
-        current: Suspended,
-        without_tui: BoxFuture<'static, Result<()>>,
-    },
-}
-enum Hydrated<R: 'static, S: JellyhajWidgetState<R>> {
-    Finished(NavigationResult),
-    Widget {
-        state: S,
-        submitter: TaskSubmitter<S::Action, IdWrapper>,
-        receiver: EventReceiver<S::Action>,
-        context: R,
-    },
-}
-
-enum HydrateRenderer<
-    't,
-    A: Debug + Send + 'static,
-    R: 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> {
-    Hydrating {
-        task: JoinHandle<Hydrated<R, W::State>>,
-        term: &'t mut DefaultTerminal,
-        events: &'t mut KeybindEvents,
-    },
-    Rendering(WidgetRenderer<'t, A, Navigation, R, W>),
-    Exit,
-}
-
-impl<
-    't,
-    A: Debug + Send + 'static,
-    R: 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
-> HydrateRenderer<'t, A, R, W>
-{
-    fn project(self: Pin<&mut Self>) -> &mut Self {
-        unsafe { self.get_unchecked_mut() }
-    }
-}
-
-impl<
-    't,
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation>,
-> Future for HydrateRenderer<'t, A, R, W>
-{
-    type Output = NavigationResult;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        let res = match this {
-            HydrateRenderer::Hydrating {
-                task,
-                term: _,
-                events: _,
-            } => match ready!(Pin::new(task).poll(cx)) {
-                Err(e) => {
-                    panic!("suspended widget task paniced!\n{e:?}");
-                }
-                Ok(Hydrated::Finished(nav)) => {
-                    debug!("suspended widget already finished");
-                    return Ready(nav);
-                }
-                Ok(Hydrated::Widget {
-                    state,
-                    submitter,
-                    receiver,
-                    context,
-                }) => {
-                    debug!("received suspended widget");
-                    if let HydrateRenderer::Hydrating {
-                        task: _,
-                        term,
-                        events,
-                    } = mem::replace(this, HydrateRenderer::Exit)
-                    {
-                        let widget = state.into_widget(&context);
-                        let mut rendering = WidgetRenderer {
-                            term,
-                            events: Events {
-                                receiver,
-                                events,
-                                first: true,
-                            },
-                            widget,
-                            task: submitter,
-                            render: true,
-                            cx: context,
-                        };
-                        let res = rendering.poll(cx);
-                        *this = HydrateRenderer::Rendering(rendering);
-                        ready!(res).transform()
-                    } else {
-                        unreachable!()
-                    }
-                }
-            },
-            HydrateRenderer::Rendering(widget_renderer) => {
-                ready!(widget_renderer.poll(cx)).transform()
-            }
-            HydrateRenderer::Exit => {
-                unreachable!("the render future either already paniced or was called after ")
-            }
-        };
-        if let HydrateRenderer::Rendering(renderer) = mem::replace(this, HydrateRenderer::Exit) {
-            Ready(with_suspend_current(res, renderer))
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-fn with_suspend_current<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
->(
-    res: std::result::Result<Navigation, Report>,
-    renderer: WidgetRenderer<'_, A, Navigation, R, W>,
-) -> NavigationResult {
-    match res {
-        Err(e) => NavigationResult::Replace(NextScreen::Error(e)),
-        Ok(Navigation::Exit) => NavigationResult::Exit,
-        Ok(Navigation::PopContext) => NavigationResult::Pop,
-        Ok(Navigation::Replace(n)) => NavigationResult::Replace(n),
-        Ok(Navigation::Push(next)) => NavigationResult::Push {
-            current: suspend(renderer),
-            next,
-        },
-        Ok(Navigation::PushWithoutTui(without_tui)) => NavigationResult::PushWithoutTui {
-            current: suspend(renderer),
-            without_tui,
-        },
-    }
-}
-
-#[track_caller]
-fn spawn<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
->(
-    fut: impl Future<Output = Hydrated<R, W::State>> + Send + 'static,
-) -> JoinHandle<Hydrated<R, W::State>> {
-    #[cfg(tokio_unstable)]
-    {
-        tokio::task::Builder::new()
-            .name(W::State::NAME)
-            .spawn(fut)
-            .expect("spawning future should not fail")
-    }
-    #[cfg(not(tokio_unstable))]
-    {
-        tokio::task::spawn(fut)
-    }
-}
-
-async fn run_suspended<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
->(
-    mut state: S,
-    task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
-    mut receiver: EventReceiver<KeybindAction<A>>,
-    cx: R,
-    stop: CancellationToken,
-) -> Hydrated<R, S> {
-    let mut stop_fut = pin!(stop.cancelled_owned());
-    loop {
-        let res = select! {
-            biased;
-            _ = &mut stop_fut => {
-                return Hydrated::Widget{ state, submitter: task, receiver, context: cx }
-            }
-            res = receiver.next() => {
-                res
-            }
-        };
-        let action = match res {
-            None => unreachable!(),
-            Some(Err(e)) => {
-                return Hydrated::Finished(NavigationResult::Replace(NextScreen::Error(e)));
-            }
-            Some(Ok(a)) => a,
-        };
-        match state.apply_action(
-            WidgetContext {
-                refs: &cx,
-                submitter: task.as_ref(),
-            },
-            action,
-        ) {
-            Err(e) => {
-                return Hydrated::Finished(NavigationResult::Replace(NextScreen::Error(e)));
-            }
-            Ok(None) => {}
-            Ok(Some(Navigation::PopContext)) => {
-                return Hydrated::Finished(NavigationResult::Pop);
-            }
-            Ok(Some(Navigation::Exit)) => {
-                return Hydrated::Finished(NavigationResult::Exit);
-            }
-            Ok(Some(Navigation::Replace(next))) => {
-                return Hydrated::Finished(NavigationResult::Replace(next));
-            }
-            Ok(Some(Navigation::Push(next))) => {
-                return Hydrated::Finished(NavigationResult::Push {
-                    current: suspend_state(state, task, receiver, cx),
-                    next,
-                });
-            }
-            Ok(Some(Navigation::PushWithoutTui(without_tui))) => {
-                return Hydrated::Finished(NavigationResult::PushWithoutTui {
-                    current: suspend_state(state, task, receiver, cx),
-                    without_tui,
-                });
-            }
-        }
-    }
-}
-
-fn suspend_state<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
->(
-    state: S,
-    task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
-    receiver: EventReceiver<KeybindAction<A>>,
-    cx: R,
-) -> Box<SuspendedWidgetImpl<A, R, S::Widget>> {
-    let stop = CancellationToken::new();
-    Box::new(SuspendedWidgetImpl {
-        task: Some(spawn::<A, R, S::Widget>(run_suspended(
-            state,
-            task,
-            receiver,
-            cx,
-            stop.clone(),
-        ))),
-        stop: Some(stop.drop_guard()),
-    })
-}
-
-fn suspend<
-    A: Debug + Send + 'static,
-    R: Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Navigation> + 'static,
->(
-    renderer: WidgetRenderer<'_, A, Navigation, R, W>,
-) -> Box<SuspendedWidgetImpl<A, R, W>> {
-    suspend_state(
-        renderer.widget.into_state(),
-        renderer.task,
-        renderer.events.receiver,
-        renderer.cx,
-    )
-}
-
-struct Events<'t, A: Debug + Send + 'static> {
-    receiver: EventReceiver<KeybindAction<A>>,
-    events: &'t mut KeybindEvents,
-    first: bool,
-}
-
-impl<'t, A: Debug + Send + 'static> Stream for Events<'t, A> {
-    type Item = Result<Either<Event, KeybindAction<A>>>;
-
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        let this = self.get_mut();
-        let events: Pin<&mut KeybindEvents> = Pin::new(&mut this.events);
-        let receiver = Pin::new(&mut this.receiver);
-        let first = this.first;
-        this.first = first ^ true;
-        if first {
-            match receiver.poll_next(cx) {
-                Ready(None) => Ready(None),
-                Ready(Some(Err(e))) => Ready(Some(Err(e))),
-                Ready(Some(Ok(v))) => Ready(Some(Ok(Either::Right(v)))),
-                Poll::Pending => match events.poll_next(cx) {
-                    Ready(None) => Ready(None),
-                    Ready(Some(Err(e))) => Ready(Some(Err(e.into()))),
-                    Ready(Some(Ok(v))) => Ready(Some(Ok(Either::Left(v)))),
-                    Poll::Pending => Poll::Pending,
+        event: Event,
+        frame_size: Size,
+    ) -> (Option<WidgetResult<W::ActionResult>>, bool) {
+        let res = match event {
+            Event::Key(key) => self.widget.apply_action(
+                WidgetContext {
+                    refs: &self.context,
+                    submitter: self.submitter.as_ref(),
                 },
-            }
-        } else {
-            match events.poll_next(cx) {
-                Ready(None) => Ready(None),
-                Ready(Some(Err(e))) => Ready(Some(Err(e.into()))),
-                Ready(Some(Ok(v))) => Ready(Some(Ok(Either::Left(v)))),
-                Poll::Pending => match receiver.poll_next(cx) {
-                    Ready(None) => Ready(None),
-                    Ready(Some(Err(e))) => Ready(Some(Err(e))),
-                    Ready(Some(Ok(v))) => Ready(Some(Ok(Either::Right(v)))),
-                    Poll::Pending => Poll::Pending,
+                KeybindAction::Key(key),
+            ),
+            Event::Mouse(MouseEvent {
+                kind,
+                column,
+                row,
+                modifiers,
+            }) => self.widget.click(
+                WidgetContext {
+                    refs: &self.context,
+                    submitter: self.submitter.as_ref(),
                 },
+                Position::new(column, row),
+                frame_size,
+                kind,
+                modifiers,
+            ),
+            Event::Paste(v) => {
+                if self.widget.accepts_text_input() {
+                    self.widget.accept_text(v);
+                    return (None, true);
+                } else {
+                    return (None, false);
+                }
             }
-        }
+            Event::Resize(_, _) => return (None, true),
+            _ => return (None, true),
+        };
+        let res = match res {
+            Ok(None) => None,
+            Ok(Some(v)) => Some(WidgetResult::Ok(v)),
+            Err(e) => Some(WidgetResult::Err(e)),
+        };
+        (res, true)
     }
-}
 
-struct WidgetRenderer<
-    't,
-    A: Debug + Send + 'static,
-    T: Debug,
-    R: 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
-> {
-    term: &'t mut DefaultTerminal,
-    events: Events<'t, A>,
-    widget: W,
-    task: TaskSubmitter<KeybindAction<A>, IdWrapper>,
-    render: bool,
-    cx: R,
-}
-
-pub async fn render_widget_bare<
-    A: Debug + Send + 'static,
-    T: Debug,
-    R: 'static,
-    W: Send + Unpin + JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
->(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    spawner: Spawner,
-    widget: W,
-    cx: R,
-) -> RenderResult<(T, W)> {
-    let (task, receiver) = jellyhaj_widgets_core::async_task::new_task_pair(spawner);
-    let mut renderer = WidgetRenderer {
-        term,
-        events: Events {
-            receiver,
-            events,
-            first: true,
-        },
-        widget,
-        task,
-        render: true,
-        cx,
-    };
-    match poll_fn(|cx| renderer.poll(cx)).await {
-        RenderResult::Ok(v) => RenderResult::Ok((v, renderer.widget)),
-        RenderResult::Err(report) => RenderResult::Err(report),
-        RenderResult::Exit => RenderResult::Exit,
-    }
-}
-
-pub async fn render_widget<
-    A: Debug + Send + 'static,
-    R: ContextRef<Spawner> + Send + 'static,
-    S: JellyhajWidgetState<R, Action = KeybindAction<A>, ActionResult = Navigation>,
->(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: R,
-    state: S,
-) -> NavigationResult {
-    let (task, receiver) =
-        jellyhaj_widgets_core::async_task::new_task_pair(Spawner::get_ref(&cx).clone());
-    let widget = state.into_widget(&cx);
-    let mut renderer = WidgetRenderer {
-        term,
-        events: Events {
-            receiver,
-            events,
-            first: true,
-        },
-        widget,
-        task,
-        render: true,
-        cx,
-    };
-    let res = poll_fn(|cx| renderer.poll(cx)).await.transform();
-    with_suspend_current(res, renderer)
-}
-
-impl<
-    't,
-    A: Debug + Send + 'static,
-    T: Debug,
-    R: 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = T>,
-> WidgetRenderer<'t, A, T, R, W>
-{
-    fn render_widget(&mut self) -> Result<()> {
-        self.term.autoresize()?;
-        let mut frame = self.term.get_frame();
-        self.widget.render_fallible(
+    fn render(&mut self, term: &mut DefaultTerminal) -> Result<Option<Report>> {
+        term.autoresize()?;
+        let mut frame = term.get_frame();
+        let res = self.widget.render_fallible(
             frame.area(),
             frame.buffer_mut(),
             WidgetContext {
-                refs: &self.cx,
-                submitter: self.task.as_ref(),
+                refs: &self.context,
+                submitter: self.submitter.as_ref(),
             },
-        )?;
-        self.term.flush()?;
-        self.term.hide_cursor()?;
-        self.term.swap_buffers();
-        self.term.backend_mut().flush()?;
-        Ok(())
-    }
-
-    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<RenderResult<T>> {
-        Ready(loop {
-            if self.render {
-                self.render = false;
-                if let Err(e) = self.render_widget() {
-                    break RenderResult::Err(e);
-                }
-            }
-            let action_result = match ready!(self.events.poll_next_unpin(cx)) {
-                None => break RenderResult::Exit,
-                Some(Err(e)) => break RenderResult::Err(e),
-                Some(Ok(Either::Left(Event::Key(key)))) => {
-                    self.render = true;
-                    self.widget.apply_action(
-                        WidgetContext {
-                            refs: &self.cx,
-                            submitter: self.task.as_ref(),
-                        },
-                        KeybindAction::Key(key),
-                    )
-                }
-                Some(Ok(Either::Left(Event::Mouse(MouseEvent {
-                    kind,
-                    column,
-                    row,
-                    modifiers,
-                })))) => {
-                    self.render = true;
-                    self.widget.click(
-                        WidgetContext {
-                            refs: &self.cx,
-                            submitter: self.task.as_ref(),
-                        },
-                        Position::new(column, row),
-                        self.term.get_frame().area().as_size(),
-                        kind,
-                        modifiers,
-                    )
-                }
-                Some(Ok(Either::Left(Event::Paste(v)))) if self.widget.accepts_text_input() => {
-                    self.render = true;
-                    self.widget.accept_text(v);
-                    continue;
-                }
-                Some(Ok(Either::Left(Event::Resize(_, _)))) => {
-                    self.render = true;
-                    continue;
-                }
-                Some(Ok(Either::Left(_))) => continue,
-                Some(Ok(Either::Right(v))) => {
-                    self.render = true;
-                    self.widget.apply_action(
-                        WidgetContext {
-                            refs: &self.cx,
-                            submitter: self.task.as_ref(),
-                        },
-                        v,
-                    )
-                }
-            };
-            match action_result {
-                Err(e) => break RenderResult::Err(e),
-                Ok(None) => continue,
-                Ok(Some(n)) => break RenderResult::Ok(n),
-            }
-        })
+        );
+        if res.is_err() {
+            frame.buffer_mut().reset();
+        } else {
+            term.flush()?;
+            term.hide_cursor()?;
+            term.swap_buffers();
+            term.backend_mut().flush()?;
+        }
+        Ok(res.err())
     }
 }
 
-pub enum RenderResult<T> {
-    Ok(T),
-    Err(Report),
+unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
+    tracing::trace!("removing elelment");
+    if let (Some(next), Some(prev)) = {
+        let entry = unsafe { entry.get_list_mut(token) };
+        (
+            entry.next.take(),
+            entry.prev.take().as_ref().and_then(Weak::upgrade),
+        )
+    } {
+        unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&prev));
+        unsafe { prev.get_list_mut(token) }.next = Some(next);
+    }
+}
+
+unsafe fn replace_element(
+    entry: Arc<StateEntry>,
+    new_entry: Arc<StateEntry>,
+    token: &mut ListAccessToken,
+) {
+    tracing::trace!("replacing element");
+    if let (Some(next), Some(prev)) = {
+        let entry = unsafe { entry.get_list_mut(token) };
+        (
+            entry.next.take(),
+            entry.prev.take().as_ref().and_then(Weak::upgrade),
+        )
+    } {
+        unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
+        let new = unsafe { new_entry.get_list_mut(token) };
+        new.next = Some(next);
+        new.prev = Some(Arc::downgrade(&prev));
+        unsafe { prev.get_list_mut(token) }.next = Some(new_entry);
+    }
+}
+
+unsafe fn append_element(
+    entry: Arc<StateEntry>,
+    new_entry: Arc<StateEntry>,
+    token: &mut ListAccessToken,
+) {
+    tracing::trace!("appending element");
+    if let Some(next) = { unsafe { entry.get_list_mut(token) }.next.take() } {
+        unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
+        let new = unsafe { new_entry.get_list_mut(token) };
+        new.next = Some(next);
+        new.prev = Some(Arc::downgrade(&entry));
+        unsafe { entry.get_list_mut(token) }.next = Some(new_entry);
+    }
+}
+
+unsafe fn prepend_element(
+    entry: Arc<StateEntry>,
+    new_entry: Arc<StateEntry>,
+    token: &mut ListAccessToken,
+) {
+    tracing::trace!("prepending element");
+    if let Some(prev) = {
+        unsafe { entry.get_list_mut(token) }
+            .prev
+            .take()
+            .and_then(|p| p.upgrade())
+    } {
+        unsafe { entry.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
+        let new = unsafe { new_entry.get_list_mut(token) };
+        new.next = Some(entry);
+        new.prev = Some(Arc::downgrade(&prev));
+        unsafe { prev.get_list_mut(token) }.next = Some(new_entry);
+    }
+}
+
+unsafe fn inspect_list(start: &Arc<StateEntry>, token: &ListAccessToken) {
+    let span = tracing::trace_span!("inspect_list");
+    let _entered = span.enter();
+    let mut next_entry = Some(start);
+    if !span.is_disabled() {
+        while let Some(cur) = next_entry {
+            let kind = match &cur.value {
+                StateValue::Suspended(_) => "Suspended",
+                StateValue::Empty => "Empty",
+                StateValue::WithoutTui(_) => "WithoutTui",
+            };
+            let entry = unsafe { cur.get_list(token) };
+            let prev = entry.prev.as_ref().map(Weak::as_ptr).unwrap_or(null());
+            let next = entry.next.as_ref().map(Arc::as_ptr).unwrap_or(null());
+            tracing::trace!(name: "list-entry", kind = kind, prev = ?prev, next = ?next);
+            next_entry = entry.next.as_ref();
+            if let Some(e) = next_entry
+                && Arc::ptr_eq(e, start)
+            {
+                break;
+            }
+        }
+    }
+}
+
+pub enum RunResult {
+    Cont(Erased),
+    Empty,
     Exit,
 }
 
-impl RenderResult<Navigation> {
-    pub fn transform(self) -> Result<Navigation> {
-        match self {
-            RenderResult::Ok(v) => Ok(v),
-            RenderResult::Err(e) => Err(e),
-            RenderResult::Exit => Ok(Navigation::Exit),
+#[instrument(skip_all)]
+async unsafe fn run_suspended(
+    mut state: Erased,
+    stop: Arc<ManualResetEvent>,
+    mut visitors: UnboundedReceiver<Visitor>,
+    widget_creator: WidgetCreator,
+    state_entry: Weak<StateEntry>,
+    state_token: Arc<RwLock<ListAccessToken>>,
+) -> RunResult {
+    loop {
+        select! {
+            nav = state.next() => {
+                let nav = match nav{
+                    Some(Some(v)) => Some(v),
+                    Some(None) => continue,
+                    None => None
+                };
+                match nav.map(Navigation::from) {
+                    Some(Navigation::PopContext) => {
+                        let mut token = state_token.write();
+                        if let Some(entry) = state_entry.upgrade() {
+                            unsafe {remove_element(&entry, &mut token)};
+                        }
+                        return RunResult::Empty;
+                    }
+                    Some(Navigation::Exit) => {
+                        return RunResult::Exit;
+                    }
+                    Some(Navigation::Replace(next)) => {
+                        let mut token = state_token.write();
+                        if let Some(entry) = state_entry.upgrade() {
+                            unsafe{
+                                let new = Arc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
+                                        widget_creator(next),
+                                        this.clone(),
+                                        widget_creator.clone(),
+                                        state_token.clone()
+                                    ))));
+                                replace_element(
+                                    entry,
+                                    new.clone(),
+                                    &mut token,
+                                );
+                                inspect_list(&new, &token);
+                            }
+                        }
+                        return RunResult::Empty;
+                    }
+                    Some(Navigation::Push(next)) => {
+                        let mut token = state_token.write();
+                        if let Some(entry) = state_entry.upgrade() {
+                            unsafe{
+                                let new = Arc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
+                                        widget_creator(next),
+                                        this.clone(),
+                                        widget_creator.clone(),
+                                        state_token.clone()
+                                    ))));
+                                append_element(
+                                    entry,
+                                    new.clone(),
+                                    &mut token,
+                                );
+                                inspect_list(&new, &token);
+                            }
+                        }
+                    }
+                    Some(Navigation::PushWithoutTui(next)) => {
+                        let mut token = state_token.write();
+                        if let Some(entry) = state_entry.upgrade(){
+                            unsafe{
+                                let new = Arc::new(StateEntry::new(StateValue::WithoutTui(next)));
+                                append_element(entry,new.clone() , &mut token);
+                                inspect_list(&new, &token);
+                            }
+                        }
+                    }
+                    None => return RunResult::Exit
+                }
+            }
+            _ = stop.wait() => {
+                return RunResult::Cont(state)
+            }
+            visitor = visitors.next() => {
+                if let Some(visitor) = visitor{
+                    visitor(&|visitor|state.visit(visitor))
+                }else {
+                    return RunResult::Cont(state)
+                }
+            }
+        };
+    }
+}
+
+struct DropGuard {
+    inner: Arc<ManualResetEvent>,
+}
+
+impl Drop for DropGuard {
+    fn drop(&mut self) {
+        self.inner.set();
+    }
+}
+
+type Visitor = Box<dyn Fn(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
+
+pub struct SuspendedInner {
+    task: Mutex<Option<JoinHandle<RunResult>>>,
+    drop_guard: DropGuard,
+    pub name: &'static str,
+    pub send_visitor: UnboundedSender<Visitor>,
+}
+
+impl SuspendedInner {
+    pub async fn get_widget(&self) -> RunResult {
+        self.drop_guard.inner.set();
+        let handle = self.task.lock().take().expect("tried to get task twice");
+        handle.await.expect("polling state paniced")
+    }
+
+    unsafe fn new(
+        widget: Erased,
+        this: Weak<StateEntry>,
+        widget_creator: WidgetCreator,
+        state_token: Arc<RwLock<ListAccessToken>>,
+    ) -> Self {
+        let stop = Arc::new(ManualResetEvent::new(false));
+        let (visitor_send, visitor_recv) = unbounded();
+        let name = widget.name();
+        let fut = unsafe {
+            run_suspended(
+                widget,
+                stop.clone(),
+                visitor_recv,
+                widget_creator,
+                this,
+                state_token,
+            )
+        };
+        let task = {
+            #[cfg(tokio_unstable)]
+            {
+                tokio::task::Builder::new()
+                    .name(W::State::NAME)
+                    .spawn(fut)
+                    .expect("spawning future should not fail")
+            }
+            #[cfg(not(tokio_unstable))]
+            {
+                tokio::task::spawn(fut)
+            }
+        };
+        Self {
+            task: Mutex::new(Some(task)),
+            drop_guard: DropGuard { inner: stop },
+            name,
+            send_visitor: visitor_send,
+        }
+    }
+}
+
+struct ListAccessToken {
+    _evil: (),
+}
+
+struct ListEntry {
+    next: Option<Arc<StateEntry>>,
+    prev: Option<Weak<StateEntry>>,
+}
+
+pub enum StateValue {
+    Suspended(SuspendedInner),
+    Empty,
+    WithoutTui(BoxFuture<'static, Result<()>>),
+}
+
+struct StateEntry {
+    list: UnsafeCell<ListEntry>,
+    pub value: StateValue,
+}
+
+unsafe impl Sync for StateEntry {}
+unsafe impl Send for StateEntry {}
+
+impl StateEntry {
+    /// # Safety
+    /// the ListAccessToken must be from this list
+    unsafe fn get_list<'a>(&'a self, _token: &'a ListAccessToken) -> &'a ListEntry {
+        unsafe { self.list.get().as_ref_unchecked() }
+    }
+    /// # Safety
+    /// the ListAccessToken must be from this list
+    unsafe fn get_list_mut<'a>(&'a self, _token: &'a mut ListAccessToken) -> &'a mut ListEntry {
+        unsafe { self.list.get().as_mut_unchecked() }
+    }
+
+    fn new(val: StateValue) -> Self {
+        Self {
+            list: UnsafeCell::new(ListEntry {
+                next: None,
+                prev: None,
+            }),
+            value: val,
+        }
+    }
+}
+
+pub struct StateStack {
+    lock: Arc<RwLock<ListAccessToken>>,
+    list: Arc<StateEntry>,
+}
+
+impl Drop for StateStack {
+    // break reference cycles, isolate all entries
+    fn drop(&mut self) {
+        let mut guard = self.lock.write();
+        let mut entry = self.list.clone();
+        while let Some(new_entry) = {
+            let entry = unsafe { entry.get_list_mut(&mut guard) };
+            entry.prev = None;
+            entry.next.take()
+        } {
+            entry = new_entry;
+        }
+    }
+}
+
+impl StateStack {
+    pub fn new() -> Self {
+        let list = Arc::new(StateEntry {
+            list: UnsafeCell::new(ListEntry {
+                next: None,
+                prev: None,
+            }),
+            value: StateValue::Empty,
+        });
+        //initialize, this is the ownly copy so this is save
+        unsafe {
+            let entry = &mut *list.list.get();
+            entry.next = Some(list.clone());
+            entry.prev = Some(Arc::downgrade(&list))
+        }
+
+        StateStack {
+            lock: Arc::new(RwLock::new(ListAccessToken { _evil: () })),
+            list,
+        }
+    }
+    pub fn push(&self, widget: Erased, widget_creator: WidgetCreator) {
+        let mut token = self.lock.write();
+        unsafe {
+            prepend_element(
+                self.list.clone(),
+                Arc::new_cyclic(|this| {
+                    StateEntry::new(StateValue::Suspended(SuspendedInner::new(
+                        widget,
+                        this.clone(),
+                        widget_creator,
+                        self.lock.clone(),
+                    )))
+                }),
+                &mut token,
+            );
+            inspect_list(&self.list, &token);
+        }
+    }
+    pub fn pop(&self) -> StateValue {
+        let mut token = self.lock.write();
+        let entry = unsafe { self.list.get_list(&token) }
+            .prev
+            .as_ref()
+            .expect("previous should be set while the list is live")
+            .upgrade()
+            .expect("previous should not be dropped");
+        if Arc::ptr_eq(&self.list, &entry) {
+            StateValue::Empty
+        } else {
+            unsafe {
+                remove_element(&entry, &mut token);
+            }
+            unsafe { inspect_list(&self.list, &token) };
+            Arc::into_inner(entry)
+                .expect("should not currently be owned")
+                .value
+        }
+    }
+
+    pub fn visit(&self, mut visitor: impl FnMut(&StateValue)) {
+        let token = self.lock.read();
+        let head = &self.list;
+        let mut current = head;
+        loop {
+            current = unsafe { current.get_list(&token) }
+                .next
+                .as_ref()
+                .expect("next should be set while the list is live");
+            if Arc::ptr_eq(current, head) {
+                break;
+            }
+            visitor(&current.value);
+        }
+    }
+}
+
+impl Default for StateStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub async fn render_widget<R: 'static>(
+    widget: &mut dyn ErasedWidget<R>,
+    events: &mut KeybindEvents,
+    term: &mut DefaultTerminal,
+) -> WidgetResult<R> {
+    let mut render = true;
+    loop {
+        if render {
+            match widget.render(term) {
+                Err(e) => {
+                    tracing::error!("failed to draw to the terminal:\n{e:?}");
+                    return WidgetResult::Exit;
+                }
+                Ok(None) => {}
+                Ok(Some(e)) => return WidgetResult::Err(e),
+            }
+        }
+
+        select! {
+            nav = widget.next() => {
+                match nav{
+                    Some(Some(nav)) => return nav,
+                    Some(None) => {render = true;}
+                    None => return WidgetResult::Exit,
+                }
+            }
+            event = events.next() => {
+                match event{
+                    None => return WidgetResult::Exit,
+                    Some(Err(e)) => {
+                        tracing::error!("reading keyboard event failed:\n{e:?}");
+                        return WidgetResult::Exit;
+                    }
+                    Some(Ok(event)) =>{
+                        let (res, r) = widget.submit_event(event, term.get_frame().area().as_size());
+                        render=r;
+                        if let Some(nav) = res{
+                            return nav
+                        }
+                    }
+                }
+            }
         }
     }
 }

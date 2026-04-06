@@ -4,6 +4,7 @@ crossterm = {workspace = true}
 keybinds-derive = {path = "../keybinds-derive"}
 serde = {workspace = true}
 futures-core.workspace = true
+valuable.workspace = true
 
 [package]
 edition = "2024"

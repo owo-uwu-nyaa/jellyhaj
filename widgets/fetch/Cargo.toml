@@ -10,3 +10,4 @@ jellyhaj-loading-widget = { version = "0.1.0", path = "../loading" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 tracing.workspace = true
 tokio = {features = ["time"], workspace = true}
+valuable.workspace = true

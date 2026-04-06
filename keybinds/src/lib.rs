@@ -4,12 +4,14 @@ use color_eyre::Result;
 use crossterm::event::{EventStream, KeyCode};
 use futures_core::Stream;
 use std::{
-    collections::BTreeMap,
+    cell::LazyCell,
+    collections::{BTreeMap, HashMap, hash_map::Entry},
     fmt::{Debug, Display},
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::Poll,
 };
+use valuable::{Valuable, Value};
 
 ///reexport for proc macro
 #[doc(hidden)]
@@ -17,17 +19,40 @@ pub use color_eyre::eyre as __eyre;
 
 pub use keybinds_derive::{Command, keybind_config};
 
-pub trait Command: Send + Sync + Clone + Copy + Debug + 'static {
+pub trait Command: Send + Sync + Clone + Copy + Debug + Valuable + 'static {
     fn to_name(self) -> &'static str;
     fn from_name(name: &str) -> Option<Self>;
     fn all() -> &'static [&'static str];
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Key {
     pub inner: KeyCode,
     pub control: bool,
     pub alt: bool,
+}
+
+static KEY_NAME_STORE: Mutex<LazyCell<HashMap<Key, &str>>> =
+    Mutex::new(LazyCell::new(HashMap::new));
+
+fn get_str(key: Key) -> &'static str {
+    match KEY_NAME_STORE.lock().expect("should not panic!").entry(key) {
+        Entry::Occupied(occupied_entry) => occupied_entry.get(),
+        Entry::Vacant(vacant_entry) => {
+            let val = key.to_string().leak();
+            vacant_entry.insert(val)
+        }
+    }
+}
+
+impl Valuable for Key {
+    fn as_value(&self) -> Value<'_> {
+        Value::String(get_str(*self))
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_value(Value::String(get_str(*self)));
+    }
 }
 
 impl PartialOrd for Key {
@@ -75,7 +100,7 @@ impl Display for Key {
 
 pub type BindingMap<T> = Arc<BTreeMap<Key, KeyBinding<T>>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Valuable)]
 pub enum KeyBinding<T: Command> {
     Command(T),
     Group { map: BindingMap<T>, name: String },

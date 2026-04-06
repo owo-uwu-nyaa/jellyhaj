@@ -3,6 +3,7 @@ jellyhaj-item-list = {path = "../item-list", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 color-eyre.workspace = true
 ratatui.workspace = true
+tracing.workspace = true
 
 [package]
 edition = "2024"

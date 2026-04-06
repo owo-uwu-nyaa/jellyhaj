@@ -589,6 +589,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -1821,6 +1822,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-websockets",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -1895,7 +1897,10 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "config",
+ "crossbeam-epoch",
  "either",
+ "futures-channel",
+ "futures-intrusive",
  "futures-util",
  "image",
  "image-cache",
@@ -1913,8 +1918,8 @@ dependencies = [
  "sqlx",
  "stats-data",
  "tokio",
- "tokio-util",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -1929,6 +1934,7 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -1951,6 +1957,7 @@ dependencies = [
  "color-eyre",
  "jellyhaj-widgets-core",
  "ratatui",
+ "valuable",
 ]
 
 [[package]]
@@ -2012,6 +2019,7 @@ dependencies = [
  "jellyhaj-widgets-core",
  "tokio",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2045,6 +2053,7 @@ dependencies = [
  "ratatui",
  "serde",
  "tui-scrollview",
+ "valuable",
 ]
 
 [[package]]
@@ -2070,6 +2079,7 @@ dependencies = [
  "jellyhaj-item-screen",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "valuable",
 ]
 
 [[package]]
@@ -2091,6 +2101,7 @@ dependencies = [
  "stats-data",
  "tokio",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2122,6 +2133,7 @@ dependencies = [
  "jellyhaj-widgets-core",
  "ratatui",
  "textwrap",
+ "valuable",
 ]
 
 [[package]]
@@ -2151,6 +2163,7 @@ dependencies = [
  "jellyhaj-item-list",
  "jellyhaj-widgets-core",
  "ratatui",
+ "tracing",
 ]
 
 [[package]]
@@ -2187,6 +2200,7 @@ dependencies = [
  "jellyhaj-item-grid",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "valuable",
 ]
 
 [[package]]
@@ -2199,6 +2213,7 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2253,6 +2268,7 @@ dependencies = [
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",
+ "valuable",
 ]
 
 [[package]]
@@ -2283,6 +2299,7 @@ dependencies = [
  "player-core",
  "ratatui",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2309,6 +2326,7 @@ dependencies = [
  "jellyhaj-form-widget",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "valuable",
 ]
 
 [[package]]
@@ -2332,6 +2350,7 @@ dependencies = [
  "stats-data",
  "tokio",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2351,6 +2370,7 @@ dependencies = [
  "spawn",
  "tokio-util",
  "tracing",
+ "valuable",
 ]
 
 [[package]]
@@ -2393,6 +2413,7 @@ dependencies = [
  "futures-core",
  "keybinds-derive",
  "serde",
+ "valuable",
 ]
 
 [[package]]
@@ -3115,6 +3136,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-core",
+ "valuable",
 ]
 
 [[package]]
@@ -4933,6 +4955,20 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+dependencies = [
+ "valuable-derive",
+]
+
+[[package]]
+name = "valuable-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e3a32a9bcc0f6c6ccfd5b27bcf298c58e753bcc9eeff268157a303393183a6d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "vcpkg"

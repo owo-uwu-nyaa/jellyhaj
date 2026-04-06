@@ -1,41 +1,51 @@
 use std::{
     cmp::min,
     fmt::Debug,
-    marker::PhantomData,
     ops::{Index, IndexMut},
 };
 
 use jellyhaj_widgets_core::{
-    ItemState, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetState, WidgetContext,
-    Wrapper,
+    ItemWidget, ItemWidgetExt, JellyhajWidget, WidgetContext, Wrapper,
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
     layout::{Position, Rect, Size},
     widgets::{Block, Padding, Scrollbar, ScrollbarState, StatefulWidget, Widget},
 };
 
-pub struct ItemGrid<R: 'static, T: ItemWidget<R>> {
+pub struct ItemGrid<T> {
     items: Vec<T>,
     current: usize,
     width: usize,
     title: String,
     item_size: Size,
     skip_rows: usize,
-    _r: PhantomData<fn(R)>,
 }
 
-impl<R: 'static, T: ItemWidget<R>> ItemGrid<R, T> {
-    pub fn new(items: Vec<T>, current: usize, title: String, cx: &R) -> Self {
-        Self {
-            items,
-            current,
-            width: 1,
-            title,
-            item_size: <T as ItemWidget<R>>::dimensions_static(cx),
-            skip_rows: 0,
-            _r: PhantomData,
-        }
+static ITEM_GRID_FIELDS: &[NamedField] = &[NamedField::new("current"), NamedField::new("title")];
+
+impl<T> Valuable for ItemGrid<T> {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
     }
+
+    fn visit(&self, visit: &mut dyn jellyhaj_widgets_core::valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            ITEM_GRID_FIELDS,
+            &[self.current.as_value(), self.title.as_value()],
+        ));
+    }
+}
+
+impl<T> Structable for ItemGrid<T> {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("ItemGrid", Fields::Named(ITEM_GRID_FIELDS))
+    }
+}
+
+impl<T> ItemGrid<T> {
+    /*
+     */
     pub fn get(&self, index: usize) -> Option<&T> {
         self.items.get(index)
     }
@@ -44,7 +54,22 @@ impl<R: 'static, T: ItemWidget<R>> ItemGrid<R, T> {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> Index<usize> for ItemGrid<R, T> {
+pub fn new_item_grid<R: 'static, T: ItemWidget<R>>(
+    items: Vec<T>,
+    title: String,
+    cx: &R,
+) -> ItemGrid<T> {
+    ItemGrid {
+        items,
+        current: 0,
+        width: 0,
+        title,
+        item_size: <T as ItemWidget<R>>::dimensions_static(cx),
+        skip_rows: 0,
+    }
+}
+
+impl<T> Index<usize> for ItemGrid<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -52,99 +77,9 @@ impl<R: 'static, T: ItemWidget<R>> Index<usize> for ItemGrid<R, T> {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> IndexMut<usize> for ItemGrid<R, T> {
+impl<T> IndexMut<usize> for ItemGrid<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.items[index]
-    }
-}
-
-pub struct ItemGridState<R: 'static, W: ItemState<R>> {
-    pub items: Vec<W>,
-    pub title: String,
-    pub current: usize,
-    _r: PhantomData<fn(R)>,
-}
-
-impl<R: 'static, W: ItemState<R>> ItemGridState<R, W> {
-    pub fn new(items: Vec<W>, title: String, current: usize) -> Self {
-        Self {
-            items,
-            title,
-            current,
-            _r: PhantomData,
-        }
-    }
-}
-
-impl<R: 'static, W: ItemState<R>> Debug for ItemGridState<R, W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ItemGridData")
-            .field("items", &self.items)
-            .field("title", &self.title)
-            .field("current", &self.current)
-            .finish()
-    }
-}
-
-impl<R: 'static, T: ItemState<R>> JellyhajWidgetState<R> for ItemGridState<R, T> {
-    type Action = ItemGridAction<T::IAction>;
-
-    type ActionResult = T::IActionResult;
-
-    type Widget = ItemGrid<R, T::IWidget>;
-
-    const NAME: &str = "grid";
-
-    fn visit_children(visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit_item::<R, T>();
-    }
-
-    fn into_widget(self, cx: &R) -> Self::Widget {
-        ItemGrid {
-            items: self
-                .items
-                .into_iter()
-                .map(|s| s.item_into_widget(cx))
-                .collect(),
-            current: self.current,
-            width: 1,
-            title: self.title,
-            item_size: T::IWidget::dimensions_static(cx),
-            skip_rows: 0,
-            _r: PhantomData,
-        }
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        match action {
-            ItemGridAction::SpecificInner(index, action) => self
-                .items
-                .get_mut(index)
-                .and_then(|v| {
-                    ItemState::item_apply_action(v, cx.wrap_with(GridWrapper { index }), action)
-                        .transpose()
-                })
-                .transpose(),
-            ItemGridAction::CurrentInner(action) => self
-                .items
-                .get_mut(self.current)
-                .and_then(|v| {
-                    ItemState::item_apply_action(
-                        v,
-                        cx.wrap_with(GridWrapper {
-                            index: self.current,
-                        }),
-                        action,
-                    )
-                    .transpose()
-                })
-                .transpose(),
-            _ => Ok(None),
-        }
     }
 }
 
@@ -171,21 +106,21 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<R, T> {
-    type State = ItemGridState<R, T::IState>;
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
     type Action = ItemGridAction<<T as ItemWidget<R>>::IAction>;
     type ActionResult = <T as ItemWidget<R>>::IActionResult;
 
-    fn into_state(self) -> Self::State {
-        ItemGridState {
-            items: self
-                .items
-                .into_iter()
-                .map(ItemWidget::item_into_state)
-                .collect(),
-            title: self.title,
-            current: self.current,
-            _r: PhantomData,
+    const NAME: &str = "item-grid";
+
+    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        for item in &self.items {
+            visitor.visit_item(item);
+        }
+    }
+
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        for (index, item) in self.items.iter_mut().enumerate() {
+            item.init(cx.wrap_with(GridWrapper { index }));
         }
     }
 

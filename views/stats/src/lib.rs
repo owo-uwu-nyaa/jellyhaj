@@ -2,14 +2,14 @@ use std::ops::ControlFlow;
 
 use jellyhaj_core::{
     CommandMapper,
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
+    context::TuiContext,
     keybinds::StatsCommand,
-    render::{NavigationResult, render_widget},
+    render::{Erased, make_new_erased},
     state::Navigation,
 };
-use jellyhaj_keybinds_widget::KeybindState;
-use jellyhaj_stats_widget::{StatsState, StatsUpdate};
-use jellyhaj_widgets_core::outer::{Named, OuterState};
+use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_stats_widget::{StatsUpdate, StatsWidget};
+use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 
 struct Mapper;
 impl CommandMapper<StatsCommand> for Mapper {
@@ -28,15 +28,11 @@ impl Named for Name {
     const NAME: &str = "stats";
 }
 
-pub fn render_stats(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-) -> impl Future<Output = NavigationResult> {
-    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
-        StatsState,
+pub fn render_stats(cx: TuiContext) -> Erased {
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+        StatsWidget::new(&cx.stats),
         cx.config.keybinds.stats.clone(),
         Mapper,
     ));
-    render_widget(term, events, cx, state)
+    make_new_erased(cx, widget)
 }

@@ -1,4 +1,5 @@
 use keybinds::{BindingMap, Command, keybind_config};
+use valuable::Valuable;
 
 #[derive(Debug)]
 #[keybind_config]
@@ -15,13 +16,13 @@ pub struct Keybinds {
     pub item_list_details: BindingMap<ItemListDetailsCommand>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Command, Valuable)]
 pub enum GlobalCommand {
     ShowStats,
     ShowLogs,
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum EntryCommand {
     Activate,
     Play,
@@ -34,7 +35,7 @@ pub enum EntryCommand {
     UnsetWatched,
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum LoggerCommand {
     Space,
     TargetUp,
@@ -53,21 +54,21 @@ pub enum LoggerCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum StatsCommand {
     Quit,
     #[command(flatten)]
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum LoadingCommand {
     Quit,
     #[command(flatten)]
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum MpvCommand {
     Quit,
     Pause,
@@ -75,7 +76,7 @@ pub enum MpvCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Command)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Command, Valuable)]
 pub enum FormCommand {
     Quit,
     Up,
@@ -88,7 +89,7 @@ pub enum FormCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum UserViewCommand {
     Quit,
     Reload,
@@ -102,7 +103,7 @@ pub enum UserViewCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum HomeScreenCommand {
     Quit,
     Reload,
@@ -116,7 +117,7 @@ pub enum HomeScreenCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum ErrorCommand {
     Quit,
     Kill,
@@ -128,7 +129,7 @@ pub enum ErrorCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum ItemDetailsCommand {
     Quit,
     Up,
@@ -140,7 +141,7 @@ pub enum ItemDetailsCommand {
     Global(GlobalCommand),
 }
 
-#[derive(Debug, Clone, Copy, Command)]
+#[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum ItemListDetailsCommand {
     Quit,
     Reload,

@@ -7,6 +7,7 @@ jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 color-eyre.workspace = true
 ratatui.workspace = true
 textwrap.workspace = true
+valuable.workspace = true
 
 [package]
 edition = "2024"

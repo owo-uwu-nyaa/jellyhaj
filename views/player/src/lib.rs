@@ -9,14 +9,14 @@ use jellyfin::{
 };
 use jellyhaj_core::{
     CommandMapper,
-    context::{DefaultTerminal, KeybindEvents, TuiContext},
+    context::TuiContext,
     keybinds::MpvCommand,
-    render::{NavigationResult, render_widget},
+    render::{Erased, make_new_erased},
     state::{LoadPlay, Navigation, NextScreen},
 };
-use jellyhaj_keybinds_widget::KeybindState;
+use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
-use jellyhaj_widgets_core::outer::{Named, OuterState};
+use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 use player_core::{Command, PlayItem};
 
 use color_eyre::{
@@ -45,35 +45,24 @@ impl Named for Name {
     const NAME: &str = "player";
 }
 
-pub fn render_play(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    items: Vec<(MediaItem, PlaybackInfo)>,
-    index: usize,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_play(cx: TuiContext, items: Vec<(MediaItem, PlaybackInfo)>, index: usize) -> Erased {
     cx.mpv_handle.send(Command::Minimized(false));
     cx.mpv_handle.send(Command::Fullscreen(true));
     cx.mpv_handle.send(Command::ReplacePlaylist {
         items: items.into_iter().map(PlayItem::from).collect(),
         first: index,
     });
-    let state = OuterState::<Name, _, _, _, _>::new(KeybindState::new(
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         PlayerWidget::new(cx.mpv_handle.clone()),
         cx.config.keybinds.play_mpv.clone(),
         Mapper,
     ));
-    render_widget(term, events, cx, state)
+    make_new_erased(cx, widget)
 }
 
-pub fn render_fetch_play(
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    cx: TuiContext,
-    item: LoadPlay,
-) -> impl Future<Output = NavigationResult> {
+pub fn render_fetch_play(cx: TuiContext, item: LoadPlay) -> Erased {
     let fut = fetch_items(cx.jellyfin.clone(), item);
-    jellyhaj_fetch_view::make_fetch(term, events, cx, "Loading related items for playlist", fut)
+    jellyhaj_fetch_view::make_fetch(cx, "Loading related items for playlist", fut)
 }
 
 async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
