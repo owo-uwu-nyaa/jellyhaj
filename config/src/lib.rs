@@ -13,6 +13,7 @@ use crate::keybind_defs::Keybinds;
 mod cache;
 pub mod keybind_defs;
 mod keybinds;
+pub mod effects;
 
 #[derive(Debug)]
 pub struct Config {

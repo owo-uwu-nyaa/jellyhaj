@@ -50,6 +50,41 @@ pub trait ErasedWidget<Res>:
     fn visit(&self, visitor: &mut dyn TreeVisitor);
 }
 
+pub trait ErasedWidgetExt<'w, Res> {
+    fn filtered_events(self) -> WidgetEventStream<'w, Res>;
+    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send;
+}
+
+impl<'w, Res> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res> {
+    fn filtered_events(self) -> WidgetEventStream<'w, Res> {
+        WidgetEventStream { inner: self }
+    }
+
+    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send {
+        let mut stream = self.filtered_events();
+        std::future::poll_fn(move |cx| stream.poll_next_unpin(cx))
+    }
+}
+
+pub struct WidgetEventStream<'w, Res> {
+    inner: &'w mut dyn ErasedWidget<Res>,
+}
+
+impl<Res> Stream for WidgetEventStream<'_, Res> {
+    type Item = WidgetResult<Res>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            break match self.as_mut().get_mut().inner.poll_next_unpin(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(None) => Poll::Ready(None),
+                Poll::Ready(Some(None)) => continue,
+                Poll::Ready(Some(Some(v))) => Poll::Ready(Some(v)),
+            };
+        }
+    }
+}
+
 pin_project! {
     struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
         widget: W,
@@ -321,12 +356,7 @@ async unsafe fn run_suspended(
 ) -> RunResult {
     loop {
         select! {
-            nav = state.next() => {
-                let nav = match nav{
-                    Some(Some(v)) => Some(v),
-                    Some(None) => continue,
-                    None => None
-                };
+            nav = state.next_filtered_event() => {
                 match nav.map(Navigation::from) {
                     Some(Navigation::PopContext) => {
                         let mut token = state_token.write();
