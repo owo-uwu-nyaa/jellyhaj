@@ -17,7 +17,7 @@ use jellyhaj_core::{
     CommandMapper, Config,
     context::ContextRef,
     keybinds::LoadingCommand,
-    render::{WidgetResult, make_new_erased, render_widget},
+    render::{RenderStopRes, WidgetResult, make_new_erased, render_widget, render_widget_stop},
     state::Navigation,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
@@ -69,12 +69,17 @@ async fn edit_login_info(
     let mut widget = make_new_erased(cx, widget);
 
     match render_widget(widget.as_mut(), events, term).await {
-        WidgetResult::Ok(LoginResult::Quit) | WidgetResult::Pop | WidgetResult::Exit => Ok(false),
+        WidgetResult::Exit => Ok(false),
+        WidgetResult::Ok(LoginResult::Quit) | WidgetResult::Pop => {
+            render_widget_stop(widget.as_mut(), events, term).await;
+            Ok(false)
+        }
         WidgetResult::Ok(LoginResult::Data {
             server_url,
             username,
             password,
         }) => {
+            let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
             if server_url != info.server_url {
                 info.server_url = server_url;
                 *changed = true;
@@ -87,7 +92,7 @@ async fn edit_login_info(
                 info.password = password;
                 *changed = true;
             }
-            Ok(true)
+            Ok(stop_res != RenderStopRes::Exit)
         }
         WidgetResult::Err(report) => Err(report),
     }
@@ -124,9 +129,15 @@ async fn render_fetch(
     let cx = LoginContext { config, spawner };
     let mut widget = make_new_erased(cx, widget);
     match render_widget(widget.as_mut(), events, term).await {
-        WidgetResult::Ok(ControlFlow::Break(_)) => Ok(()),
-        WidgetResult::Err(report) => Err(report),
-        WidgetResult::Exit | WidgetResult::Pop => Ok(()),
+        WidgetResult::Ok(ControlFlow::Break(_)) | WidgetResult::Pop => {
+            render_widget_stop(widget.as_mut(), events, term).await;
+            Ok(())
+        }
+        WidgetResult::Err(report) => {
+            render_widget_stop(widget.as_mut(), events, term).await;
+            Err(report)
+        }
+        WidgetResult::Exit => Ok(()),
     }
 }
 

@@ -1,0 +1,16 @@
+[start]
+effect= """
+fx::fade_from_fg(bg, (500, QuadOut))
+"""
+fps = 30
+
+[exit]
+effect = """
+fx::fade_to_fg(bg, (250, QuadOut))
+"""
+fps = 30
+[fetch.exit]
+effect = """
+fx::fade_to_fg(bg, (50, QuadOut))
+"""
+fps = 60

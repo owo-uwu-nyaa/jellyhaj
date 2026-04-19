@@ -8,12 +8,12 @@ use tracing::{info, instrument};
 pub use cache::cache;
 pub use keybinds::check_keybinds_file;
 
-use crate::keybind_defs::Keybinds;
+use crate::{effects::EffectStore, keybind_defs::Keybinds};
 
 mod cache;
+pub mod effects;
 pub mod keybind_defs;
 mod keybinds;
-pub mod effects;
 
 #[derive(Debug)]
 pub struct Config {
@@ -27,12 +27,14 @@ pub struct Config {
     pub entry_image_width: u16,
     pub concurrent_jellyfin_connections: u8,
     pub fetch_timeout: u16,
+    pub effects: EffectStore,
 }
 
 #[derive(Debug, Deserialize)]
 struct ParseConfig {
     pub login_file: Option<PathBuf>,
     pub keybinds_file: Option<PathBuf>,
+    pub effects_file: Option<PathBuf>,
     pub hwdec: String,
     pub mpv_profile: Option<String>,
     pub mpv_log_level: String,
@@ -129,6 +131,21 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         default_keybinds
     };
 
+    let effects = if let Some(effects_file) = config.effects_file {
+        let file = if effects_file.is_absolute() {
+            effects_file
+        } else {
+            let mut file = config_dir.clone();
+            file.push(effects_file);
+            file
+        };
+        let content = std::fs::read_to_string(file).context("reading effects file")?;
+        EffectStore::parse(&content)
+    } else {
+        EffectStore::parse(include_str!("../effects.toml"))
+    }
+    .context("parsing effects")?;
+
     let mpv_profile = config
         .mpv_profile
         .as_deref()
@@ -161,6 +178,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         entry_image_width: config.entry_image_width.unwrap_or(32),
         concurrent_jellyfin_connections: config.concurrent_jellyfin_connections.unwrap_or(2),
         fetch_timeout: config.fetch_timeout.unwrap_or(15),
+        effects,
     })
 }
 

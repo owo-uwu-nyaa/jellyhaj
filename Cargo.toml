@@ -165,3 +165,6 @@ whoami = {default-features = false, version = "2.0.2"}
 zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
 convert_case = "0.11.0"
 valuable = {version = "0.1.1", features = ["derive"]}
+tachyonfx = { version = "0.25.0", features = ["sendable", "std-duration"] }
+nom = "8.0.0"
+nix = { version = "0.31.2", features = ["poll"] }

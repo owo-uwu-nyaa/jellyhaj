@@ -7,7 +7,9 @@ use color_eyre::{
 use config::{Config, init_config};
 use jellyhaj_core::{
     context::TuiContext,
-    render::{Erased, RunResult, StateStack, StateValue, render_widget},
+    render::{
+        Erased, RenderStopRes, RunResult, StateStack, StateValue, render_widget, render_widget_stop,
+    },
     state::{Navigation, NextScreen},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
@@ -108,8 +110,18 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
                 state.push(widget, widget_creator.clone());
                 top = Some(next)
             }
-            Navigation::PopContext => {}
-            Navigation::Replace(next) => top = Some(next),
+            Navigation::PopContext => {
+                match render_widget_stop(widget.as_mut(), events, term).await {
+                    RenderStopRes::Ok => {}
+                    RenderStopRes::Exit => break,
+                }
+            }
+            Navigation::Replace(next) => {
+                match render_widget_stop(widget.as_mut(), events, term).await {
+                    RenderStopRes::Ok => top = Some(next),
+                    RenderStopRes::Exit => break,
+                }
+            }
             Navigation::Exit => break,
             Navigation::PushWithoutTui(without_tui) => {
                 if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {

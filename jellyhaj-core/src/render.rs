@@ -1,16 +1,17 @@
+mod erased;
+
 use std::{
     cell::UnsafeCell,
+    cmp::max,
     fmt::Debug,
-    io::Write,
-    pin::Pin,
+    ops::{Deref, DerefMut},
     ptr::null,
     sync::{Arc, Weak},
-    task::{
-        Context,
-        Poll::{self},
-        ready,
-    },
+    time::{Duration, Instant},
 };
+
+use config::{Config, effects::EffectInfo};
+pub use erased::*;
 
 use color_eyre::Report;
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
@@ -18,19 +19,15 @@ use futures_intrusive::sync::ManualResetEvent;
 use futures_util::future::BoxFuture;
 use jellyfin::Result;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetExt, Position, Size, TreeVisitor, WidgetContext,
-    WidgetTreeVisitor,
-    async_task::{EventReceiver, IdWrapper, Stream, StreamExt, TaskSubmitter, new_task_pair},
+    ContextRef, GetFromContext, JellyhajWidget, TreeVisitor, async_task::StreamExt,
 };
 use keybinds::KeybindEvents;
 use parking_lot::{Mutex, RwLock};
-use pin_project_lite::pin_project;
 use ratatui::{
-    DefaultTerminal,
-    crossterm::event::{Event, KeyEvent, MouseEvent},
+    DefaultTerminal, buffer::Buffer, crossterm::event::KeyEvent, layout::Rect, prelude::Backend,
 };
 use spawn::Spawner;
-use tokio::{select, task::JoinHandle};
+use tokio::{select, task::JoinHandle, time::sleep};
 use tracing::instrument;
 
 use crate::state::{Navigation, NextScreen};
@@ -39,87 +36,6 @@ use crate::state::{Navigation, NextScreen};
 pub enum KeybindAction<A: Debug + Send + 'static> {
     Inner(A),
     Key(KeyEvent),
-}
-
-pub trait ErasedWidget<Res>:
-    Stream<Item = Option<WidgetResult<Res>>> + Send + 'static + Unpin
-{
-    fn name(&self) -> &'static str;
-    fn submit_event(&mut self, event: Event, size: Size) -> (Option<WidgetResult<Res>>, bool);
-    fn render(&mut self, term: &mut DefaultTerminal) -> Result<Option<Report>>;
-    fn visit(&self, visitor: &mut dyn TreeVisitor);
-}
-
-pub trait ErasedWidgetExt<'w, Res> {
-    fn filtered_events(self) -> WidgetEventStream<'w, Res>;
-    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send;
-}
-
-impl<'w, Res> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res> {
-    fn filtered_events(self) -> WidgetEventStream<'w, Res> {
-        WidgetEventStream { inner: self }
-    }
-
-    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send {
-        let mut stream = self.filtered_events();
-        std::future::poll_fn(move |cx| stream.poll_next_unpin(cx))
-    }
-}
-
-pub struct WidgetEventStream<'w, Res> {
-    inner: &'w mut dyn ErasedWidget<Res>,
-}
-
-impl<Res> Stream for WidgetEventStream<'_, Res> {
-    type Item = WidgetResult<Res>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            break match self.as_mut().get_mut().inner.poll_next_unpin(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(None) => Poll::Ready(None),
-                Poll::Ready(Some(None)) => continue,
-                Poll::Ready(Some(Some(v))) => Poll::Ready(Some(v)),
-            };
-        }
-    }
-}
-
-pin_project! {
-    struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
-        widget: W,
-        submitter: TaskSubmitter<W::Action, IdWrapper>,
-        receiver: EventReceiver<W::Action>,
-        context: R,
-    }
-}
-
-pub type Erased = Box<dyn ErasedWidget<Navigation>>;
-
-pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> Erased + Send + Sync>;
-
-impl<R: 'static, W: JellyhajWidget<R, ActionResult = Navigation>> ErasedWidgetImpl<R, W> {}
-
-pub fn make_new_erased<
-    R: ContextRef<Spawner> + Send + 'static,
-    A: Debug + Send + 'static,
-    W: JellyhajWidget<R, Action = KeybindAction<A>>,
->(
-    cx: R,
-    mut widget: W,
-) -> Box<dyn ErasedWidget<W::ActionResult>> {
-    let (submitter, receiver) = new_task_pair(cx.as_ref().clone());
-    widget.init(WidgetContext {
-        refs: &cx,
-        submitter: submitter.as_ref(),
-    });
-    let state = ErasedWidgetImpl {
-        widget,
-        context: cx,
-        submitter,
-        receiver,
-    };
-    Box::new(state)
 }
 
 pub enum WidgetResult<T> {
@@ -137,110 +53,6 @@ impl From<WidgetResult<Navigation>> for Navigation {
             WidgetResult::Pop => Navigation::PopContext,
             WidgetResult::Exit => Navigation::Exit,
         }
-    }
-}
-
-impl<R: 'static, W: JellyhajWidget<R>> Stream for ErasedWidgetImpl<R, W> {
-    type Item = Option<WidgetResult<W::ActionResult>>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        Poll::Ready(Some(match ready!(this.receiver.poll_next_unpin(cx)) {
-            Some(Ok(action)) => match this.widget.apply_action(
-                WidgetContext {
-                    refs: this.context,
-                    submitter: this.submitter.as_ref(),
-                },
-                action,
-            ) {
-                Ok(Some(n)) => Some(WidgetResult::Ok(n)),
-                Ok(None) => None,
-                Err(e) => Some(WidgetResult::Err(e)),
-            },
-            Some(Err(e)) => Some(WidgetResult::Err(e)),
-            None => Some(WidgetResult::Pop),
-        }))
-    }
-}
-
-impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = KeybindAction<A>>>
-    ErasedWidget<W::ActionResult> for ErasedWidgetImpl<R, W>
-{
-    fn name(&self) -> &'static str {
-        W::NAME
-    }
-
-    fn visit(&self, mut visitor: &mut dyn TreeVisitor) {
-        visitor.visit(&self.widget);
-    }
-
-    fn submit_event(
-        &mut self,
-        event: Event,
-        frame_size: Size,
-    ) -> (Option<WidgetResult<W::ActionResult>>, bool) {
-        let res = match event {
-            Event::Key(key) => self.widget.apply_action(
-                WidgetContext {
-                    refs: &self.context,
-                    submitter: self.submitter.as_ref(),
-                },
-                KeybindAction::Key(key),
-            ),
-            Event::Mouse(MouseEvent {
-                kind,
-                column,
-                row,
-                modifiers,
-            }) => self.widget.click(
-                WidgetContext {
-                    refs: &self.context,
-                    submitter: self.submitter.as_ref(),
-                },
-                Position::new(column, row),
-                frame_size,
-                kind,
-                modifiers,
-            ),
-            Event::Paste(v) => {
-                if self.widget.accepts_text_input() {
-                    self.widget.accept_text(v);
-                    return (None, true);
-                } else {
-                    return (None, false);
-                }
-            }
-            Event::Resize(_, _) => return (None, true),
-            _ => return (None, true),
-        };
-        let res = match res {
-            Ok(None) => None,
-            Ok(Some(v)) => Some(WidgetResult::Ok(v)),
-            Err(e) => Some(WidgetResult::Err(e)),
-        };
-        (res, true)
-    }
-
-    fn render(&mut self, term: &mut DefaultTerminal) -> Result<Option<Report>> {
-        term.autoresize()?;
-        let mut frame = term.get_frame();
-        let res = self.widget.render_fallible(
-            frame.area(),
-            frame.buffer_mut(),
-            WidgetContext {
-                refs: &self.context,
-                submitter: self.submitter.as_ref(),
-            },
-        );
-        if res.is_err() {
-            frame.buffer_mut().reset();
-        } else {
-            term.flush()?;
-            term.hide_cursor()?;
-            term.swap_buffers();
-            term.backend_mut().flush()?;
-        }
-        Ok(res.err())
     }
 }
 
@@ -446,6 +258,10 @@ impl Drop for DropGuard {
 
 type Visitor = Box<dyn Fn(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
 
+pub type Erased = Box<ShadedWidget<Navigation>>;
+
+pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> Erased + Send + Sync>;
+
 pub struct SuspendedInner {
     task: Mutex<Option<JoinHandle<RunResult>>>,
     drop_guard: DropGuard,
@@ -650,25 +466,213 @@ impl Default for StateStack {
     }
 }
 
-pub async fn render_widget<R: 'static>(
-    widget: &mut dyn ErasedWidget<R>,
+pub struct ShadedWidgetGen<W: ?Sized> {
+    last: Instant,
+    start: Option<EffectInfo>,
+    main: Option<EffectInfo>,
+    exit: Option<EffectInfo>,
+    widget: W,
+}
+
+pub type ShadedWidget<Res> = ShadedWidgetGen<dyn ErasedWidget<Res>>;
+
+pub fn make_new_erased<
+    R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+    A: Debug + Send + 'static,
+    W: JellyhajWidget<R, Action = KeybindAction<A>>,
+>(
+    cx: R,
+    widget: W,
+) -> Box<ShadedWidget<W::ActionResult>> {
+    ShadedWidget::new(cx, widget)
+}
+
+impl<Res: 'static> ShadedWidget<Res> {
+    fn new_sized<
+        R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+        A: Debug + Send + 'static,
+        W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Res>,
+    >(
+        cx: R,
+        widget: W,
+    ) -> ShadedWidgetGen<impl ErasedWidget<Res>> {
+        let effects = &Config::get_ref(&cx).effects;
+        let start = effects.start(W::NAME);
+        let main = effects.main(W::NAME);
+        let exit = effects.exit(W::NAME);
+        let widget = erased::make_new_erased(cx, widget);
+        ShadedWidgetGen {
+            last: Instant::now(),
+            start,
+            main,
+            exit,
+            widget,
+        }
+    }
+    pub fn new<
+        R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+        A: Debug + Send + 'static,
+        W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Res>,
+    >(
+        cx: R,
+        widget: W,
+    ) -> Box<Self> {
+        Box::new(Self::new_sized(cx, widget))
+    }
+
+    fn is_stopped_finished(&self) -> bool {
+        self.exit.is_none()
+    }
+
+    fn render_shaded(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
+        self.render(area, buf)?;
+        let now = Instant::now();
+        let time = now - self.last;
+        self.last = now;
+        let mut fps = 0u8;
+        if let Some(main) = self.main.as_mut() {
+            main.effect.process(time, buf, area);
+            if main.effect.done() {
+                self.main = None;
+            } else {
+                fps = main.fps;
+            }
+        }
+        if let Some(start) = self.start.as_mut() {
+            start.effect.process(time, buf, area);
+            if start.effect.done() {
+                self.start = None;
+            } else {
+                fps = max(fps, start.fps);
+            }
+        }
+        Ok(fps)
+    }
+    fn start_render_stop(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
+        self.render(area, buf)?;
+        let now = Instant::now();
+        let time = now - self.last;
+        self.last = now;
+        let mut fps = 0u8;
+        if let Some(main) = self.main.as_mut() {
+            main.effect.process(time, buf, area);
+            if main.effect.done() {
+                self.main = None;
+            } else {
+                fps = main.fps;
+            }
+        }
+        if let Some(start) = self.start.as_mut() {
+            start.effect.process(time, buf, area);
+            if start.effect.done() {
+                self.start = None;
+            } else {
+                fps = max(fps, start.fps);
+            }
+        }
+        if let Some(exit) = self.exit.as_mut() {
+            exit.effect.process(Duration::ZERO, buf, area);
+            if exit.effect.done() {
+                self.exit = None;
+            } else {
+                fps = max(fps, exit.fps);
+            }
+        }
+        Ok(fps)
+    }
+    fn render_stop(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
+        self.render(area, buf)?;
+        let now = Instant::now();
+        let time = now - self.last;
+        self.last = now;
+        let mut fps = 0u8;
+        if let Some(main) = self.main.as_mut() {
+            main.effect.process(time, buf, area);
+            if main.effect.done() {
+                self.main = None;
+            } else {
+                fps = main.fps;
+            }
+        }
+        if let Some(start) = self.start.as_mut() {
+            start.effect.process(time, buf, area);
+            if start.effect.done() {
+                self.start = None;
+            } else {
+                fps = max(fps, start.fps);
+            }
+        }
+        if let Some(exit) = self.exit.as_mut() {
+            exit.effect.process(time, buf, area);
+            if exit.effect.done() {
+                self.exit = None;
+            } else {
+                fps = max(fps, exit.fps);
+            }
+        }
+        Ok(fps)
+    }
+}
+
+impl<Res> DerefMut for ShadedWidget<Res> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.widget
+    }
+}
+
+impl<Res> Deref for ShadedWidget<Res> {
+    type Target = dyn ErasedWidget<Res>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.widget
+    }
+}
+
+fn render_to_term<T>(
+    term: &mut DefaultTerminal,
+    f: impl FnOnce(Rect, &mut Buffer) -> Result<T>,
+) -> Result<Result<T>> {
+    term.autoresize()?;
+    let mut frame = term.get_frame();
+    let res = f(frame.area(), frame.buffer_mut());
+    if res.is_err() {
+        frame.buffer_mut().reset();
+    } else {
+        term.flush()?;
+        term.hide_cursor()?;
+        term.swap_buffers();
+        term.backend_mut().flush()?;
+    }
+    Ok(res)
+}
+
+pub async fn render_widget<Res: 'static>(
+    widget: &mut ShadedWidget<Res>,
     events: &mut KeybindEvents,
     term: &mut DefaultTerminal,
-) -> WidgetResult<R> {
+) -> WidgetResult<Res> {
     let mut render = true;
+    let mut fps = 0u8;
     loop {
         if render {
-            match widget.render(term) {
+            match render_to_term(term, |area, buf| widget.render_shaded(area, buf)) {
                 Err(e) => {
                     tracing::error!("failed to draw to the terminal:\n{e:?}");
                     return WidgetResult::Exit;
                 }
-                Ok(None) => {}
-                Ok(Some(e)) => return WidgetResult::Err(e),
+                Ok(Ok(v)) => fps = v,
+                Ok(Err(e)) => return WidgetResult::Err(e),
             }
         }
-
+        let duration = if fps > 0 {
+            Duration::from_secs(1) / fps as u32
+        } else {
+            Duration::MAX
+        };
         select! {
+            _ = sleep(duration), if fps > 0 => {
+
+            }
             nav = widget.next() => {
                 match nav{
                     Some(Some(nav)) => return nav,
@@ -690,6 +694,84 @@ pub async fn render_widget<R: 'static>(
                             return nav
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderStopRes {
+    Ok,
+    Exit,
+}
+
+pub async fn render_widget_stop<Res: 'static>(
+    widget: &mut ShadedWidget<Res>,
+    events: &mut KeybindEvents,
+    term: &mut DefaultTerminal,
+) -> RenderStopRes {
+    let mut render = true;
+    let mut fps;
+    match render_to_term(term, |area, buf| widget.start_render_stop(area, buf)) {
+        Err(e) => {
+            tracing::error!("failed to draw to the terminal:\n{e:?}");
+            return RenderStopRes::Exit;
+        }
+        Ok(Ok(v)) => fps = v,
+        Ok(Err(e)) => {
+            tracing::error!("Error rendering stop animation:\n{e:?}");
+            return RenderStopRes::Ok;
+        }
+    }
+
+    loop {
+        if widget.is_stopped_finished() {
+            break RenderStopRes::Ok;
+        }
+        if fps == 0 {
+            panic!("Stop effect with fps 0 may never complete!")
+        }
+        let duration = if fps > 0 {
+            Duration::from_secs(1) / fps as u32
+        } else {
+            Duration::MAX
+        };
+        select! {
+            _ = sleep(duration), if fps > 0 => {
+
+            }
+            nav = widget.next() => {
+                match nav{
+                    Some(Some(_)) => {render = true;},
+                    Some(None) => {render = true;}
+                    None => return RenderStopRes::Exit,
+                }
+            }
+            event = events.next() => {
+                match event{
+                    None => return RenderStopRes::Exit,
+                    Some(Err(e)) => {
+                        tracing::error!("reading keyboard event failed:\n{e:?}");
+                        return RenderStopRes::Exit;
+                    }
+                    Some(Ok(event)) =>{
+                        let (_, r) = widget.submit_event(event, term.get_frame().area().as_size());
+                        render=r;
+                    }
+                }
+            }
+        }
+        if render {
+            match render_to_term(term, |area, buf| widget.render_stop(area, buf)) {
+                Err(e) => {
+                    tracing::error!("failed to draw to the terminal:\n{e:?}");
+                    return RenderStopRes::Exit;
+                }
+                Ok(Ok(v)) => fps = v,
+                Ok(Err(e)) => {
+                    tracing::error!("Error rendering stop animation:\n{e:?}");
+                    return RenderStopRes::Ok;
                 }
             }
         }
