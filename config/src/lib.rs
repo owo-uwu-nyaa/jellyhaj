@@ -127,6 +127,13 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
             file
         };
         keybinds::from_file(keybinds, false, default_keybinds.0).context("parsing keybindings")?
+    } else if !use_builtin
+        && let mut keybinds_file = config_dir.clone()
+        && let _ = keybinds_file.push("keybinds.toml")
+        && keybinds_file.exists()
+    {
+        keybinds::from_file(keybinds_file, false, default_keybinds.0)
+            .context("parsing keybindings")?
     } else {
         default_keybinds
     };
@@ -140,6 +147,13 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
             file
         };
         let content = std::fs::read_to_string(file).context("reading effects file")?;
+        EffectStore::parse(&content)
+    } else if !use_builtin
+        && let mut effects_file = config_dir.clone()
+        && let _ = effects_file.push("effects.toml")
+        && effects_file.exists()
+    {
+        let content = std::fs::read_to_string(effects_file).context("reading effects file")?;
         EffectStore::parse(&content)
     } else {
         EffectStore::parse(include_str!("../effects.toml"))

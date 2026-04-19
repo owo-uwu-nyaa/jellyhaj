@@ -1,11 +1,18 @@
+# This file uses the https://github.com/ratatui/tachyonfx dsl.
+# By modifying this file you can theme all views entirely or only specific ones.
+# Be careful with effects that blank out parts of the buffer in start or main, they interact badly with the images
 
 
+# define animations for all widgets
+# [main] is applied first, then start
 [start]
 effect= """
 fx::fade_from_fg(bg, (500, Linear))
 """
 fps = 30
 
+# exit is applied when a view is replaced or removed
+# The app can not navigate while this is active, so keep this short
 [exit]
 effect = """
 fx::parallel(&[
@@ -15,5 +22,7 @@ fx::parallel(&[
 """
 fps = 30
 
+#override animations for fetch view.
+#matches on the name of the top level widget
 [fetch.exit]
 [fetch.start]
