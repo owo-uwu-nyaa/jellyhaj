@@ -15,6 +15,15 @@ You can find some notes in the default config files in 'config'. Just copy it to
 You can just build the project with cargo (requires libmpv, sqlite and clang). The resulting binary should just work (TM).
 
 Alternatively there is a nix flake that builds the binary and provides a basic home manager profile.
+There is a binary cache, to use it add the following to your configuration:
+```nix
+nix.settings = {
+    substituters = ["https://owo-uwu-nyaa.cachix.org"];
+    trusted-public-keys = [
+        "owo-uwu-nyaa.cachix.org-1:cDhuSEgFr9z86WmR2+SE/58/AvM4WXEFYT/nAUBjcok="
+    ];
+};
+```
 
 While I don't have intentionally introduced incompatibilities I only test manually on my own Linux device, therefore it might not work out of the box and needs fixes. Help welcome!
 
