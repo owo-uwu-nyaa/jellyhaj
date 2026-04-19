@@ -7,7 +7,7 @@ use std::{
     ops::{Deref, DerefMut},
     ptr::null,
     sync::{Arc, Weak},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use config::{Config, effects::EffectInfo};
@@ -27,7 +27,11 @@ use ratatui::{
     DefaultTerminal, buffer::Buffer, crossterm::event::KeyEvent, layout::Rect, prelude::Backend,
 };
 use spawn::Spawner;
-use tokio::{select, task::JoinHandle, time::sleep};
+use tokio::{
+    select,
+    task::JoinHandle,
+    time::{Instant, sleep_until},
+};
 use tracing::instrument;
 
 use crate::state::{Navigation, NextScreen};
@@ -652,29 +656,33 @@ pub async fn render_widget<Res: 'static>(
     term: &mut DefaultTerminal,
 ) -> WidgetResult<Res> {
     let mut render = true;
-    let mut fps = 0u8;
+    let mut duration = Duration::ZERO;
+    let mut last_render = Instant::now();
     loop {
         if render {
+            last_render = Instant::now();
             match render_to_term(term, |area, buf| widget.render_shaded(area, buf)) {
                 Err(e) => {
                     tracing::error!("failed to draw to the terminal:\n{e:?}");
                     return WidgetResult::Exit;
                 }
-                Ok(Ok(v)) => fps = v,
+                Ok(Ok(fps)) => {
+                    duration = if fps > 0 {
+                        Duration::from_secs(1) / fps as u32
+                    } else {
+                        Duration::ZERO
+                    }
+                }
                 Ok(Err(e)) => return WidgetResult::Err(e),
             }
         }
-        let duration = if fps > 0 {
-            Duration::from_secs(1) / fps as u32
-        } else {
-            Duration::MAX
-        };
         select! {
-            _ = sleep(duration), if fps > 0 => {
-
+            _ = sleep_until(last_render+duration), if !duration.is_zero() => {
+                render = true;
             }
             nav = widget.next() => {
                 match nav{
+                    Some(Some(WidgetResult::Exit)) => return WidgetResult::Exit,
                     Some(Some(nav)) => return nav,
                     Some(None) => {render = true;}
                     None => return WidgetResult::Exit,
@@ -711,14 +719,21 @@ pub async fn render_widget_stop<Res: 'static>(
     events: &mut KeybindEvents,
     term: &mut DefaultTerminal,
 ) -> RenderStopRes {
-    let mut render = true;
-    let mut fps;
+    let mut render;
+    let mut last_render = Instant::now();
+    let mut duration;
     match render_to_term(term, |area, buf| widget.start_render_stop(area, buf)) {
         Err(e) => {
             tracing::error!("failed to draw to the terminal:\n{e:?}");
             return RenderStopRes::Exit;
         }
-        Ok(Ok(v)) => fps = v,
+        Ok(Ok(fps)) => {
+            duration = if fps > 0 {
+                Duration::from_secs(1) / fps as u32
+            } else {
+                Duration::ZERO
+            };
+        }
         Ok(Err(e)) => {
             tracing::error!("Error rendering stop animation:\n{e:?}");
             return RenderStopRes::Ok;
@@ -729,17 +744,12 @@ pub async fn render_widget_stop<Res: 'static>(
         if widget.is_stopped_finished() {
             break RenderStopRes::Ok;
         }
-        if fps == 0 {
+        if duration.is_zero() {
             panic!("Stop effect with fps 0 may never complete!")
         }
-        let duration = if fps > 0 {
-            Duration::from_secs(1) / fps as u32
-        } else {
-            Duration::MAX
-        };
         select! {
-            _ = sleep(duration), if fps > 0 => {
-
+            _ = sleep_until(last_render + duration), if ! duration.is_zero() => {
+                render = true;
             }
             nav = widget.next() => {
                 match nav{
@@ -763,12 +773,19 @@ pub async fn render_widget_stop<Res: 'static>(
             }
         }
         if render {
+            last_render = Instant::now();
             match render_to_term(term, |area, buf| widget.render_stop(area, buf)) {
                 Err(e) => {
                     tracing::error!("failed to draw to the terminal:\n{e:?}");
                     return RenderStopRes::Exit;
                 }
-                Ok(Ok(v)) => fps = v,
+                Ok(Ok(fps)) => {
+                    duration = if fps > 0 {
+                        Duration::from_secs(1) / fps as u32
+                    } else {
+                        Duration::ZERO
+                    }
+                }
                 Ok(Err(e)) => {
                     tracing::error!("Error rendering stop animation:\n{e:?}");
                     return RenderStopRes::Ok;
