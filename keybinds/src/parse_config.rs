@@ -157,15 +157,12 @@ fn parse_key_code(mut name: &str) -> Option<Key> {
         "esc" => KeyCode::Esc,
         code => {
             let mut chars = code.chars();
-            if let Some(first) = chars.next() {
-                if chars.next().is_none() {
-                    KeyCode::Char(first)
-                } else if first == 'f' {
-                    if let Ok(n) = code[1..].parse() {
-                        KeyCode::F(n)
-                    } else {
-                        return None;
-                    }
+            let first = chars.next()?;
+            if chars.next().is_none() {
+                KeyCode::Char(first)
+            } else if first == 'f' {
+                if let Ok(n) = code[1..].parse() {
+                    KeyCode::F(n)
                 } else {
                     return None;
                 }
