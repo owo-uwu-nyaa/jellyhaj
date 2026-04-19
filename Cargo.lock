@@ -2245,6 +2245,7 @@ dependencies = [
  "jellyhaj-keybinds-widget",
  "jellyhaj-loading-widget",
  "jellyhaj-login-widget",
+ "jellyhaj-widgets-core",
  "keybinds",
  "ratatui",
  "spawn",

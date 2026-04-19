@@ -13,6 +13,7 @@ tracing.workspace = true
 whoami.workspace = true
 jellyhaj-loading-widget = { version = "0.1.0", path = "../../widgets/loading" }
 config = { version = "0.1.0", path = "../../config" }
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
 
 [package]
 edition = "2024"

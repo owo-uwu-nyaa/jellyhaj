@@ -18,21 +18,16 @@ struct ParseEffect {
 }
 
 #[derive(Debug)]
-struct ParseWidgetEffect {
-    start: Option<Option<ParseEffect>>,
-    main: Option<Option<ParseEffect>>,
-    exit: Option<Option<ParseEffect>>,
-}
+struct ParseEffectOpt(Option<ParseEffect>);
 
-impl<'de> Deserialize<'de> for ParseWidgetEffect {
+impl<'de> Deserialize<'de> for ParseEffectOpt {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         enum Field {
-            Start,
-            Main,
-            Exit,
+            Effect,
+            Fps,
         }
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -44,7 +39,7 @@ impl<'de> Deserialize<'de> for ParseWidgetEffect {
                     type Value = Field;
 
                     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("`start` or `exit`")
+                        formatter.write_str("`fps` or `effect`")
                     }
 
                     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -52,9 +47,8 @@ impl<'de> Deserialize<'de> for ParseWidgetEffect {
                         E: serde::de::Error,
                     {
                         match v {
-                            "start" => Ok(Field::Start),
-                            "exit" => Ok(Field::Exit),
-                            "main" => Ok(Field::Main),
+                            "effect" => Ok(Field::Effect),
+                            "fps" => Ok(Field::Fps),
                             _ => Err(serde::de::Error::unknown_field(v, FIELDS)),
                         }
                     }
@@ -64,7 +58,7 @@ impl<'de> Deserialize<'de> for ParseWidgetEffect {
         }
         struct EffVisitor;
         impl<'de> Visitor<'de> for EffVisitor {
-            type Value = ParseWidgetEffect;
+            type Value = ParseEffectOpt;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct Effect")
@@ -74,40 +68,46 @@ impl<'de> Deserialize<'de> for ParseWidgetEffect {
             where
                 A: serde::de::MapAccess<'de>,
             {
-                let mut start = None;
-                let mut main = None;
-                let mut exit = None;
+                let mut effect = None;
+                let mut fps = None;
                 while let Some(key) = map.next_key()? {
                     match key {
-                        Field::Start => {
-                            if start.is_some() {
-                                return Err(serde::de::Error::duplicate_field("start"));
+                        Field::Effect => {
+                            if effect.is_some() {
+                                return Err(serde::de::Error::duplicate_field("effect"));
                             }
-                            let val: Option<ParseEffect> = map.next_value()?;
-                            start = Some(val);
+                            let val: String = map.next_value()?;
+                            effect = Some(val);
                         }
-                        Field::Main => {
-                            if main.is_some() {
-                                return Err(serde::de::Error::duplicate_field("main"));
-                            }
-                            let val: Option<ParseEffect> = map.next_value()?;
-                            main = Some(val);
-                        }
-                        Field::Exit => {
-                            if exit.is_some() {
+                        Field::Fps => {
+                            if fps.is_some() {
                                 return Err(serde::de::Error::duplicate_field("exit"));
                             }
-                            let val: Option<ParseEffect> = map.next_value()?;
-                            exit = Some(val);
+                            let val: u8 = map.next_value()?;
+                            fps = Some(val);
                         }
                     }
                 }
-                Ok(ParseWidgetEffect { start, main, exit })
+                match (effect, fps) {
+                    (Some(effect), Some(fps)) => {
+                        Ok(ParseEffectOpt(Some(ParseEffect { effect, fps })))
+                    }
+                    (None, None) => Ok(ParseEffectOpt(None)),
+                    (Some(_), None) => Err(serde::de::Error::missing_field("fps")),
+                    (None, Some(_)) => Err(serde::de::Error::missing_field("effect")),
+                }
             }
         }
-        const FIELDS: &[&str] = &["start", "main", "exit"];
-        deserializer.deserialize_struct("Effect", FIELDS, EffVisitor)
+        const FIELDS: &[&str] = &["fps", "effect"];
+        deserializer.deserialize_struct("ParseEffect", FIELDS, EffVisitor)
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct ParseWidgetEffect {
+    start: Option<ParseEffectOpt>,
+    main: Option<ParseEffectOpt>,
+    exit: Option<ParseEffectOpt>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -159,13 +159,13 @@ impl EffectStore {
 
         fn to_set(input: ParseWidgetEffect, colors: TermColors) -> Result<EffectSet> {
             fn map(
-                input: Option<Option<ParseEffect>>,
+                input: Option<ParseEffectOpt>,
                 colors: TermColors,
             ) -> Result<Option<Option<EffectInfo>>> {
                 Ok(match input {
                     None => None,
-                    Some(None) => Some(None),
-                    Some(Some(e)) => Some(Some(compile_effect(colors, e)?)),
+                    Some(ParseEffectOpt(None)) => Some(None),
+                    Some(ParseEffectOpt(Some(e))) => Some(Some(compile_effect(colors, e)?)),
                 })
             }
             Ok(EffectSet {

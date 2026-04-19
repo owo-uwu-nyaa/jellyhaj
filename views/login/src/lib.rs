@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    fmt::Debug,
     fs::{OpenOptions, create_dir_all},
     io::Write,
     ops::ControlFlow,
@@ -23,6 +24,7 @@ use jellyhaj_core::{
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
 use jellyhaj_login_widget::{LoginResult, LoginWidget};
+use jellyhaj_widgets_core::mapper::MapperWidget;
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
 use spawn::Spawner;
@@ -114,6 +116,19 @@ impl CommandMapper<LoadingCommand> for LoadingMapper {
     }
 }
 
+struct Fetch;
+
+impl<I: Debug + 'static> jellyhaj_widgets_core::mapper::ResultMapper<I> for Fetch {
+    type R = I;
+
+    fn map(res: I) -> Result<Option<Self::R>> {
+        Ok(Some(res))
+    }
+}
+impl jellyhaj_widgets_core::mapper::Named for Fetch {
+    const NAME: &str = "fetch";
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn render_fetch(
     term: &mut DefaultTerminal,
@@ -121,11 +136,11 @@ async fn render_fetch(
     spawner: Spawner,
     config: Arc<Config>,
 ) -> Result<()> {
-    let widget = KeybindWidget::new(
+    let widget = MapperWidget::<Fetch, _, Fetch>::new(KeybindWidget::new(
         Loading::new(Cow::Borrowed("Connecting to Server")),
         config.keybinds.fetch.clone(),
         LoadingMapper,
-    );
+    ));
     let cx = LoginContext { config, spawner };
     let mut widget = make_new_erased(cx, widget);
     match render_widget(widget.as_mut(), events, term).await {

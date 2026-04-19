@@ -1,16 +1,16 @@
+
+
 [start]
 effect= """
-fx::fade_from_fg(bg, (500, QuadOut))
+fx::fade_from_fg(bg, (500, Linear))
 """
 fps = 30
 
 [exit]
 effect = """
-fx::fade_to_fg(bg, (250, QuadOut))
+fx::fade_to_fg(bg, (250, Linear))
 """
 fps = 30
+
 [fetch.exit]
-effect = """
-fx::fade_to_fg(bg, (50, QuadOut))
-"""
-fps = 60
+[fetch.start]
