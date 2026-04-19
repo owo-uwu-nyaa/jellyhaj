@@ -17,6 +17,7 @@ let
     ./.sqlx
     ./config/config.toml
     ./config/keybinds.toml
+    ./config/effects.toml
     ./migrations
     ./jellyhaj.desktop
     ./libmpv-rs/test-data
