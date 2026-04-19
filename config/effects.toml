@@ -8,7 +8,10 @@ fps = 30
 
 [exit]
 effect = """
-fx::fade_to_fg(bg, (250, Linear))
+fx::parallel(&[
+    fx::fade_to_fg(bg, (250, Linear)),
+    fx::dissolve(250)
+])
 """
 fps = 30
 
