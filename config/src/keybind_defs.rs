@@ -21,7 +21,7 @@ pub struct Keybinds {
 pub enum GlobalCommand {
     ShowStats,
     ShowLogs,
-    ShowInspect
+    ShowInspect,
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]
@@ -64,7 +64,7 @@ pub enum StatsCommand {
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]
-pub enum InspectCommand{
+pub enum InspectCommand {
     Toggle,
     Open,
     CloseMoveParent,
