@@ -66,12 +66,12 @@ fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id),
         NextScreen::Stats => jellyhaj_stats_view::render_stats(cx),
         NextScreen::Logs => jellyhaj_log_view::render_log(cx),
+        NextScreen::Inspect => jellyhaj_inspect_view::render_inspect(cx),
     }
 }
 
 #[instrument(skip_all, level = "debug")]
 async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
-    let state = StateStack::new();
     let mut top: Option<NextScreen> = None;
     let widget_creator = {
         let cx = cx.clone();
@@ -83,7 +83,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
             debug!("running top next screen");
             make_screen(top, cx.clone())
         } else {
-            match state.pop() {
+            match cx.state.pop() {
                 StateValue::Suspended(suspended) => {
                     debug!("resuming suspended widget: {}", suspended.name);
                     match suspended.get_widget().await {
@@ -107,7 +107,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
         };
         match render_widget(widget.as_mut(), events, term).await.into() {
             Navigation::Push(next) => {
-                state.push(widget, widget_creator.clone());
+                cx.state.push(widget, widget_creator.clone());
                 top = Some(next)
             }
             Navigation::PopContext => {
@@ -187,6 +187,7 @@ async fn run_app_inner(
                 image_picker: Arc::new(image_picker),
                 stats: Default::default(),
                 spawn: spawner,
+                state: Arc::new(StateStack::new()),
             },
         )
         .await

@@ -50,12 +50,15 @@ console-subscriber = { version = "0.5.0", optional = true }
 jellyhaj-widgets-core = { version = "0.1.0", path = "widgets/core" }
 jellyhaj-event-listener = { version = "0.1.0", path = "event-listener" }
 mimalloc = { version = "0.1.48", optional = true, features = ["secure", "v3"] }
+jellyhaj-inspect-view = { version = "0.1.0", path = "views/inspect" }
+libc = { version = "0.2.186", optional = true }
 
 [features]
 default = ["mimalloc"]
 mpris = ["dep:player-mpris"]
 console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tracing"]
 mimalloc = ["dep:mimalloc"]
+attach = ["dep:libc"]
 
 [package]
 description = "kind of fancy jellyfin tui based on ratatui and libmpv"
@@ -87,7 +90,7 @@ members = ["async-task",
   "stats-data",
   "views/error",
   "views/fetch",
-  "views/home-screen",
+  "views/home-screen", "views/inspect",
   "views/item-details",
   "views/library",
   "views/log",
@@ -101,7 +104,7 @@ members = ["async-task",
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl", "widgets/home-screen",
-  "widgets/image",
+  "widgets/image", "widgets/inspect",
   "widgets/item-details",
   "widgets/item-grid",
   "widgets/item-list",
@@ -168,3 +171,4 @@ valuable = {version = "0.1.1", features = ["derive"]}
 tachyonfx = { version = "0.25.0", features = ["sendable", "std-duration"] }
 nom = "8.0.0"
 nix = { version = "0.31.2", features = ["poll"] }
+tui-tree-widget = "0.24.0"

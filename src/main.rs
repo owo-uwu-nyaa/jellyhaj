@@ -65,8 +65,22 @@ fn log_file() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "attach")]
+fn attach() -> Result<()> {
+    unsafe {
+        libc::prctl(libc::PR_SET_PTRACER, libc::PR_SET_PTRACER_ANY);
+    }
+    let mut out = String::new();
+    println!("attach to {}", std::process::id());
+    println!("press enter to continue");
+    std::io::stdin().read_line(&mut out)?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     unsafe { std::env::set_var("LC_NUMERIC", "C") };
+    #[cfg(feature = "attach")]
+    attach()?;
     let args = Args::parse();
     if args.features {
         println!("enabled features: {}", env!("JELLYFIN_TUI_FEATURES"));

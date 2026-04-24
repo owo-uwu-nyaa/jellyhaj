@@ -34,6 +34,16 @@ q="quit"
 template = ["g"]
 q="quit"
 
+[inspect]
+template = ["g", "ud"]
+enter = "toggle"
+left = "close-move-parent"
+c = "close"
+o = "open"
+right = "open"
+q = "quit"
+
+
 [fetch]
 template = ["g"]
 q = "quit"
@@ -106,5 +116,8 @@ R = "refresh-item"
 w = "set-watched"
 u = "unset-watched"
 
-[template.g]
-s = {name="show-", s="show-stats", l="show-logs"}
+[template.g.s]
+name = "show-"
+s = "show-stats"
+l = "show-logs"
+i = "show-inspect"

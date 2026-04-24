@@ -60,6 +60,7 @@ pub enum NextScreen {
     RefreshItem(String),
     Stats,
     Logs,
+    Inspect,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -82,6 +83,7 @@ impl From<GlobalCommand> for Navigation {
         match value {
             GlobalCommand::ShowStats => Navigation::Push(NextScreen::Stats),
             GlobalCommand::ShowLogs => Navigation::Push(NextScreen::Logs),
+            GlobalCommand::ShowInspect => Navigation::Push(NextScreen::Inspect),
         }
     }
 }

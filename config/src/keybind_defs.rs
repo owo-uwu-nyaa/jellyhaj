@@ -6,6 +6,7 @@ use valuable::Valuable;
 pub struct Keybinds {
     pub logger: BindingMap<LoggerCommand>,
     pub stats: BindingMap<StatsCommand>,
+    pub inspect: BindingMap<InspectCommand>,
     pub fetch: BindingMap<LoadingCommand>,
     pub play_mpv: BindingMap<MpvCommand>,
     pub form: BindingMap<FormCommand>,
@@ -20,6 +21,7 @@ pub struct Keybinds {
 pub enum GlobalCommand {
     ShowStats,
     ShowLogs,
+    ShowInspect
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]
@@ -56,6 +58,19 @@ pub enum LoggerCommand {
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]
 pub enum StatsCommand {
+    Quit,
+    #[command(flatten)]
+    Global(GlobalCommand),
+}
+
+#[derive(Debug, Clone, Copy, Command, Valuable)]
+pub enum InspectCommand{
+    Toggle,
+    Open,
+    CloseMoveParent,
+    Close,
+    Up,
+    Down,
     Quit,
     #[command(flatten)]
     Global(GlobalCommand),

@@ -14,7 +14,6 @@ use config::{Config, effects::EffectInfo};
 pub use erased::*;
 
 use color_eyre::Report;
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
 use futures_intrusive::sync::ManualResetEvent;
 use futures_util::future::BoxFuture;
 use jellyfin::Result;
@@ -29,6 +28,7 @@ use ratatui::{
 use spawn::Spawner;
 use tokio::{
     select,
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
     time::{Instant, sleep_until},
 };
@@ -60,6 +60,7 @@ impl From<WidgetResult<Navigation>> for Navigation {
     }
 }
 
+#[instrument(skip_all, level = "trace")]
 unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
     tracing::trace!("removing elelment");
     if let (Some(next), Some(prev)) = {
@@ -71,9 +72,11 @@ unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
     } {
         unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&prev));
         unsafe { prev.get_list_mut(token) }.next = Some(next);
+        unsafe { inspect_list(&prev, token) };
     }
 }
 
+#[instrument(skip_all, level = "trace")]
 unsafe fn replace_element(
     entry: Arc<StateEntry>,
     new_entry: Arc<StateEntry>,
@@ -91,10 +94,12 @@ unsafe fn replace_element(
         let new = unsafe { new_entry.get_list_mut(token) };
         new.next = Some(next);
         new.prev = Some(Arc::downgrade(&prev));
-        unsafe { prev.get_list_mut(token) }.next = Some(new_entry);
+        unsafe { prev.get_list_mut(token) }.next = Some(new_entry.clone());
     }
+    unsafe { inspect_list(&new_entry, token) };
 }
 
+#[instrument(skip_all, level = "trace")]
 unsafe fn append_element(
     entry: Arc<StateEntry>,
     new_entry: Arc<StateEntry>,
@@ -108,13 +113,16 @@ unsafe fn append_element(
         new.prev = Some(Arc::downgrade(&entry));
         unsafe { entry.get_list_mut(token) }.next = Some(new_entry);
     }
+    unsafe { inspect_list(&entry, token) };
 }
 
+#[instrument(skip_all, level = "trace")]
 unsafe fn prepend_element(
     entry: Arc<StateEntry>,
     new_entry: Arc<StateEntry>,
     token: &mut ListAccessToken,
 ) {
+    unsafe { inspect_list(&entry, token) };
     tracing::trace!("prepending element");
     if let Some(prev) = {
         unsafe { entry.get_list_mut(token) }
@@ -124,10 +132,11 @@ unsafe fn prepend_element(
     } {
         unsafe { entry.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
         let new = unsafe { new_entry.get_list_mut(token) };
-        new.next = Some(entry);
+        new.next = Some(entry.clone());
         new.prev = Some(Arc::downgrade(&prev));
         unsafe { prev.get_list_mut(token) }.next = Some(new_entry);
     }
+    unsafe { inspect_list(&entry, token) };
 }
 
 unsafe fn inspect_list(start: &Arc<StateEntry>, token: &ListAccessToken) {
@@ -199,7 +208,6 @@ async unsafe fn run_suspended(
                                     new.clone(),
                                     &mut token,
                                 );
-                                inspect_list(&new, &token);
                             }
                         }
                         return RunResult::Empty;
@@ -219,7 +227,6 @@ async unsafe fn run_suspended(
                                     new.clone(),
                                     &mut token,
                                 );
-                                inspect_list(&new, &token);
                             }
                         }
                     }
@@ -229,7 +236,6 @@ async unsafe fn run_suspended(
                             unsafe{
                                 let new = Arc::new(StateEntry::new(StateValue::WithoutTui(next)));
                                 append_element(entry,new.clone() , &mut token);
-                                inspect_list(&new, &token);
                             }
                         }
                     }
@@ -239,7 +245,7 @@ async unsafe fn run_suspended(
             _ = stop.wait() => {
                 return RunResult::Cont(state)
             }
-            visitor = visitors.next() => {
+            visitor = visitors.recv() => {
                 if let Some(visitor) = visitor{
                     visitor(&|visitor|state.visit(visitor))
                 }else {
@@ -260,7 +266,7 @@ impl Drop for DropGuard {
     }
 }
 
-type Visitor = Box<dyn Fn(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
+type Visitor = Box<dyn FnOnce(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
 
 pub type Erased = Box<ShadedWidget<Navigation>>;
 
@@ -287,7 +293,7 @@ impl SuspendedInner {
         state_token: Arc<RwLock<ListAccessToken>>,
     ) -> Self {
         let stop = Arc::new(ManualResetEvent::new(false));
-        let (visitor_send, visitor_recv) = unbounded();
+        let (visitor_send, visitor_recv) = tokio::sync::mpsc::unbounded_channel();
         let name = widget.name();
         let fut = unsafe {
             run_suspended(
@@ -374,9 +380,11 @@ pub struct StateStack {
 
 impl Drop for StateStack {
     // break reference cycles, isolate all entries
+    #[instrument(skip_all, level = "trace", name = "StateStack::drop()")]
     fn drop(&mut self) {
         let mut guard = self.lock.write();
         let mut entry = self.list.clone();
+        unsafe { inspect_list(&entry, &guard) };
         while let Some(new_entry) = {
             let entry = unsafe { entry.get_list_mut(&mut guard) };
             entry.prev = None;
@@ -388,7 +396,9 @@ impl Drop for StateStack {
 }
 
 impl StateStack {
+    #[instrument(skip_all, level = "trace", name = "StateStack::new()")]
     pub fn new() -> Self {
+        tracing::trace!("new state stack");
         let list = Arc::new(StateEntry {
             list: UnsafeCell::new(ListEntry {
                 next: None,
@@ -403,8 +413,10 @@ impl StateStack {
             entry.prev = Some(Arc::downgrade(&list))
         }
 
+        let token = ListAccessToken { _evil: () };
+        unsafe { inspect_list(&list, &token) };
         StateStack {
-            lock: Arc::new(RwLock::new(ListAccessToken { _evil: () })),
+            lock: Arc::new(RwLock::new(token)),
             list,
         }
     }
@@ -423,7 +435,6 @@ impl StateStack {
                 }),
                 &mut token,
             );
-            inspect_list(&self.list, &token);
         }
     }
     pub fn pop(&self) -> StateValue {
@@ -447,8 +458,11 @@ impl StateStack {
         }
     }
 
+    #[instrument(skip_all, level = "trace")]
     pub fn visit(&self, mut visitor: impl FnMut(&StateValue)) {
         let token = self.lock.read();
+        tracing::trace!("visiting states");
+        unsafe { inspect_list(&self.list, &token) };
         let head = &self.list;
         let mut current = head;
         loop {

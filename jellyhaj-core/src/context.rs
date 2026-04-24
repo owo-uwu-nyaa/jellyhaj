@@ -15,6 +15,8 @@ use stats_data::StatsData;
 use tokio::sync::Mutex;
 
 pub use stats_data::Stats;
+
+use crate::render::StateStack;
 pub type DBInner = Mutex<SqliteConnection>;
 pub type DB = Arc<DBInner>;
 pub type ImagePicker = Arc<Picker>;
@@ -30,6 +32,7 @@ pub struct TuiContext {
     pub mpv_handle: PlayerHandle,
     pub stats: Stats,
     pub spawn: Spawner,
+    pub state: Arc<StateStack>,
 }
 
 impl ContextRef<JellyfinClient> for TuiContext {
@@ -112,5 +115,12 @@ impl ContextRef<Spawner> for TuiContext {
     #[inline]
     fn as_ref(&self) -> &Spawner {
         &self.spawn
+    }
+}
+
+impl ContextRef<StateStack> for TuiContext {
+    #[inline]
+    fn as_ref(&self) -> &StateStack {
+        &self.state
     }
 }
