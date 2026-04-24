@@ -4,7 +4,7 @@ use jellyhaj_core::render::{StateStack, StateValue};
 use jellyhaj_widgets_core::{
     ContextRef, JellyhajWidget, MouseEventKind, TreeVisitor,
     ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::StatefulWidget},
-    spawn::tracing::info_span,
+    spawn::tracing::{self, info_span, instrument},
 };
 use tokio::sync::oneshot::{Receiver, channel};
 use tui_tree_widget::{Block, Tree, TreeItem, TreeState};
@@ -271,7 +271,7 @@ impl TreeVisitor for WidgetVisitor<'_> {
         let id = *self.id_gen;
         *self.id_gen += 1;
         let values = vec![inspect_valuable(
-            "Widget state: ".to_string(),
+            "State: ".to_string(),
             self.view_id,
             self.id_gen,
             state.as_value(),
@@ -462,6 +462,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
         Ok(None)
     }
 
+    #[instrument(skip_all, name = "click_inspect")]
     fn click(
         &mut self,
         _cx: jellyhaj_widgets_core::WidgetContext<
@@ -470,13 +471,20 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             impl jellyhaj_widgets_core::Wrapper<Self::Action>,
             R,
         >,
-        _position: jellyhaj_widgets_core::Position,
+        position: jellyhaj_widgets_core::Position,
         _size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         _modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind {
-            //TODO implement click
+        if let MouseEventKind::Down(MouseButton::Left) = kind
+            && let Some(at) = self.state.rendered_at(position)
+        {
+            tracing::debug!(rendered_at=?at, selected=?self.state.selected(), "clicked");
+            if at == self.state.selected() {
+                self.state.toggle_selected();
+            } else {
+                self.state.select(at.to_vec());
+            }
         }
         Ok(None)
     }

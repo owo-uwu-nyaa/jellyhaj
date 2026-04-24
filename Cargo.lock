@@ -2122,6 +2122,7 @@ dependencies = [
  "jellyhaj-core",
  "jellyhaj-widgets-core",
  "tokio",
+ "tracing",
  "tui-tree-widget",
  "valuable",
 ]

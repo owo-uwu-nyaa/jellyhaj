@@ -7,5 +7,6 @@ edition = "2024"
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 tokio = { workspace = true, features = ["sync"] }
+tracing.workspace = true
 tui-tree-widget.workspace = true
 valuable.workspace = true
