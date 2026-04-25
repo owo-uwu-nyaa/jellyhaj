@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "select access_token from creds",
+  "describe": {
+    "columns": [
+      {
+        "name": "access_token",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b4194f8c396a6fe6d17952eb05ed79995aa73adb45e0a2e27c90010908940384"
+}

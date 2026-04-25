@@ -6,11 +6,12 @@ use jellyhaj_widgets_core::{Position, Result, WidgetContext, Wrapper};
 use ratatui::{
     crossterm::execute,
     prelude::Rect,
-    widgets::{Block, Clear, Padding, Paragraph, Widget},
+    widgets::{Block, BorderType, Clear, Padding, Paragraph, Widget},
 };
 use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemInfo};
+use ansi_to_tui::IntoText;
 
 #[derive(Debug, Valuable)]
 pub struct LabelBlock {
@@ -54,7 +55,7 @@ impl From<Position> for Pos {
 }
 
 impl<AR: From<Infallible>> FormItemInfo<AR> for LabelBlock {
-    const HEIGHT: u16 = 5;
+    const HEIGHT: u16 = 10;
 
     const HEIGHT_BUF: u16 = 0;
 
@@ -90,13 +91,17 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         if let Some(pos) = sel {
             match action {
-                FormAction::Up => pos.y = pos.y.saturating_sub(1),
-                FormAction::Down => pos.y = pos.y.saturating_add(1),
-                FormAction::Left => pos.x = pos.x.saturating_sub(1),
-                FormAction::Right => pos.x = pos.x.saturating_add(1),
+                FormAction::Left => pos.y = pos.y.saturating_sub(1),
+                FormAction::Right => pos.y = pos.y.saturating_add(1),
+                FormAction::Up => pos.x = pos.x.saturating_sub(1),
+                FormAction::Down => pos.x = pos.x.saturating_add(1),
                 FormAction::Delete => {}
                 FormAction::Enter => {
-                    let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
+                    if sel.is_some() {
+                        let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
+                    } else {
+                        *sel = Some(Position::ORIGIN.into())
+                    }
                 }
                 FormAction::Quit => *sel = None,
             }
@@ -149,7 +154,11 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Self::Ret>>,
     )> {
-        Ok((Some(Some(Position::ORIGIN.into())), None))
+        if kind.is_down() {
+            Ok((Some(Some(Position::ORIGIN.into())), None))
+        } else {
+            Ok((None, None))
+        }
     }
 
     fn render_pass_main(
@@ -160,8 +169,12 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
         active: bool,
         name: &'static str,
     ) -> Result<()> {
-        Paragraph::new(self.text.as_str())
-            .block(Block::bordered().padding(Padding::uniform(1)))
+        let mut block = Block::bordered().padding(Padding::uniform(1));
+        if active {
+            block = block.border_type(BorderType::Double);
+        }
+        Paragraph::new(self.text.to_text()?)
+            .block(block)
             .render(area, buf);
         Ok(())
     }
@@ -176,11 +189,11 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
         sel: &mut Self::SelectionInner,
     ) -> Result<()> {
         if let Some(pos) = sel {
-            Clear.render(area, buf);
-            Paragraph::new(self.text.as_str())
+            Clear.render(full_area, buf);
+            Paragraph::new(self.text.to_text()?)
                 .scroll((*pos).into())
-                .block(Block::bordered().padding(Padding::uniform(1)))
-                .render(area, buf);
+                .block(Block::bordered().border_type(BorderType::Rounded).padding(Padding::uniform(1)))
+                .render(full_area, buf);
         }
         Ok(())
     }

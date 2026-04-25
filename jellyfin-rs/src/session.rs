@@ -10,7 +10,7 @@ pub struct SessionInfo {
     pub play_state: PlayState,
     pub additional_users: Vec<AdditionalUser>,
     pub capabilities: Capabilities,
-    pub remote_end_point: String,
+    pub remote_end_point: Option<String>,
     pub playable_media_types: Vec<String>,
     pub id: String,
     pub user_id: String,

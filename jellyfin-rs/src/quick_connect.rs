@@ -15,9 +15,9 @@ use std::result::Result as StdResult;
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct QuickConnectStatus {
-    authenticated: bool,
-    secret: String,
-    code: String,
+    pub authenticated: bool,
+    pub secret: String,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

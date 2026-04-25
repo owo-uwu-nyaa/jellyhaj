@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "select id from unique_id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0168a998300aae1150a68cd0a76cb43523f12d6c9aa6d7cc95114d60109a725e"
+}

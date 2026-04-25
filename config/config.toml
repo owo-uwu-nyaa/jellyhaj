@@ -5,7 +5,13 @@ mpv_profile= "default"
 hwdec = "auto-safe"
 mpv_log_level = "info"
 #mpv_config_file = "/absolute/path/to/mpv-config-file"
-
+#effects_file
+#
 # if not set fallback to default keybinds
 #keybinds_file = "path"
 
+#entry_image_width = 32
+
+# concurrent_jellyfin_connections = 2
+#fetch_timeout = 15
+#store_access_token = false

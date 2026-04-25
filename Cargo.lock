@@ -2046,6 +2046,7 @@ dependencies = [
 name = "jellyhaj-form-widget"
 version = "0.1.0"
 dependencies = [
+ "ansi-to-tui",
  "color-eyre",
  "crossterm",
  "jellyhaj-core",
@@ -2287,6 +2288,7 @@ name = "jellyhaj-login-widget"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "futures-util",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-form-widget",
@@ -2294,6 +2296,7 @@ dependencies = [
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",
+ "tokio",
  "valuable",
 ]
 

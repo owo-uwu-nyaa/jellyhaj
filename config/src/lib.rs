@@ -43,8 +43,7 @@ struct ParseConfig {
     pub entry_image_width: Option<u16>,
     pub concurrent_jellyfin_connections: Option<u8>,
     pub fetch_timeout: Option<u16>,
-    #[serde(default)]
-    pub store_access_token: bool,
+    pub store_access_token: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -196,7 +195,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         concurrent_jellyfin_connections: config.concurrent_jellyfin_connections.unwrap_or(2),
         fetch_timeout: config.fetch_timeout.unwrap_or(15),
         effects,
-        store_access_token: config.store_access_token,
+        store_access_token: config.store_access_token.unwrap_or(false),
     })
 }
 

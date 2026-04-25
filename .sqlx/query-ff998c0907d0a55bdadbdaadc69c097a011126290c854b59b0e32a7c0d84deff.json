@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "delete from creds",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "ff998c0907d0a55bdadbdaadc69c097a011126290c854b59b0e32a7c0d84deff"
+}

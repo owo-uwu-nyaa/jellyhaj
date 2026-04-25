@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "insert into unique_id (id) values (?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "77522949349fd568fc2b8be0a25d42ef48abe5b30e7cf6ad92fd373b215fa0f4"
+}

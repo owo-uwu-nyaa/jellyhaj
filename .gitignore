@@ -9,3 +9,4 @@
 /run_debugging
 /.gdbinit
 /events.json
+/test-config.toml

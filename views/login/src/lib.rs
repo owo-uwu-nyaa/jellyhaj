@@ -1,11 +1,10 @@
 use std::{
-    borrow::Cow,
     fmt::Debug,
     fs::{OpenOptions, create_dir_all},
     io::Write,
     ops::ControlFlow,
     os::unix::fs::OpenOptionsExt,
-    sync::Arc,
+    sync::Arc, time::Duration,
 };
 
 use color_eyre::{
@@ -13,7 +12,9 @@ use color_eyre::{
     eyre::{Context, OptionExt, eyre},
 };
 use config::LoginInfo;
-use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth, auth::UniqueId};
+use jellyfin::{
+    Auth, ClientInfo, JellyfinClient, NoAuth, auth::UniqueId, quick_connect::QuickConnectStatus,
+};
 use jellyhaj_core::{
     CommandMapper, Config,
     context::ContextRef,
@@ -23,15 +24,17 @@ use jellyhaj_core::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
-use jellyhaj_login_widget::{LoginResult, LoginWidget};
+use jellyhaj_login_widget::{
+    LoginResult, LoginType, LoginWidget, QuickConectAction, QuickConnectWidget, Quit,
+};
 use jellyhaj_widgets_core::mapper::MapperWidget;
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
 use spawn::Spawner;
 use sqlx::SqliteConnection;
-use tokio::select;
+use std::result::Result as StdResult;
+use tokio::{select, time::sleep};
 use tracing::{info, instrument};
-
 struct LoginContext {
     config: Arc<Config>,
     spawner: Spawner,
@@ -58,7 +61,8 @@ async fn edit_login_info(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
-) -> Result<Option<LoginInfo>> {
+) -> Result<Option<LoginType>> {
+    tracing::error!("error during login: {error:?}");
     let widget = LoginWidget::new(
         info.server_url.clone(),
         info.username.clone(),
@@ -76,19 +80,10 @@ async fn edit_login_info(
             render_widget_stop(widget.as_mut(), events, term).await;
             Ok(None)
         }
-        WidgetResult::Ok(LoginResult::Data {
-            server_url,
-            username,
-            password,
-        }) => {
+        WidgetResult::Ok(LoginResult::Login(login)) => {
             let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
             if stop_res != RenderStopRes::Exit {
-                Ok(Some(LoginInfo {
-                    server_url,
-                    username,
-                    password,
-                    password_cmd: None,
-                }))
+                Ok(Some(login))
             } else {
                 Ok(None)
             }
@@ -154,6 +149,51 @@ async fn render_fetch(
     }
 }
 
+struct QuickConnectMapper;
+
+impl CommandMapper<LoadingCommand> for QuickConnectMapper {
+    type A = QuickConectAction;
+
+    fn map(&self, command: LoadingCommand) -> ControlFlow<Navigation, Self::A> {
+        match command {
+            LoadingCommand::Quit => ControlFlow::Continue(QuickConectAction::Quit),
+            LoadingCommand::Global(global_command) => ControlFlow::Break(global_command.into()),
+        }
+    }
+}
+
+async fn render_quick_connect(
+    code: String,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+) -> Result<Option<Quit>> {
+    let widget = KeybindWidget::new(
+        QuickConnectWidget::new(code),
+        config.keybinds.fetch.clone(),
+        QuickConnectMapper,
+    );
+    let cx = LoginContext { config, spawner };
+    let mut widget = make_new_erased(cx, widget);
+    loop {
+        break match render_widget(widget.as_mut(), events, term).await {
+            WidgetResult::Pop | WidgetResult::Ok(ControlFlow::Continue(_)) => {
+                render_widget_stop(widget.as_mut(), events, term).await;
+                Ok(Some(Quit))
+            }
+            WidgetResult::Ok(_) => {
+                continue;
+            }
+            WidgetResult::Err(report) => {
+                render_widget_stop(widget.as_mut(), events, term).await;
+                Err(report)
+            }
+            WidgetResult::Exit => Ok(None),
+        };
+    }
+}
+
 async fn with_render<F: Future>(
     f: F,
     term: &mut DefaultTerminal,
@@ -200,9 +240,12 @@ pub async fn login_loop(
     device_name: String,
     login_info: &mut LoginInfo,
     unique_id: UniqueId,
+    changed: &mut bool,
 ) -> Result<Option<JellyfinClient<Auth>>> {
     let mut current_client;
-    if let Some(creds) = get_stored_creds(db, config.store_access_token).await?
+    if login_info.server_url.is_empty() {
+        current_client = None;
+    } else if let Some(creds) = get_stored_creds(db, config.store_access_token).await?
         && let Ok(client) = JellyfinClient::new_auth_key(
             login_info.server_url.clone(),
             ClientInfo {
@@ -223,44 +266,150 @@ pub async fn login_loop(
             config.clone(),
             "Testing stored credentials"
         )) {
-            Ok(client) => return Ok(Some(client)),
-            Err((client, _)) => current_client = client.without_auth(),
+            Ok(client) => {
+                info!("stored credentials still worked");
+                return Ok(Some(client));
+            }
+            Err((client, _)) => current_client = Some(client.without_auth()),
         }
     } else {
-        current_client = JellyfinClient::new(
-            login_info.server_url.clone(),
-            ClientInfo {
-                name: name.into(),
-                version: version.into(),
-            },
-            device_name.clone(),
-            unique_id,
-            config.concurrent_jellyfin_connections.into(),
-        )
-        .with_section(|| {
-            "1. Delete the file\n2. Try again and fill in the login information".header("Tipp:")
-        })?;
+        current_client = Some(
+            JellyfinClient::new(
+                login_info.server_url.clone(),
+                ClientInfo {
+                    name: name.into(),
+                    version: version.into(),
+                },
+                device_name.clone(),
+                unique_id,
+                config.concurrent_jellyfin_connections.into(),
+            )
+            .with_section(|| {
+                "1. Delete the file\n2. Try again and fill in the login information".header("Tipp:")
+            })?,
+        );
     }
-
-    loop {
-        let error;
+    let mut error;
+    if let Some(client) = current_client {
         match rendered!(with_render(
-            jellyfin_login_pw(current_client, login_info),
+            jellyfin_login_pw(client, login_info),
             term,
             events,
             spawner.clone(),
             config.clone(),
             "Testing stored credentials"
         )) {
-            Ok(client) => return Ok(Some(client)),
+            Ok(client) => {
+                info!("logged in with stored credentials");
+                return Ok(Some(client));
+            }
             Err((client, e)) => {
-                current_client = client;
+                current_client = Some(client);
                 error = e
             }
         }
+    } else {
+        error = eyre!("Server url is empty");
     }
 
-    todo!()
+    loop {
+        let login_action;
+        match rendered!(edit_login_info(
+            term,
+            login_info,
+            error,
+            events,
+            spawner.clone(),
+            config.clone()
+        )) {
+            LoginType::Password {
+                server_url,
+                username,
+                password,
+            } => {
+                login_action = LoginKind::PW;
+                if server_url != login_info.server_url {
+                    if server_url.is_empty() {
+                        current_client = None;
+                    } else {
+                        current_client = match JellyfinClient::new(
+                            &server_url,
+                            ClientInfo {
+                                name: name.into(),
+                                version: version.into(),
+                            },
+                            device_name.clone(),
+                            unique_id,
+                            config.concurrent_jellyfin_connections.into(),
+                        ) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                error = e;
+                                continue;
+                            }
+                        };
+                    }
+                    login_info.server_url = server_url;
+                    *changed = true;
+                }
+                if username != login_info.username {
+                    login_info.username = username;
+                    *changed = true;
+                }
+                if password != login_info.password {
+                    login_info.password = password;
+                    *changed = true;
+                }
+            }
+            LoginType::QuickConnect { server_url } => {
+                login_action = LoginKind::QuickConnect;
+                if server_url != login_info.server_url {
+                    current_client = match JellyfinClient::new(
+                        &server_url,
+                        ClientInfo {
+                            name: name.into(),
+                            version: version.into(),
+                        },
+                        device_name.clone(),
+                        unique_id,
+                        config.concurrent_jellyfin_connections.into(),
+                    ) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            error = e;
+                            continue;
+                        }
+                    };
+                    login_info.server_url = server_url;
+                    *changed = true;
+                }
+            }
+        }
+        if let Some(client) = current_client {
+            match rendered!(jellyfin_login(
+                client,
+                term,
+                events,
+                spawner.clone(),
+                config.clone(),
+                login_action,
+                login_info
+            )) {
+                Ok(c) => return Ok(Some(c)),
+                Err((c, e)) => {
+                    current_client = Some(c);
+                    error = e;
+                }
+            }
+        } else {
+            error = eyre!("Server url is empty");
+        }
+    }
+}
+
+enum LoginKind {
+    PW,
+    QuickConnect,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -275,92 +424,53 @@ pub async fn login(
     db: &tokio::sync::Mutex<SqliteConnection>,
 ) -> Result<Option<JellyfinClient<Auth>>> {
     let mut db = db.lock().await;
-    let mut login_info: LoginInfo;
-    let mut error: Option<Report> = None;
-    let mut info_changed = false;
-
-    let device_name: Cow<'static, str> = whoami::hostname()
+    let device_name = whoami::hostname()
         .ok()
-        .map(|v| v.into())
-        .unwrap_or_else(|| "unknown".into());
+        .unwrap_or_else(|| "unknown".to_owned());
 
-    let mut login_info = std::fs::read_to_string(&config.login_file)
-        .context("reading login info file")
-        .and_then(|config| {
-            toml::from_str::<LoginInfo>(&config)
-                .context("parsing login info")
-                .with_section(|| {
-                    "1. Delete the file\n2. Try again and fill in the login information"
-                        .header("Tipp:")
-                })
-        })
-        .with_section(|| {
-            config
-                .login_file
-                .display()
-                .to_string()
-                .header("File location:")
-        })?;
-
-    let client = loop {
-        if let Some(e) = error.take() {
-            tracing::error!("Error logging in: {e:?}");
-            if !edit_login_info(
-                term,
-                &mut login_info,
-                &mut info_changed,
-                e,
-                events,
-                spawner.clone(),
-                config.clone(),
-            )
-            .await
-            .context("getting login information")?
-            {
-                return Ok(None);
-            }
-            if login_info.server_url.is_empty() {
-                error = Some(eyre!("Server URI is empty"));
-                continue;
-            }
-        }
-        let client = match JellyfinClient::new(
-            &login_info.server_url,
-            ClientInfo {
-                name: name.into(),
-                version: version.into(),
-            },
-            device_name.clone(),
-            get_unique(&mut db).await?,
-            config.concurrent_jellyfin_connections.into(),
-        ) {
-            Ok(client) => client,
-            Err(e) => {
-                error = Some(e);
-                continue;
-            }
-        };
-
-        select! {
-            r = render_fetch(term, events, spawner.clone(), config.clone(),"Connecting to server")
-                => {
-                r?;
-                return Ok(None);
-            }
-            v = jellyfin_login(
-                client,
-                &login_info,
-            ) => {
-                match v {
-                    Ok(v) => break v,
-                    Err((_, e)) => {
-                        error = Some(e.wrap_err("logging in"));
-                    }
-                }
-            }
+    let mut login_info = if config.login_file.exists() {
+        std::fs::read_to_string(&config.login_file)
+            .context("reading login info file")
+            .and_then(|config| {
+                toml::from_str::<LoginInfo>(&config)
+                    .context("parsing login info")
+                    .with_section(|| {
+                        "1. Delete the file\n2. Try again and fill in the login information"
+                            .header("Tipp:")
+                    })
+            })
+            .with_section(|| {
+                config
+                    .login_file
+                    .display()
+                    .to_string()
+                    .header("File location:")
+            })?
+    } else {
+        LoginInfo {
+            server_url: String::new(),
+            username: String::new(),
+            password: String::new(),
+            password_cmd: None,
         }
     };
-    if info_changed {
+    let mut changed = false;
+    let unique_id = get_unique(&mut db).await?;
+    let client = rendered!(login_loop(
+        name,
+        version,
+        term,
+        events,
+        spawner,
+        config.clone(),
+        &mut db,
+        device_name,
+        &mut login_info,
+        unique_id,
+        &mut changed
+    ));
+
+    if changed {
         create_dir_all(
             config
                 .login_file
@@ -382,13 +492,43 @@ pub async fn login(
             )
             .context("writing out new login info")?;
     }
+    if config.store_access_token {
+        store_creds(&mut db, &client.get_auth().access_token).await?
+    }
     Ok(Some(client))
+}
+
+async fn jellyfin_login(
+    client: JellyfinClient<NoAuth>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+    kind: LoginKind,
+    info: &LoginInfo,
+) -> Result<Option<StdResult<JellyfinClient, (JellyfinClient<NoAuth>, Report)>>> {
+    match kind {
+        LoginKind::PW => {
+            with_render(
+                jellyfin_login_pw(client, info),
+                term,
+                events,
+                spawner,
+                config,
+                "Logging in",
+            )
+            .await
+        }
+        LoginKind::QuickConnect => {
+            jellyfin_login_quick_connect(client, term, events, spawner, config).await
+        }
+    }
 }
 
 async fn jellyfin_login_pw(
     client: JellyfinClient<NoAuth>,
     info: &LoginInfo,
-) -> std::result::Result<JellyfinClient<Auth>, (JellyfinClient<NoAuth>, Report)> {
+) -> StdResult<JellyfinClient<Auth>, (JellyfinClient<NoAuth>, Report)> {
     info!("connecting to server");
     let password = match info.get_password().await {
         Ok(v) => v,
@@ -399,6 +539,103 @@ async fn jellyfin_login_pw(
         Err((client, e)) => return Err((client, e)),
     };
     Ok(client)
+}
+
+async fn jellyfin_login_quick_connect(
+    client: JellyfinClient<NoAuth>,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+) -> Result<Option<StdResult<JellyfinClient, (JellyfinClient<NoAuth>, Report)>>> {
+    let available = async { client.quick_connect_enabled().await?.deserialize().await };
+    match rendered!(with_render(
+        available,
+        term,
+        events,
+        spawner.clone(),
+        config.clone(),
+        "Getting Quick Connect Status"
+    )) {
+        Ok(true) => {}
+        Ok(false) => {
+            return Ok(Some(Err((
+                client,
+                eyre!("This server does not support quick connect!"),
+            ))));
+        }
+        Err(e) => {
+            return Ok(Some(Err((
+                client,
+                e.suggestion("check if the server url is correct"),
+            ))));
+        }
+    }
+    let start_quick_connect = async { client.initiate_quick_connect().await?.deserialize().await };
+    let mut quick_connect_status = match rendered!(with_render(
+        start_quick_connect,
+        term,
+        events,
+        spawner.clone(),
+        config.clone(),
+        "Requesting quick connect"
+    )) {
+        Ok(v) => v,
+        Err(e) => return Ok(Some(Err((client, e.wrap_err("Starting quick connect"))))),
+    };
+    quick_connect_status = match rendered!(poll_quick_connect(
+        quick_connect_status.secret,
+        quick_connect_status.code,
+        term,
+        events,
+        spawner.clone(),
+        config.clone(),
+        &client
+    )) {
+        Ok(v) => v,
+        Err(e) => return Ok(Some(Err((client, e)))),
+    };
+    Ok(Some(
+        client
+            .auth_quick_connect(&quick_connect_status.secret)
+            .await,
+    ))
+}
+
+async fn poll_quick_connect(
+    secret: String,
+    code: String,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+    client: &JellyfinClient<NoAuth>,
+) -> Result<Option<Result<QuickConnectStatus>>> {
+    let status = async {
+        loop {
+            sleep(Duration::from_secs(2)).await;
+            let status = client
+                .get_quick_connect_status(&secret)
+                .await?
+                .deserialize()
+                .await?;
+            if status.authenticated {
+                break Ok(status);
+            }
+        }
+    };
+    select! {
+        res = render_quick_connect(code, term, events, spawner, config) => {
+            match res{
+                Err(e) => Err(e),
+                Ok(None) => Ok(None),
+                Ok(Some(_)) => Ok(Some(Err(eyre!("Cancelled quick connect")))),
+            }
+        }
+        res = status => {
+            Ok(Some(res))
+        }
+    }
 }
 
 async fn get_unique(db: &mut SqliteConnection) -> Result<UniqueId> {
@@ -418,13 +655,12 @@ async fn get_unique(db: &mut SqliteConnection) -> Result<UniqueId> {
 }
 
 struct StoredCreds {
-    user_name: String,
     access_token: String,
 }
 
 async fn get_stored_creds(db: &mut SqliteConnection, store: bool) -> Result<Option<StoredCreds>> {
     if store {
-        sqlx::query_as!(StoredCreds, "select user_name, access_token from creds")
+        sqlx::query_as!(StoredCreds, "select access_token from creds")
             .fetch_optional(db)
             .await
             .context("getting stored credentials")
@@ -437,14 +673,10 @@ async fn get_stored_creds(db: &mut SqliteConnection, store: bool) -> Result<Opti
     }
 }
 
-async fn store_creds(db: &mut SqliteConnection, user_name: &str, token: &str) -> Result<()> {
-    sqlx::query!(
-        "insert into creds (user_name, access_token) values (?,?)",
-        user_name,
-        token
-    )
-    .execute(db)
-    .await
-    .context("storing credentials in cache")?;
+async fn store_creds(db: &mut SqliteConnection, token: &str) -> Result<()> {
+    sqlx::query!("insert into creds (access_token) values (?)", token)
+        .execute(db)
+        .await
+        .context("storing credentials in cache")?;
     Ok(())
 }
