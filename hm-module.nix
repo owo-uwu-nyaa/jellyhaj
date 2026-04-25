@@ -62,6 +62,10 @@ in
         type = types.nullOr types.path;
         default = null;
       };
+      effects_file = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+      };
       mpv_config_file = mkOption {
         type = types.nullOr types.path;
         default = null;
@@ -78,11 +82,21 @@ in
         type = lib.types.ints.u16;
         default = 15;
       };
+      store_access_token = mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "store the access token in the cache";
+      };
     };
     keybinds = mkOption {
       type = types.nullOr (types.attrsOf types.anything);
       default = null;
       description = "keybind configuration";
+    };
+    effects = mkOption {
+      type = types.nullOr (types.attrsOf types.anything);
+      default = null;
+      description = "effects configuration";
     };
     login = mkOption {
       type = lib.types.nullOr (
@@ -120,6 +134,9 @@ in
     })
     (mkIf (!isNull cfg.keybinds) {
       programs.jellyhaj.config.keybinds_file = jellyhaj.checkKeybinds cfg.keybinds;
+    })
+    (mkIf (!isNull cfg.effects) {
+      programs.jellyhaj.config.effects_file = jellyhaj.checkEffects cfg.effects;
     })
   ];
 }

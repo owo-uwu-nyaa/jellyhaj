@@ -110,6 +110,14 @@ fn main() -> Result<()> {
             log_stdout()?;
             config::check_keybinds_file(file)
         }
+        Some(Action::CheckEffects { file }) => {
+            color_eyre::install().expect("installing color eyre format handler");
+            log_stdout()?;
+            config::effects::EffectStore::parse(
+                &std::fs::read_to_string(file).context("reading file")?,
+            )?;
+            Ok(())
+        }
         None => {
             log_file()?;
             tui_logger::init_logger(tui_logger::LevelFilter::Debug)
@@ -156,6 +164,10 @@ struct Args {
 enum Action {
     CheckKeybinds {
         /// keybinds config to check
+        file: PathBuf,
+    },
+    CheckEffects {
+        /// effects file to check
         file: PathBuf,
     },
     Print {
