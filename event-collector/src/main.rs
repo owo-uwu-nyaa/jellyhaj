@@ -9,7 +9,7 @@ use clap::{Parser, crate_name, crate_version};
 use color_eyre::{Result, eyre::Context};
 use config::LoginInfo;
 use futures_util::{Stream, StreamExt};
-use jellyfin::{ClientInfo, socket::JellyfinMessage};
+use jellyfin::{ClientInfo, auth::UniqueId, socket::JellyfinMessage};
 use tokio::select;
 
 fn read(path: &Path) -> Option<Vec<JellyfinMessage>> {
@@ -57,6 +57,7 @@ async fn main() -> Result<()> {
         device_name,
         login.username,
         password,
+        UniqueId::generate_new()?,
         1,
     )
     .await?;
