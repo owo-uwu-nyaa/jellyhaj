@@ -150,7 +150,7 @@ async fn run_app_inner(
         &mut events,
         spawner.clone(),
         config.clone(),
-        &cache
+        &cache,
     )
     .await?
     {

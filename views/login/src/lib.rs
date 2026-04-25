@@ -4,7 +4,8 @@ use std::{
     io::Write,
     ops::ControlFlow,
     os::unix::fs::OpenOptionsExt,
-    sync::Arc, time::Duration,
+    sync::Arc,
+    time::Duration,
 };
 
 use color_eyre::{

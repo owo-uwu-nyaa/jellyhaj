@@ -192,7 +192,11 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
             Clear.render(full_area, buf);
             Paragraph::new(self.text.to_text()?)
                 .scroll((*pos).into())
-                .block(Block::bordered().border_type(BorderType::Rounded).padding(Padding::uniform(1)))
+                .block(
+                    Block::bordered()
+                        .border_type(BorderType::Rounded)
+                        .padding(Padding::uniform(1)),
+                )
                 .render(full_area, buf);
         }
         Ok(())
