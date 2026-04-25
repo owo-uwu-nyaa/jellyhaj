@@ -9,11 +9,11 @@ use std::{
 };
 
 use color_eyre::{
-    Report, Result,
+    Report, Result, Section, SectionExt,
     eyre::{Context, OptionExt, eyre},
 };
 use config::LoginInfo;
-use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth};
+use jellyfin::{Auth, ClientInfo, JellyfinClient, NoAuth, auth::UniqueId};
 use jellyhaj_core::{
     CommandMapper, Config,
     context::ContextRef,
@@ -28,6 +28,7 @@ use jellyhaj_widgets_core::mapper::MapperWidget;
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
 use spawn::Spawner;
+use sqlx::SqliteConnection;
 use tokio::select;
 use tracing::{info, instrument};
 
@@ -52,13 +53,12 @@ impl ContextRef<Spawner> for LoginContext {
 #[instrument(skip_all)]
 async fn edit_login_info(
     term: &mut DefaultTerminal,
-    info: &mut LoginInfo,
-    changed: &mut bool,
+    info: &LoginInfo,
     error: Report,
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
-) -> Result<bool> {
+) -> Result<Option<LoginInfo>> {
     let widget = LoginWidget::new(
         info.server_url.clone(),
         info.username.clone(),
@@ -71,10 +71,10 @@ async fn edit_login_info(
     let mut widget = make_new_erased(cx, widget);
 
     match render_widget(widget.as_mut(), events, term).await {
-        WidgetResult::Exit => Ok(false),
+        WidgetResult::Exit => Ok(None),
         WidgetResult::Ok(LoginResult::Quit) | WidgetResult::Pop => {
             render_widget_stop(widget.as_mut(), events, term).await;
-            Ok(false)
+            Ok(None)
         }
         WidgetResult::Ok(LoginResult::Data {
             server_url,
@@ -82,19 +82,16 @@ async fn edit_login_info(
             password,
         }) => {
             let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
-            if server_url != info.server_url {
-                info.server_url = server_url;
-                *changed = true;
+            if stop_res != RenderStopRes::Exit {
+                Ok(Some(LoginInfo {
+                    server_url,
+                    username,
+                    password,
+                    password_cmd: None,
+                }))
+            } else {
+                Ok(None)
             }
-            if username != info.username {
-                info.username = username;
-                *changed = true;
-            }
-            if password != info.password {
-                info.password = password;
-                *changed = true;
-            }
-            Ok(stop_res != RenderStopRes::Exit)
         }
         WidgetResult::Err(report) => Err(report),
     }
@@ -135,9 +132,10 @@ async fn render_fetch(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
+    message: &'static str,
 ) -> Result<()> {
     let widget = MapperWidget::<Fetch, _, Fetch>::new(KeybindWidget::new(
-        Loading::new(Cow::Borrowed("Connecting to Server")),
+        Loading::new(message),
         config.keybinds.fetch.clone(),
         LoadingMapper,
     ));
@@ -156,6 +154,115 @@ async fn render_fetch(
     }
 }
 
+async fn with_render<F: Future>(
+    f: F,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+    message: &'static str,
+) -> Result<Option<F::Output>> {
+    select! {
+        res = f => {
+            Ok(Some(res))
+        }
+        res = render_fetch(
+            term, events, spawner, config, message
+        ) => {
+            if let Err(e) = res{
+                Err(e)
+            }else{
+                Ok(None)
+            }
+        }
+    }
+}
+
+macro_rules! rendered {
+    ($val:expr) => {
+        match $val.await {
+            Err(e) => return Err(e),
+            Ok(None) => return Ok(None),
+            Ok(Some(v)) => v,
+        }
+    };
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn login_loop(
+    name: &'static str,
+    version: &'static str,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    spawner: Spawner,
+    config: Arc<Config>,
+    db: &mut SqliteConnection,
+    device_name: String,
+    login_info: &mut LoginInfo,
+    unique_id: UniqueId,
+) -> Result<Option<JellyfinClient<Auth>>> {
+    let mut current_client;
+    if let Some(creds) = get_stored_creds(db, config.store_access_token).await?
+        && let Ok(client) = JellyfinClient::new_auth_key(
+            login_info.server_url.clone(),
+            ClientInfo {
+                name: name.into(),
+                version: version.into(),
+            },
+            device_name.clone(),
+            creds.access_token,
+            unique_id,
+            config.concurrent_jellyfin_connections.into(),
+        )
+    {
+        match rendered!(with_render(
+            client.get_self(),
+            term,
+            events,
+            spawner.clone(),
+            config.clone(),
+            "Testing stored credentials"
+        )) {
+            Ok(client) => return Ok(Some(client)),
+            Err((client, _)) => current_client = client.without_auth(),
+        }
+    } else {
+        current_client = JellyfinClient::new(
+            login_info.server_url.clone(),
+            ClientInfo {
+                name: name.into(),
+                version: version.into(),
+            },
+            device_name.clone(),
+            unique_id,
+            config.concurrent_jellyfin_connections.into(),
+        )
+        .with_section(|| {
+            "1. Delete the file\n2. Try again and fill in the login information".header("Tipp:")
+        })?;
+    }
+
+    loop {
+        let error;
+        match rendered!(with_render(
+            jellyfin_login_pw(current_client, login_info),
+            term,
+            events,
+            spawner.clone(),
+            config.clone(),
+            "Testing stored credentials"
+        )) {
+            Ok(client) => return Ok(Some(client)),
+            Err((client, e)) => {
+                current_client = client;
+                error = e
+            }
+        }
+    }
+
+    todo!()
+}
+
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
 pub async fn login(
@@ -165,32 +272,35 @@ pub async fn login(
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
+    db: &tokio::sync::Mutex<SqliteConnection>,
 ) -> Result<Option<JellyfinClient<Auth>>> {
+    let mut db = db.lock().await;
     let mut login_info: LoginInfo;
-    let mut error: Option<Report>;
-    match std::fs::read_to_string(&config.login_file)
-        .context("reading login info file")
-        .and_then(|config| toml::from_str::<LoginInfo>(&config).context("parsing login info"))
-    {
-        Ok(info) => {
-            login_info = info;
-            error = None;
-        }
-        Err(e) => {
-            login_info = LoginInfo {
-                server_url: String::new(),
-                username: String::new(),
-                password: String::new(),
-                password_cmd: None,
-            };
-            error = Some(e);
-        }
-    }
+    let mut error: Option<Report> = None;
     let mut info_changed = false;
+
     let device_name: Cow<'static, str> = whoami::hostname()
         .ok()
         .map(|v| v.into())
         .unwrap_or_else(|| "unknown".into());
+
+    let mut login_info = std::fs::read_to_string(&config.login_file)
+        .context("reading login info file")
+        .and_then(|config| {
+            toml::from_str::<LoginInfo>(&config)
+                .context("parsing login info")
+                .with_section(|| {
+                    "1. Delete the file\n2. Try again and fill in the login information"
+                        .header("Tipp:")
+                })
+        })
+        .with_section(|| {
+            config
+                .login_file
+                .display()
+                .to_string()
+                .header("File location:")
+        })?;
 
     let client = loop {
         if let Some(e) = error.take() {
@@ -221,6 +331,7 @@ pub async fn login(
                 version: version.into(),
             },
             device_name.clone(),
+            get_unique(&mut db).await?,
             config.concurrent_jellyfin_connections.into(),
         ) {
             Ok(client) => client,
@@ -231,7 +342,7 @@ pub async fn login(
         };
 
         select! {
-            r = render_fetch(term, events, spawner.clone(), config.clone())
+            r = render_fetch(term, events, spawner.clone(), config.clone(),"Connecting to server")
                 => {
                 r?;
                 return Ok(None);
@@ -274,7 +385,7 @@ pub async fn login(
     Ok(Some(client))
 }
 
-async fn jellyfin_login(
+async fn jellyfin_login_pw(
     client: JellyfinClient<NoAuth>,
     info: &LoginInfo,
 ) -> std::result::Result<JellyfinClient<Auth>, (JellyfinClient<NoAuth>, Report)> {
@@ -288,4 +399,52 @@ async fn jellyfin_login(
         Err((client, e)) => return Err((client, e)),
     };
     Ok(client)
+}
+
+async fn get_unique(db: &mut SqliteConnection) -> Result<UniqueId> {
+    let val = sqlx::query_scalar!("select id from unique_id")
+        .fetch_optional(&mut *db)
+        .await?;
+    if let Some(v) = val.and_then(|v| <[u8; 64]>::try_from(v).ok().map(UniqueId)) {
+        Ok(v)
+    } else {
+        let id = UniqueId::generate_new()?;
+        let id_val = id.0.as_slice();
+        sqlx::query!("insert into unique_id (id) values (?)", id_val)
+            .execute(db)
+            .await?;
+        Ok(id)
+    }
+}
+
+struct StoredCreds {
+    user_name: String,
+    access_token: String,
+}
+
+async fn get_stored_creds(db: &mut SqliteConnection, store: bool) -> Result<Option<StoredCreds>> {
+    if store {
+        sqlx::query_as!(StoredCreds, "select user_name, access_token from creds")
+            .fetch_optional(db)
+            .await
+            .context("getting stored credentials")
+    } else {
+        sqlx::query!("delete from creds")
+            .execute(db)
+            .await
+            .context("clearing stored credentials")?;
+        Ok(None)
+    }
+}
+
+async fn store_creds(db: &mut SqliteConnection, user_name: &str, token: &str) -> Result<()> {
+    sqlx::query!(
+        "insert into creds (user_name, access_token) values (?,?)",
+        user_name,
+        token
+    )
+    .execute(db)
+    .await
+    .context("storing credentials in cache")?;
+    Ok(())
 }
