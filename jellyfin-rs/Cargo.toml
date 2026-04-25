@@ -6,6 +6,7 @@ color-eyre = {workspace = true}
 futures-core = {workspace = true}
 futures-sink = {workspace = true}
 futures-util = {workspace = true}
+getrandom.workspace = true
 http = {workspace = true}
 hyper = {workspace = true}
 hyper-util = {workspace = true}

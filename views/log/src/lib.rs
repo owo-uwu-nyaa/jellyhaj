@@ -43,7 +43,8 @@ impl Named for Name {
 }
 
 pub fn render_log(cx: TuiContext) -> Erased {
-    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+    let widget =
+        OuterWidget::<Name, _>::new(KeybindWidget::new(
         LogWidget::new(),
         cx.config.keybinds.logger.clone(),
         Mapper,

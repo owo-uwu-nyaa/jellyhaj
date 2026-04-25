@@ -172,3 +172,5 @@ tachyonfx = { version = "0.25.0", features = ["sendable", "std-duration"] }
 nom = "8.0.0"
 nix = { version = "0.31.2", features = ["poll"] }
 tui-tree-widget = "0.24.0"
+getrandom = "0.4.2"
+

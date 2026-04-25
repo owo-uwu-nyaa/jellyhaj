@@ -22,10 +22,10 @@ struct AuthUserNameReq<'a> {
     pw: &'a str,
 }
 impl JellyfinClient<NoAuth> {
-    pub fn auth_key(self, key: String, user_name: impl AsRef<str>) -> JellyfinClient<KeyAuth> {
+    pub fn auth_key(self, key: String) -> JellyfinClient<KeyAuth> {
         let key = key.to_string();
-        let device_id = make_user_client_id(
-            user_name.as_ref(),
+        let device_id = make_client_id(
+            &self.inner.unique,
             &self.inner.client_info,
             &self.inner.device_name,
         );
@@ -52,8 +52,11 @@ impl JellyfinClient<NoAuth> {
         password: impl AsRef<str>,
     ) -> StdResult<JellyfinClient<Auth>, (Self, color_eyre::Report)> {
         let username = username.as_ref();
-        let device_id =
-            make_user_client_id(username, &self.inner.client_info, &self.inner.device_name);
+        let device_id = make_client_id(
+            &self.inner.unique,
+            &self.inner.client_info,
+            &self.inner.device_name,
+        );
         let auth: StdResult<UserAuth, color_eyre::Report> = async {
             self.send_request_json(
                 self.post("/Users/AuthenticateByName", NoQuery)?
@@ -96,7 +99,7 @@ impl JellyfinClient<NoAuth> {
     }
 }
 
-fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
+pub(crate) fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
     this: JellyfinClient<Auth1>,
     auth: Auth2,
 ) -> JellyfinClient<Auth2> {
@@ -108,6 +111,7 @@ fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
             device_name: client.device_name,
             client_info: client.client_info,
             auth,
+            unique: client.unique,
         },
         Err(client) => ClientInner {
             host_header: client.host_header.clone(),
@@ -116,6 +120,7 @@ fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
             client_info: client.client_info.clone(),
             device_name: client.device_name.clone(),
             auth,
+            unique: client.unique,
         },
     };
     JellyfinClient {
@@ -147,7 +152,7 @@ impl JellyfinClient<KeyAuth> {
 }
 
 #[instrument(skip_all)]
-fn make_auth_handshake_header(
+pub(crate) fn make_auth_handshake_header(
     client_info: &ClientInfo,
     device_name: &str,
     device_id: &str,
@@ -166,7 +171,7 @@ fn make_auth_handshake_header(
 }
 
 #[instrument(skip_all)]
-fn make_auth_header(
+pub(crate) fn make_auth_header(
     access_token: &str,
     client_info: &ClientInfo,
     device_name: &str,
@@ -186,13 +191,28 @@ fn make_auth_header(
     HeaderValue::try_from(val).expect("invalid client info for header value")
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct UniqueId(pub [u8; 64]);
+
+impl UniqueId {
+    pub fn generate_new() -> Result<Self, getrandom::Error> {
+        let mut this = [0u8; 64];
+        getrandom::fill(&mut this)?;
+        Ok(Self(this))
+    }
+}
+
 #[instrument(skip_all)]
-fn make_user_client_id(user_name: &str, client_info: &ClientInfo, device_name: &str) -> String {
+pub(crate) fn make_client_id(
+    unique: &UniqueId,
+    client_info: &ClientInfo,
+    device_name: &str,
+) -> String {
     let mut digest = digest::Context::new(&digest::SHA256);
     digest.update(client_info.name.as_bytes());
     digest.update(client_info.version.as_bytes());
     digest.update(device_name.as_bytes());
-    digest.update(user_name.as_bytes());
+    digest.update(&unique.0);
     let hash = digest.finish();
     URL_SAFE.encode(hash)
 }

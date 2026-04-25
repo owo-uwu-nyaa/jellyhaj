@@ -234,26 +234,37 @@ impl Connection {
         }
     }
 
-    pub async fn send_request_json<T: DeserializeOwned>(
+    fn send_request_json_inner(&self, req: Request<String>) -> impl Future<Output = Result<Bytes>> {
+        self.send_request(req).map(|res| {
+            let (data, parts) = res?;
+            if let Some(content_type) = parts.headers.get(CONTENT_TYPE)
+                && content_type.to_str()?.contains("application/json")
+            {
+                Ok(Bytes::from(data))
+            } else {
+                Err(eyre!("Response does not have json CONTENT_TYPE"))
+            }
+        })
+    }
+
+    pub fn send_request_json<T: DeserializeOwned>(
         &self,
         req: Request<String>,
-    ) -> Result<JsonResponse<T>> {
-        let (data, parts) = self.send_request(req).await?;
-        if let Some(content_type) = parts.headers.get(CONTENT_TYPE)
-            && content_type.to_str()?.contains("application/json")
-        {
-            Ok(JsonResponse::from(Bytes::from(data)))
-        } else {
-            Err(eyre!("Response does not have json CONTENT_TYPE"))
-        }
+    ) -> impl Future<Output = Result<JsonResponse<T>>> {
+        self.send_request_json_inner(req)
+            .map(|r| r.map(JsonResponse::from))
     }
 
     #[allow(clippy::await_holding_lock)]
-    pub async fn send_request(&self, req: Request<String>) -> Result<(BytesMut, Parts)> {
+    pub fn send_request(
+        &self,
+        req: Request<String>,
+    ) -> impl Future<Output = Result<(BytesMut, Parts)>> {
         let uri = req.uri().to_string();
         let span = info_span!("send_request", uri);
+        let permit = self.guard.acquire();
         async move {
-            let permit = self.guard.acquire().await.expect("should never be closed");
+            let permit = permit.await.expect("should never be closed");
             let mut state = 'outer: {
                 for s in &self.inner {
                     if let Some(s) = s.get() {
@@ -305,7 +316,6 @@ impl Connection {
             res
         }
         .instrument(span)
-        .await
     }
 }
 

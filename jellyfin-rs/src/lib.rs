@@ -9,6 +9,8 @@ use sealed::AuthSealed;
 use serde::{Deserialize, Serialize};
 use user::User;
 
+use crate::auth::UniqueId;
+
 pub mod activity;
 pub mod auth;
 pub mod connect;
@@ -18,6 +20,7 @@ pub mod items;
 pub mod library;
 pub mod playback_status;
 pub mod playlist;
+pub mod quick_connect;
 pub mod request;
 pub mod scheduled_tasks;
 pub mod session;
@@ -35,6 +38,7 @@ struct ClientInner<AuthS: AuthStatus = Auth> {
     client_info: ClientInfo,
     device_name: Cow<'static, str>,
     auth: AuthS,
+    unique: UniqueId,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +142,7 @@ impl JellyfinClient {
         uri: impl AsRef<str>,
         client_info: ClientInfo,
         device_name: impl Into<Cow<'static, str>>,
+        unique: UniqueId,
         concurrency: usize,
     ) -> err::Result<JellyfinClient<NoAuth>> {
         let uri = Uri::try_from(uri.as_ref())?.into_parts();
@@ -161,6 +166,7 @@ impl JellyfinClient {
                 auth: NoAuth,
                 client_info,
                 device_name: device_name.into(),
+                unique,
             }),
         })
     }
@@ -175,9 +181,10 @@ impl JellyfinClient {
         device_name: impl Into<Cow<'static, str>>,
         username: impl AsRef<str>,
         password: impl AsRef<str>,
+        unique: UniqueId,
         concurrency: usize,
     ) -> err::Result<JellyfinClient<Auth>> {
-        Self::new(url, client_info, device_name, concurrency)?
+        Self::new(url, client_info, device_name, unique, concurrency)?
             .auth_user_name(username, password)
             .await
             .map_err(|(_, e)| e)
@@ -188,10 +195,10 @@ impl JellyfinClient {
         client_info: ClientInfo,
         device_name: impl Into<Cow<'static, str>>,
         key: String,
-        username: impl AsRef<str>,
+        unique: UniqueId,
         concurrency: usize,
     ) -> Result<JellyfinClient<KeyAuth>> {
-        Ok(Self::new(url, client_info, device_name, concurrency)?.auth_key(key, username))
+        Ok(Self::new(url, client_info, device_name, unique, concurrency)?.auth_key(key))
     }
 }
 
@@ -222,6 +229,7 @@ fn client_with_auth<Auth1: AuthStatus, Auth2: AuthStatus>(
             device_name: client.device_name,
             client_info: client.client_info,
             auth,
+            unique: client.unique,
         },
         Err(client) => ClientInner {
             host_header: client.host_header.clone(),
@@ -230,6 +238,7 @@ fn client_with_auth<Auth1: AuthStatus, Auth2: AuthStatus>(
             client_info: client.client_info.clone(),
             device_name: client.device_name.clone(),
             auth,
+            unique: client.unique,
         },
     };
     JellyfinClient {
