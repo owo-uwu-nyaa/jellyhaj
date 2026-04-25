@@ -70,7 +70,7 @@ in
         type = types.nullOr types.path;
         default = null;
       };
-      entry_image_with = mkOption {
+      entry_image_width = mkOption {
         type = lib.types.ints.u16;
         default = 32;
       };
