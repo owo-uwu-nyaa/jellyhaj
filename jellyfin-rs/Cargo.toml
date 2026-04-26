@@ -32,7 +32,7 @@ valuable = ["dep:valuable"]
 categories = ["api-bindings"]
 description = "Bindings to the jellyfin web API"
 edition = "2024"
-homepage = "https://github.com/sargon64/jellyfin-rs"
+homepage = "https://github.com/owo-uwu-nya/jellyfhaj/jellyfin"
 include = [
   "**/*.rs",
   "Cargo.toml",
