@@ -14,7 +14,7 @@ You can find some notes in the default config files in 'config'. Just copy it to
 # Building
 You can just build the project with cargo (requires libmpv, sqlite and clang). The resulting binary should just work (TM).
 
-Alternatively there is a nix flake that builds the binary and provides a basic home manager profile.
+Alternatively there is a nix flake that builds the binary and provides a basic [home manager profile](./hm-module.md).
 There is a binary cache, to use it add the following to your configuration:
 ```nix
 nix.settings = {

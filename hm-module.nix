@@ -107,6 +107,7 @@ in
             };
             username = mkOption {
               type = lib.types.str;
+              default = "";
             };
             password = mkOption {
               type = lib.types.str;
@@ -121,7 +122,6 @@ in
       );
       default = null;
     };
-    default = "${config.xdg.configHome}/jellyhaj/keybinds.toml";
   };
   config = mkMerge [
     (mkIf cfg.enable {
