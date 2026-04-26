@@ -17,8 +17,8 @@ pub trait ActionCreator: Debug {
     fn make_action(&self) -> Self::T;
 }
 
-impl<C: Copy + Debug> ActionCreator for C  {
-    type T = Self; 
+impl<C: Copy + Debug> ActionCreator for C {
+    type T = Self;
 
     fn make_action(&self) -> Self::T {
         *self

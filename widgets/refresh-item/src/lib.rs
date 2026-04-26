@@ -1,8 +1,6 @@
 use std::{convert::Infallible, fmt::Debug};
 
-use jellyfin::{
-    items::{RefreshItemQuery, RefreshMode},
-};
+use jellyfin::items::{RefreshItemQuery, RefreshMode};
 use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_form_widget::{
     Selection,
@@ -10,9 +8,7 @@ use jellyhaj_form_widget::{
     form::{FormDataTypes, FormResultMapper},
     form_widget,
 };
-use jellyhaj_widgets_core::{
-    Result, WidgetContext, Wrapper,
-};
+use jellyhaj_widgets_core::{Result, WidgetContext, Wrapper};
 use valuable::Valuable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Selection, Valuable)]
@@ -49,9 +45,7 @@ impl ActionCreator for AC {
 
 pub struct RefreshItemResultMapper;
 
-impl<R: 'static> FormResultMapper<R, RefreshItem>
-    for RefreshItemResultMapper
-{
+impl<R: 'static> FormResultMapper<R, RefreshItem> for RefreshItemResultMapper {
     type Res = Navigation;
 
     fn map(
