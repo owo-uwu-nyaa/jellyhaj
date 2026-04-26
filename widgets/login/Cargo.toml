@@ -1,15 +1,15 @@
 [dependencies]
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-form-widget = {path = "../form", version = "0.1.0"}
+jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+tokio = {features = ["time"], workspace = true}
 color-eyre.workspace = true
+futures-util.workspace = true
 ratatui.workspace = true
 serde.workspace = true
-jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
 valuable.workspace = true
-tokio = { workspace = true, features = ["time"] }
-futures-util.workspace = true
 
 [package]
 edition = "2024"

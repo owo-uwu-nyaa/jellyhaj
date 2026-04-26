@@ -1852,6 +1852,7 @@ dependencies = [
  "jellyhaj-log-view",
  "jellyhaj-login-view",
  "jellyhaj-player-view",
+ "jellyhaj-quick-connect-view",
  "jellyhaj-refresh-item-view",
  "jellyhaj-stats-view",
  "jellyhaj-widgets-core",
@@ -1997,6 +1998,7 @@ name = "jellyhaj-fetch-view"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "futures-util",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-fetch-widget",
@@ -2328,6 +2330,19 @@ dependencies = [
  "player-core",
  "ratatui",
  "tracing",
+ "valuable",
+]
+
+[[package]]
+name = "jellyhaj-quick-connect-view"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-form-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
  "valuable",
 ]
 

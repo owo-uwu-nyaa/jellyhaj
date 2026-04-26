@@ -17,11 +17,37 @@ use tui_scrollview::{ScrollView, ScrollViewState};
 use crate::{FormAction, FormItem};
 use color_eyre::Result;
 
-pub trait FormData<const TOTAL_SIZE: usize>: Sized + Send + Unpin + Valuable + 'static {
+pub trait FormResultMapper<R: 'static, S: FormDataTypes> {
+    type Res: Debug;
+    fn map(
+        state: &S,
+        form_result: S::AR,
+        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, R>,
+    ) -> Result<Option<Self::Res>>;
+}
+
+pub struct IdFormResultMapper;
+impl<R: 'static, S: FormDataTypes> FormResultMapper<R, S> for IdFormResultMapper {
+    type Res = S::AR;
+
+    #[inline(always)]
+    fn map(
+        _state: &S,
+        form_result: S::AR,
+        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, R>,
+    ) -> Result<Option<Self::Res>> {
+        Ok(Some(form_result))
+    }
+}
+
+pub trait FormDataTypes: Sized + Send + Unpin + Valuable + 'static {
     type Selector: Debug + Send + Valuable;
     type AR: Debug + From<Infallible>;
     type Action: Debug + Send + 'static;
+    type Mapper;
+}
 
+pub trait FormData<const TOTAL_SIZE: usize>: FormDataTypes {
     fn with_selection<R: 'static, T, W: WithSelection<R, Self::AR, T>>(
         this: &Self::Selector,
         state: &Self,
@@ -82,7 +108,7 @@ impl<const TOTAL_SIZE: usize, F: FormData<TOTAL_SIZE>> FormDataDefaultExt<TOTAL_
 where
     F::Selector: Default,
 {
-    fn make_with_default<'s>(self) -> Form<{ TOTAL_SIZE }, Self> {
+    fn make_with_default(self) -> Form<{ TOTAL_SIZE }, Self> {
         Self::make_with(self, Self::Selector::default())
     }
 }
@@ -116,12 +142,16 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> Structable
     }
 }
 
-impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> JellyhajWidget<R>
-    for Form<{ TOTAL_SIZE }, Data>
+impl<
+    const TOTAL_SIZE: usize,
+    R: 'static,
+    Mapper: FormResultMapper<R, Data>,
+    Data: FormData<{ TOTAL_SIZE }, Mapper = Mapper>,
+> JellyhajWidget<R> for Form<{ TOTAL_SIZE }, Data>
 {
     type Action = FormAction<Data::Action>;
 
-    type ActionResult = ControlFlow<Navigation, Data::AR>;
+    type ActionResult = ControlFlow<Navigation, Mapper::Res>;
 
     const NAME: &str = "form";
 
@@ -154,76 +184,86 @@ impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> Jellyh
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        let action: FormAction<Infallible> = match action {
-            FormAction::Quit => FormAction::Quit,
-            FormAction::Up => FormAction::Up,
-            FormAction::Down => FormAction::Down,
-            FormAction::Left => FormAction::Left,
-            FormAction::Right => FormAction::Right,
-            FormAction::Delete => FormAction::Delete,
-            FormAction::Enter => FormAction::Enter,
-            FormAction::Inner(action) => {
-                return Data::with_action_mut(
-                    action,
-                    cx.wrap_with(FormAction::Inner),
-                    &mut self.data,
-                    ApplyAction,
-                );
+        let res = 'res: {
+            let action: FormAction<Infallible> = match action {
+                FormAction::Quit => FormAction::Quit,
+                FormAction::Up => FormAction::Up,
+                FormAction::Down => FormAction::Down,
+                FormAction::Left => FormAction::Left,
+                FormAction::Right => FormAction::Right,
+                FormAction::Delete => FormAction::Delete,
+                FormAction::Enter => FormAction::Enter,
+                FormAction::Inner(action) => {
+                    break 'res Data::with_action_mut(
+                        action,
+                        cx.wrap_with(FormAction::Inner),
+                        &mut self.data,
+                        ApplyAction,
+                    );
+                }
+            };
+            if Data::with_selection::<R, _, _>(&self.sel, &self.data, AcceptsMovementAction) {
+                self.dispatch_active_action(cx, action)
+            } else {
+                match action {
+                    FormAction::Up => {
+                        let start = Data::index(&self.sel);
+                        let show_if = Data::show_if(&self.data);
+                        let mut current = start;
+                        let index = loop {
+                            current = current.checked_sub(1).unwrap_or(TOTAL_SIZE.strict_sub(1));
+                            if show_if[current] {
+                                break current;
+                            } else if current == start {
+                                panic!("all form other than the current are hidden")
+                            }
+                        };
+                        Data::with_index_mut(
+                            &mut self.sel,
+                            cx.wrap_with(FormAction::Inner),
+                            &mut self.data,
+                            index,
+                            SelectionDefault,
+                        )?;
+                        Ok(None)
+                    }
+                    FormAction::Down => {
+                        let start = Data::index(&self.sel);
+                        let show_if = Data::show_if(&self.data);
+                        let mut current = start;
+                        let index = loop {
+                            current = current.strict_add(1) % TOTAL_SIZE;
+                            if show_if[current] {
+                                break current;
+                            } else if current == start {
+                                panic!("all form other than the current are hidden")
+                            }
+                        };
+                        Data::with_index_mut(
+                            &mut self.sel,
+                            cx.wrap_with(FormAction::Inner),
+                            &mut self.data,
+                            index,
+                            SelectionDefault,
+                        )?;
+                        Ok(None)
+                    }
+
+                    FormAction::Delete => self.dispatch_active_action(cx, FormAction::Delete),
+                    FormAction::Enter => self.dispatch_active_action(cx, FormAction::Enter),
+                    FormAction::Quit => Ok(Some(ControlFlow::Break(Navigation::PopContext))),
+                    FormAction::Left | FormAction::Right => Ok(None),
+                }
             }
         };
-        if Data::with_selection::<R, _, _>(&self.sel, &self.data, AcceptsMovementAction) {
-            self.dispatch_active_action(cx, action)
-        } else {
-            match action {
-                FormAction::Up => {
-                    let start = Data::index(&self.sel);
-                    let show_if = Data::show_if(&self.data);
-                    let mut current = start;
-                    let index = loop {
-                        current = current.checked_sub(1).unwrap_or(TOTAL_SIZE.strict_sub(1));
-                        if show_if[current] {
-                            break current;
-                        } else if current == start {
-                            panic!("all form other than the current are hidden")
-                        }
-                    };
-                    Data::with_index_mut(
-                        &mut self.sel,
-                        cx.wrap_with(FormAction::Inner),
-                        &mut self.data,
-                        index,
-                        SelectionDefault,
-                    )?;
-                    Ok(None)
-                }
-                FormAction::Down => {
-                    let start = Data::index(&self.sel);
-                    let show_if = Data::show_if(&self.data);
-                    let mut current = start;
-                    let index = loop {
-                        current = current.strict_add(1) % TOTAL_SIZE;
-                        if show_if[current] {
-                            break current;
-                        } else if current == start {
-                            panic!("all form other than the current are hidden")
-                        }
-                    };
-                    Data::with_index_mut(
-                        &mut self.sel,
-                        cx.wrap_with(FormAction::Inner),
-                        &mut self.data,
-                        index,
-                        SelectionDefault,
-                    )?;
-                    Ok(None)
-                }
-
-                FormAction::Delete => self.dispatch_active_action(cx, FormAction::Delete),
-                FormAction::Enter => self.dispatch_active_action(cx, FormAction::Enter),
-                FormAction::Quit => Ok(Some(ControlFlow::Break(Navigation::PopContext))),
-                FormAction::Left | FormAction::Right => Ok(None),
+        Ok(match res? {
+            None => None,
+            Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
+            Some(ControlFlow::Continue(v)) => {
+                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner))?
+                    .map(ControlFlow::Continue)
             }
-        }
+        })
     }
 
     fn click(
@@ -234,53 +274,63 @@ impl<const TOTAL_SIZE: usize, R: 'static, Data: FormData<{ TOTAL_SIZE }>> Jellyh
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        if position.x > 2
-            && position.y > 2
-            && position.x < size.width - 1
-            && position.y < size.height - 1
-        {
-            position.x -= 2;
-            position.y -= 2;
-            size.width -= 4;
-            size.height -= 4;
-            let mut cur = ClickCurrent::<{ TOTAL_SIZE }> {
-                kind,
-                modifier,
-                pos: position,
-                cought: false,
-                store: &self.store,
-                size,
-                offset: self.offset,
-            };
-            let res = Data::with_selection_mut_cx(
-                &mut self.sel,
-                cx.wrap_with(FormAction::Inner),
-                &mut self.data,
-                &mut cur,
-            )?;
-            if cur.cought {
-                return Ok(res);
+        let res = 'res: {
+            if position.x > 2
+                && position.y > 2
+                && position.x < size.width - 1
+                && position.y < size.height - 1
+            {
+                position.x -= 2;
+                position.y -= 2;
+                size.width -= 4;
+                size.height -= 4;
+                let mut cur = ClickCurrent::<{ TOTAL_SIZE }> {
+                    kind,
+                    modifier,
+                    pos: position,
+                    cought: false,
+                    store: &self.store,
+                    size,
+                    offset: self.offset,
+                };
+                let res = Data::with_selection_mut_cx(
+                    &mut self.sel,
+                    cx.wrap_with(FormAction::Inner),
+                    &mut self.data,
+                    &mut cur,
+                )?;
+                if cur.cought {
+                    break 'res res;
+                }
+                let mut cur = ClickItem::<{ TOTAL_SIZE }, Data::AR> {
+                    pos: position,
+                    res: None,
+                    size,
+                    store: &self.store,
+                    kind,
+                    modifier,
+                };
+                let index = find_index(&self.store, position);
+                Data::with_index_mut(
+                    &mut self.sel,
+                    cx.wrap_with(FormAction::Inner),
+                    &mut self.data,
+                    index,
+                    &mut cur,
+                )?;
+                cur.res
+            } else {
+                None
             }
-            let mut cur = ClickItem::<{ TOTAL_SIZE }, Data::AR> {
-                pos: position,
-                res: None,
-                size,
-                store: &self.store,
-                kind,
-                modifier,
-            };
-            let index = find_index(&self.store, position);
-            Data::with_index_mut(
-                &mut self.sel,
-                cx.wrap_with(FormAction::Inner),
-                &mut self.data,
-                index,
-                &mut cur,
-            )?;
-            Ok(cur.res)
-        } else {
-            Ok(None)
-        }
+        };
+        Ok(match res {
+            None => None,
+            Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
+            Some(ControlFlow::Continue(v)) => {
+                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner))?
+                    .map(ControlFlow::Continue)
+            }
+        })
     }
 
     fn render_fallible_inner(

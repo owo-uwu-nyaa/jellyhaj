@@ -13,19 +13,19 @@ use tracing::info_span;
 #[derive(Debug)]
 pub enum FetchAction {
     Inner(AdvanceLoadingScreen),
-    FetchFinished(NextScreen),
+    FetchFinished(Navigation),
     FetchTimeout,
 }
 
 #[derive(Valuable)]
-pub struct FetchWidget<F: Future<Output = Result<NextScreen>> + Send + 'static> {
+pub struct FetchWidget<F: Future<Output = Result<Navigation>> + Send + 'static> {
     #[valuable(skip)]
     fut: Option<F>,
     #[valuable(skip)]
     inner: Loading,
 }
 
-impl<F: Future<Output = Result<NextScreen>> + Send + 'static> FetchWidget<F> {
+impl<F: Future<Output = Result<Navigation>> + Send + 'static> FetchWidget<F> {
     pub fn new(fut: F, title: impl Into<Cow<'static, str>>) -> Self {
         Self {
             fut: Some(fut),
@@ -34,7 +34,7 @@ impl<F: Future<Output = Result<NextScreen>> + Send + 'static> FetchWidget<F> {
     }
 }
 
-impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<NextScreen>> + Send + 'static>
+impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + Send + 'static>
     JellyhajWidget<R> for FetchWidget<F>
 {
     type Action = FetchAction;
@@ -79,7 +79,7 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<NextScreen>> + S
                     .apply_action(cx.wrap_with(FetchAction::Inner), action)?;
                 Ok(None)
             }
-            FetchAction::FetchFinished(next_screen) => Ok(Some(Navigation::Replace(next_screen))),
+            FetchAction::FetchFinished(nav) => Ok(Some(nav)),
             FetchAction::FetchTimeout => Ok(Some(Navigation::Replace(NextScreen::Error(
                 color_eyre::eyre::eyre!("fetch timeout reached.\n\n(this can be configured)"),
             )))),

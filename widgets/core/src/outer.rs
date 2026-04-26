@@ -16,3 +16,10 @@ pub use crate::mapper::Named;
 use crate::mapper::{MapperWidget, ResultMapper};
 
 pub type OuterWidget<N, W> = MapperWidget<N, W, Mapper>;
+
+pub struct UnwrapName;
+impl Named for UnwrapName {
+    const NAME: &str = "unwrap";
+}
+
+pub type UnwrapWidget<W> = MapperWidget<UnwrapName, W, Mapper>;

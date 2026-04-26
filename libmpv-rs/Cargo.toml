@@ -20,7 +20,7 @@
 travis-ci = {branch = "master", repository = "https://github.com/ParadoxSpiral/mpv-rs"}
 
 [dependencies]
-crossbeam-epoch = { version = "0.9.18", optional = true }
+crossbeam-epoch = {optional = true, version = "0.9.18"}
 libmpv-sys = {path = "libmpv-sys"}
 tokio = {features = ["time"], optional = true, workspace = true}
 tracing = {optional = true, workspace = true}

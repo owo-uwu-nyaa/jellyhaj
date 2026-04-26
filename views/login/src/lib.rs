@@ -25,9 +25,7 @@ use jellyhaj_core::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
-use jellyhaj_login_widget::{
-    LoginResult, LoginType, LoginWidget, QuickConectAction, QuickConnectWidget, Quit,
-};
+use jellyhaj_login_widget::{LoginType, LoginWidget, QuickConectAction, QuickConnectWidget, Quit};
 use jellyhaj_widgets_core::mapper::MapperWidget;
 use keybinds::KeybindEvents;
 use ratatui::DefaultTerminal;
@@ -72,24 +70,31 @@ async fn edit_login_info(
         error,
         &config,
     );
+
     let cx = LoginContext { config, spawner };
     let mut widget = make_new_erased(cx, widget);
-
-    match render_widget(widget.as_mut(), events, term).await {
-        WidgetResult::Exit => Ok(None),
-        WidgetResult::Ok(LoginResult::Quit) | WidgetResult::Pop => {
-            render_widget_stop(widget.as_mut(), events, term).await;
-            Ok(None)
-        }
-        WidgetResult::Ok(LoginResult::Login(login)) => {
-            let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
-            if stop_res != RenderStopRes::Exit {
-                Ok(Some(login))
-            } else {
+    loop {
+        break match render_widget(widget.as_mut(), events, term).await {
+            WidgetResult::Ok(ControlFlow::Break(
+                Navigation::Push(_) | Navigation::Replace(_) | Navigation::PushWithoutTui(_),
+            )) => {
+                continue;
+            }
+            WidgetResult::Ok(ControlFlow::Break(Navigation::Exit)) | WidgetResult::Exit => Ok(None),
+            WidgetResult::Ok(ControlFlow::Break(Navigation::PopContext)) | WidgetResult::Pop => {
+                render_widget_stop(widget.as_mut(), events, term).await;
                 Ok(None)
             }
-        }
-        WidgetResult::Err(report) => Err(report),
+            WidgetResult::Ok(ControlFlow::Continue(login)) => {
+                let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
+                if stop_res != RenderStopRes::Exit {
+                    Ok(Some(login))
+                } else {
+                    Ok(None)
+                }
+            }
+            WidgetResult::Err(report) => Err(report),
+        };
     }
 }
 

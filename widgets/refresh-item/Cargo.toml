@@ -1,13 +1,13 @@
+[dependencies]
+jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-form-widget = {path = "../form", version = "0.1.0"}
+jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+color-eyre.workspace = true
+valuable.workspace = true
+
 [package]
+edition = "2024"
 name = "jellyhaj-refresh-item-widget"
 version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-color-eyre.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
-valuable.workspace = true

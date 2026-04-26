@@ -13,16 +13,28 @@ struct Args {
     name: LitStr,
     _sep: Token![,],
     action_result: Type,
+    _sep2: Token![,],
+    result_mapper: Type,
 }
 
 impl Parse for Args {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         Ok(Args {
-            name: input.parse()?,
-            _sep: input.parse()?,
+            name: input
+                .parse()
+                .map_err(|e| Error::new(e.span(), "Expected form name attribute parameter"))?,
+            _sep: input
+                .parse()
+                .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"))?,
             action_result: input
                 .parse()
                 .map_err(|e| Error::new(e.span(), "Expected action_result type"))?,
+            _sep2: input
+                .parse()
+                .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"))?,
+            result_mapper: input
+                .parse()
+                .map_err(|e| Error::new(e.span(), "Expected result_mapper type"))?,
         })
     }
 }
@@ -131,6 +143,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
             size_ident,
             state_name,
             widget_name,
+            result_mapper_ty: args.result_mapper,
         })
     } else {
         Err(Error::new(input.span(), "Struct must have named fields"))

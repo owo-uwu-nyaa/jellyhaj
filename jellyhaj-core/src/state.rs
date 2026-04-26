@@ -5,7 +5,7 @@ use color_eyre::eyre::Report;
 use config::keybind_defs::GlobalCommand;
 use futures_util::future::BoxFuture;
 use jellyfin::{
-    items::{MediaItem, PlaybackInfo},
+    items::{MediaItem, PlaybackInfo, RefreshItemQuery},
     user_views::UserView,
 };
 
@@ -58,9 +58,15 @@ pub enum NextScreen {
     FetchItemListDetailsRef(String),
     FetchItemDetails(String),
     RefreshItem(String),
+    DoRefreshItem {
+        id: String,
+        query: RefreshItemQuery,
+    },
     Stats,
     Logs,
     Inspect,
+    QuickConnect,
+    QuickConnectAuth(String),
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -84,6 +90,7 @@ impl From<GlobalCommand> for Navigation {
             GlobalCommand::ShowStats => Navigation::Push(NextScreen::Stats),
             GlobalCommand::ShowLogs => Navigation::Push(NextScreen::Logs),
             GlobalCommand::ShowInspect => Navigation::Push(NextScreen::Inspect),
+            GlobalCommand::QuickConnect => Navigation::Push(NextScreen::QuickConnect),
         }
     }
 }

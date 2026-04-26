@@ -1,16 +1,15 @@
-[package]
-name = "jellyhaj-event-listener"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+jellyfin = {path = "../jellyfin-rs"}
+jellyhaj-async-task = {path = "../async-task"}
+spawn = {path = "../spawn"}
+tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
-futures-channel.workspace=true
-futures-intrusive.workspace=true
-jellyfin = { path = "../jellyfin-rs" }
-jellyhaj-async-task = { path = "../async-task" }
+futures-channel.workspace = true
+futures-intrusive.workspace = true
 parking_lot.workspace = true
-spawn = { path = "../spawn" }
-tokio = { workspace = true, features = ["macros"] }
 tracing.workspace = true
 
+[package]
+edition = "2024"
+name = "jellyhaj-event-listener"
+version = "0.1.0"

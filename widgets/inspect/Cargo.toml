@@ -1,12 +1,12 @@
-[package]
-name = "jellyhaj-inspect-widget"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
-tokio = { workspace = true, features = ["sync"] }
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+tokio = {features = ["sync"], workspace = true}
 tracing.workspace = true
 tui-tree-widget.workspace = true
 valuable.workspace = true
+
+[package]
+edition = "2024"
+name = "jellyhaj-inspect-widget"
+version = "0.1.0"

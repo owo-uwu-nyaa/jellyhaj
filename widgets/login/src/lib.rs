@@ -4,8 +4,8 @@ use std::{convert::Infallible, ops::ControlFlow};
 use color_eyre::Report;
 use jellyhaj_core::Config;
 use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
-use jellyhaj_form_widget::button::{ActionCreator, Button};
-use jellyhaj_form_widget::form::FormData;
+use jellyhaj_form_widget::button::Button;
+use jellyhaj_form_widget::form::{FormData, FormResultMapper};
 use jellyhaj_form_widget::form_widget;
 use jellyhaj_form_widget::label::Label;
 use jellyhaj_form_widget::{
@@ -30,21 +30,45 @@ pub enum ButtonAction {
     QuickConnect,
 }
 
-impl ActionCreator for ButtonAction {
-    type T = Self;
-
-    fn make_action(&self) -> Self::T {
-        *self
-    }
-}
-
 impl From<Infallible> for ButtonAction {
     fn from(_: Infallible) -> Self {
         unreachable!()
     }
 }
 
-#[form_widget("Enter Jellyfin Server / Login Information", ButtonAction)]
+pub struct LoginResultMapper;
+
+impl<R: 'static> FormResultMapper<R, LoginData> for LoginResultMapper {
+    type Res = LoginType;
+
+    fn map(
+        state: &LoginData,
+        form_result: <LoginData as jellyhaj_form_widget::form::FormDataTypes>::AR,
+        _cx: WidgetContext<
+            '_,
+            <LoginData as jellyhaj_form_widget::form::FormDataTypes>::Action,
+            impl Wrapper<<LoginData as jellyhaj_form_widget::form::FormDataTypes>::Action>,
+            R,
+        >,
+    ) -> Result<Option<Self::Res>> {
+        Ok(Some(match form_result {
+            ButtonAction::Submit => LoginType::Password {
+                server_url: state.server_url.text.clone(),
+                username: state.username.text.clone(),
+                password: state.password.secret.clone(),
+            },
+            ButtonAction::QuickConnect => LoginType::QuickConnect {
+                server_url: state.server_url.text.clone(),
+            },
+        }))
+    }
+}
+
+#[form_widget(
+    "Enter Jellyfin Server / Login Information",
+    ButtonAction,
+    LoginResultMapper
+)]
 #[derive(Debug, Valuable)]
 pub struct LoginData {
     #[descr("Jellyfin URL")]
@@ -101,16 +125,10 @@ impl LoginType {
     }
 }
 
-#[derive(Debug)]
-pub enum LoginResult {
-    Quit,
-    Login(LoginType),
-}
-
 impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
     type Action = <InnerWidget as JellyhajWidget<R>>::Action;
 
-    type ActionResult = LoginResult;
+    type ActionResult = ControlFlow<Navigation, LoginType>;
 
     const NAME: &str = "login";
 
@@ -147,8 +165,7 @@ impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self.inner.apply_action(cx, action);
-        self.map_res(res)
+        self.inner.apply_action(cx, action)
     }
 
     fn click(
@@ -159,8 +176,7 @@ impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        let res = self.inner.click(cx, position, size, kind, modifier);
-        self.map_res(res)
+        self.inner.click(cx, position, size, kind, modifier)
     }
 
     fn render_fallible_inner(
@@ -208,29 +224,6 @@ impl LoginWidget {
                 Default::default(),
             )),
         }
-    }
-
-    fn map_res(
-        &mut self,
-        res: Result<Option<ControlFlow<Navigation, ButtonAction>>>,
-    ) -> Result<Option<LoginResult>, color_eyre::eyre::Error> {
-        res.map(|v| {
-            v.map(|v| match v {
-                ControlFlow::Continue(ButtonAction::Submit) => {
-                    LoginResult::Login(LoginType::Password {
-                        server_url: self.inner.inner.inner.data.server_url.text.clone(),
-                        username: self.inner.inner.inner.data.username.text.clone(),
-                        password: self.inner.inner.inner.data.password.secret.clone(),
-                    })
-                }
-                ControlFlow::Continue(ButtonAction::QuickConnect) => {
-                    LoginResult::Login(LoginType::QuickConnect {
-                        server_url: self.inner.inner.inner.data.server_url.text.clone(),
-                    })
-                }
-                ControlFlow::Break(_) => LoginResult::Quit,
-            })
-        })
     }
 }
 

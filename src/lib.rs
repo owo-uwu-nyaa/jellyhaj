@@ -64,9 +64,16 @@ fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
             jellyhaj_item_details_view::render_fetch_episode(cx, item)
         }
         NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id),
+        NextScreen::DoRefreshItem { id, query } => {
+            jellyhaj_refresh_item_view::render_do_refresh_item(cx, id, query)
+        }
         NextScreen::Stats => jellyhaj_stats_view::render_stats(cx),
         NextScreen::Logs => jellyhaj_log_view::render_log(cx),
         NextScreen::Inspect => jellyhaj_inspect_view::render_inspect(cx),
+        NextScreen::QuickConnect => jellyhaj_quick_connect_view::make_quick_connect(cx),
+        NextScreen::QuickConnectAuth(code) => {
+            jellyhaj_quick_connect_view::make_quick_connect_auth(cx, code)
+        }
     }
 }
 

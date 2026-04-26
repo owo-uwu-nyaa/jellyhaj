@@ -6,10 +6,10 @@ tokio = {features = ["rt", "tracing"], workspace = true}
 tokio-util = {workspace = true}
 tracing = {workspace = true}
 
+[lints.rust]
+unexpected_cfgs = {check-cfg = ['cfg(tokio_unstable)'], level = "warn"}
+
 [package]
 edition = "2024"
 name = "spawn"
 version = "0.1.0"
-
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }

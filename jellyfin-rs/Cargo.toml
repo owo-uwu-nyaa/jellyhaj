@@ -6,7 +6,6 @@ color-eyre = {workspace = true}
 futures-core = {workspace = true}
 futures-sink = {workspace = true}
 futures-util = {workspace = true}
-getrandom.workspace = true
 http = {workspace = true}
 hyper = {workspace = true}
 hyper-util = {workspace = true}
@@ -19,7 +18,8 @@ tokio = {features = ["time"], workspace = true}
 tokio-rustls = {workspace = true}
 tokio-websockets = {workspace = true}
 tracing = {workspace = true}
-valuable = { workspace = true, optional = true }
+valuable = {optional = true, workspace = true}
+getrandom.workspace = true
 
 [dev-dependencies]
 tokio = {features = ["macros"], version = "1.28.2"}

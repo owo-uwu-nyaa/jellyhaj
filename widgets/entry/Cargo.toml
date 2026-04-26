@@ -1,12 +1,12 @@
 [dependencies]
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-image = {path = "../image", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 tokio = {features = ["sync"], workspace = true}
 color-eyre.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 valuable.workspace = true
 
 [package]

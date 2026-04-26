@@ -1,5 +1,7 @@
 [dependencies]
+image-cache = {path = "../../image-cache", version = "0.1.0"}
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 stats-data = {path = "../../stats-data", version = "0.1.0"}
 tokio = {features = ["sync"], workspace = true}
@@ -12,8 +14,6 @@ ratatui-image.workspace = true
 rayon.workspace = true
 sqlx.workspace = true
 tracing.workspace = true
-image-cache = { version = "0.1.0", path = "../../image-cache" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 valuable.workspace = true
 
 [package]

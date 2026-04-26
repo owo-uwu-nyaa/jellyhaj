@@ -2,10 +2,10 @@
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
+jellyhaj-home-screen-widget = {path = "../../widgets/home-screen", version = "0.1.0"}
 tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
-jellyhaj-home-screen-widget = { version = "0.1.0", path = "../../widgets/home-screen" }
 
 [package]
 edition = "2024"

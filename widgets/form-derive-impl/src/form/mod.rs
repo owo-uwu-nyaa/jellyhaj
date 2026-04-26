@@ -22,6 +22,7 @@ struct ParseResult {
     data_ty: Ident,
     selection_ty: Ident,
     action_ty: Ident,
+    result_mapper_ty: Type,
     full: ItemStruct,
     size_ident: Ident,
     state_name: Ident,
@@ -40,6 +41,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         size_ident,
         state_name,
         widget_name,
+        result_mapper_ty,
     } = parse::parse(args, input)?;
     let private_mod: Ident = Ident::new(
         &("form_impl_".to_string() + &state_name.to_string()),
@@ -49,6 +51,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let form_item_info_tr: Type =
         parse_quote!(::jellyhaj_form_widget::FormItemInfo<#action_result>);
     let form_data_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormData);
+    let form_data_types_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormDataTypes);
     let with_selection_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelection);
     let with_selection_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelectionMut);
     let with_selection_mut_cx_tr: Path =
@@ -242,10 +245,15 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
             #(#action_items),*
         }
         #vis const #size_ident: #exports::usize = #total_size;
-        impl #form_data_tr<#total_size> for #data_ty{
+
+        impl #form_data_types_tr for #data_ty{
             type Selector = #selection_ty;
             type AR = #action_result;
             type Action = #action_ty;
+            type Mapper = #result_mapper_ty;
+        }
+
+        impl #form_data_tr<#total_size> for #data_ty{
             const TITLE: &#exports::str = #name;
 
             fn with_selection<R: 'static, T, W: #with_selection_tr<R, Self::AR, T>>(

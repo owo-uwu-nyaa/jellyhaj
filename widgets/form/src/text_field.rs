@@ -7,7 +7,7 @@ use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemInfo};
 
-#[derive(Debug, Valuable)]
+#[derive(Debug, Valuable, Default)]
 pub struct TextField {
     pub text: String,
 }

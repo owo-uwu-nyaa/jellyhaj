@@ -1,20 +1,20 @@
 [dependencies]
+config = {path = "../../config", version = "0.1.0"}
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-login-widget = { path = "../../widgets/login", version = "0.1.0" }
+jellyhaj-loading-widget = {path = "../../widgets/loading", version = "0.1.0"}
+jellyhaj-login-widget = {path = "../../widgets/login", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
 keybinds = {path = "../../keybinds", version = "0.1.0"}
 spawn = {path = "../../spawn", version = "0.1.0"}
 tokio = {features = ["macros", "process"], workspace = true}
 color-eyre.workspace = true
 ratatui.workspace = true
+sqlx.workspace = true
 toml.workspace = true
 tracing.workspace = true
 whoami.workspace = true
-jellyhaj-loading-widget = { version = "0.1.0", path = "../../widgets/loading" }
-config = { version = "0.1.0", path = "../../config" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
-sqlx.workspace = true
 
 [package]
 edition = "2024"

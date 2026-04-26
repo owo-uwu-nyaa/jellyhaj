@@ -22,6 +22,7 @@ pub enum GlobalCommand {
     ShowStats,
     ShowLogs,
     ShowInspect,
+    QuickConnect
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]

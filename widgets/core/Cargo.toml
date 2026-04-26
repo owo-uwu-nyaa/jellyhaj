@@ -1,7 +1,9 @@
 [dependencies]
 config = {path = "../../config", version = "0.1.0"}
 futures-channel = {features = ["sink"], version = "0.3.31"}
+futures-intrusive = "0.5.0"
 futures-util = {features = ["sink"], workspace = true}
+jellyhaj-async-task = {path = "../../async-task", version = "0.1.0"}
 spawn = {path = "../../spawn", version = "0.1.0"}
 color-eyre.workspace = true
 parking_lot.workspace = true
@@ -10,8 +12,6 @@ ratatui.workspace = true
 ratatui-image.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
-futures-intrusive = "0.5.0"
-jellyhaj-async-task = { version = "0.1.0", path = "../../async-task" }
 valuable.workspace = true
 
 [package]

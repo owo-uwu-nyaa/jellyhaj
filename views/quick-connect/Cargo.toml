@@ -1,0 +1,13 @@
+[package]
+name = "jellyhaj-quick-connect-view"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
+jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
+jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
+valuable.workspace = true

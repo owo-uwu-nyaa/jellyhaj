@@ -17,6 +17,14 @@ pub trait ActionCreator: Debug {
     fn make_action(&self) -> Self::T;
 }
 
+impl<C: Copy + Debug> ActionCreator for C  {
+    type T = Self; 
+
+    fn make_action(&self) -> Self::T {
+        *self
+    }
+}
+
 #[derive(Default)]
 pub struct Button<Creator: ActionCreator> {
     creator: Creator,

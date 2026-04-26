@@ -4,6 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt},
 };
+use futures_util::FutureExt;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
     items::{GetItemsQuery, MediaItem},
@@ -42,6 +43,14 @@ pub fn make_fetch(
     cx: TuiContext,
     title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<NextScreen>> + Send + 'static,
+) -> Erased {
+    make_nav_fetch(cx, title, fut.map(|r| r.map(Navigation::Replace)))
+}
+
+pub fn make_nav_fetch(
+    cx: TuiContext,
+    title: impl Into<Cow<'static, str>>,
+    fut: impl Future<Output = Result<Navigation>> + Send + 'static,
 ) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         FetchWidget::new(fut, title),

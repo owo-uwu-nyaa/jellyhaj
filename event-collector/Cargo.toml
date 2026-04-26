@@ -1,16 +1,16 @@
-[package]
-name = "jellyhaj-event-collector"
-version = "0.1.0"
-edition = "2024"
-
 [dependencies]
+config = {path = "../config", version = "0.1.0"}
+jellyfin = {path = "../jellyfin-rs", version = "0.1.4"}
+tokio = {features = ["macros", "rt", "signal"], workspace = true}
+tracing-subscriber = {workspace = true}
 clap.workspace = true
 color-eyre.workspace = true
-config = { version = "0.1.0", path = "../config" }
 futures-util.workspace = true
-jellyfin = { version = "0.1.4", path = "../jellyfin-rs" }
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt", "macros", "signal"] }
 toml.workspace = true
 whoami.workspace = true
-tracing-subscriber = {workspace=true}
+
+[package]
+edition = "2024"
+name = "jellyhaj-event-collector"
+version = "0.1.0"

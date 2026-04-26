@@ -1,14 +1,14 @@
 [dependencies]
+crossterm = {features = ["osc52"], workspace = true}
+jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-form-derive = {path = "../form-derive", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 serde = {optional = true, workspace = true}
 tui-scrollview = "0.6.2"
+ansi-to-tui.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-crossterm = { workspace = true, features = ["osc52"] }
 valuable.workspace = true
-ansi-to-tui.workspace = true
 
 [features]
 serde = ["dep:serde"]
