@@ -2,9 +2,9 @@ use std::{ops::Deref, sync::Arc};
 
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
-use valuable::Valuable;
+use valuable::{Fields, StructDef, Structable, Valuable, Value};
 
-use crate::{Events, PlayerState};
+use crate::{Events, PLAYER_STATE_FIELDS, PlayerState};
 
 pub trait State {
     fn update(&mut self, event: Events);
@@ -54,12 +54,18 @@ impl Deref for SharedPlayerState {
 }
 
 impl Valuable for SharedPlayerState {
-    fn as_value(&self) -> valuable::Value<'_> {
-        "PlayerState not displayable".as_value()
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
     }
 
     fn visit(&self, visit: &mut dyn valuable::Visit) {
-        "PlayerState not displayable".visit(visit);
+        self.0.lock().visit(visit);
+    }
+}
+
+impl Structable for SharedPlayerState{
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("SharedPlayerState", Fields::Named(PLAYER_STATE_FIELDS))
     }
 }
 

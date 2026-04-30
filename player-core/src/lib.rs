@@ -12,7 +12,7 @@ use std::{
 use jellyfin::items::{MediaItem, PlaybackInfo};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
-use valuable::Valuable;
+use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
 use crate::state::EventReceiver;
 
@@ -126,7 +126,7 @@ pub enum Events {
     Volume(i64),
 }
 
-#[derive(Debug, Clone, Valuable)]
+#[derive(Debug, Clone)]
 pub struct PlayerState {
     pub playlist: Arc<Vec<Arc<PlaylistItem>>>,
     pub current: Option<usize>,
@@ -136,6 +136,45 @@ pub struct PlayerState {
     pub speed: f64,
     pub fullscreen: bool,
     pub volume: i64,
+}
+
+impl Valuable for PlayerState {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        visit.visit_named_fields(&NamedValues::new(
+            PLAYER_STATE_FIELDS,
+            &[
+                self.playlist.as_value(),
+                self.current.as_value(),
+                self.pause.as_value(),
+                self.stopped.as_value(),
+                self.position.as_value(),
+                self.speed.as_value(),
+                self.fullscreen.as_value(),
+                self.volume.as_value(),
+            ],
+        ));
+    }
+}
+
+pub(crate) static PLAYER_STATE_FIELDS: &[NamedField] = &[
+    NamedField::new("playlist"),
+    NamedField::new("current"),
+    NamedField::new("pause"),
+    NamedField::new("stopped"),
+    NamedField::new("position"),
+    NamedField::new("speed"),
+    NamedField::new("fullscreen"),
+    NamedField::new("volume"),
+];
+
+impl Structable for PlayerState {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static("PlayerState", Fields::Named(PLAYER_STATE_FIELDS))
+    }
 }
 
 #[derive(Debug, Clone, Valuable)]
