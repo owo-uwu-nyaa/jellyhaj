@@ -307,7 +307,7 @@ fn inspect_state_value(val: &StateValue, view_id: usize) -> Option<ViewInfo> {
                 let _ = send.send(visitor.values);
             }));
             Some((
-                format!("Widget {}", suspended_inner.name),
+                format!("View {}", suspended_inner.name),
                 (view_id, 0),
                 Some(recv),
             ))
