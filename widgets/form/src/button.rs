@@ -25,7 +25,7 @@ impl<C: Copy + Debug> ActionCreator for C {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Button<Creator: ActionCreator> {
     creator: Creator,
     width: u16,
@@ -47,16 +47,8 @@ impl<Creator: ActionCreator> Structable for Button<Creator> {
     }
 }
 
-impl<Creator: ActionCreator> std::fmt::Debug for Button<Creator> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Button")
-            .field("creator", &self.creator)
-            .finish()
-    }
-}
-
 impl<Creator: ActionCreator> Button<Creator> {
-    pub fn new(creator: Creator) -> Self {
+    pub const fn new(creator: Creator) -> Self {
         Self { creator, width: 0 }
     }
 }
@@ -66,7 +58,7 @@ struct Centered {
     size: u16,
 }
 
-fn center(full: u16, requested: u16) -> Centered {
+const fn center(full: u16, requested: u16) -> Centered {
     if full > requested {
         let buf = full - requested;
         Centered {
@@ -116,7 +108,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C>
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: crate::FormAction<Infallible>,
     ) -> Result<Option<ControlFlow<Navigation, C::T>>> {
-        if let FormAction::Enter = action {
+        if matches!(action, FormAction::Enter) {
             Ok(Some(ControlFlow::Continue(self.creator.make_action())))
         } else {
             Ok(None)
@@ -165,7 +157,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C>
         Option<ControlFlow<Navigation, C::T>>,
     )> {
         let centered = center(size.width, self.width);
-        if let MouseEventKind::Down(MouseButton::Left) = kind
+        if kind == MouseEventKind::Down(MouseButton::Left)
             && pos.x >= centered.offset
             && pos.x < centered.offset + centered.size
         {

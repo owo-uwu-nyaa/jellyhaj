@@ -1,3 +1,5 @@
+#![allow(clippy::option_option)]
+
 use std::{
     collections::HashMap,
     io::{Read, Write},
@@ -35,7 +37,7 @@ impl<'de> Deserialize<'de> for ParseEffectOpt {
                 D: serde::Deserializer<'de>,
             {
                 struct FieldVisitor;
-                impl<'de> Visitor<'de> for FieldVisitor {
+                impl Visitor<'_> for FieldVisitor {
                     type Value = Field;
 
                     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -154,12 +156,10 @@ fn check_default_effects() -> Result<()> {
 
 impl EffectStore {
     pub fn parse(effect_config: &str) -> Result<Self> {
-        let colors = parse_colors()?;
-        let parse: ParseEffects = toml::from_str(effect_config).context("parsing effect toml")?;
-
-        fn to_set(input: ParseWidgetEffect, colors: TermColors) -> Result<EffectSet> {
+        fn to_set(input: &ParseWidgetEffect, colors: TermColors) -> Result<EffectSet> {
+            #[allow(clippy::ref_option)]
             fn map(
-                input: Option<ParseEffectOpt>,
+                input: &Option<ParseEffectOpt>,
                 colors: TermColors,
             ) -> Result<Option<Option<EffectInfo>>> {
                 Ok(match input {
@@ -169,30 +169,33 @@ impl EffectStore {
                 })
             }
             Ok(EffectSet {
-                start: map(input.start, colors).context("compiling start")?,
-                main: map(input.main, colors).context("compiling main")?,
-                exit: map(input.exit, colors).context("compiling exit")?,
+                start: map(&input.start, colors).context("compiling start")?,
+                main: map(&input.main, colors).context("compiling main")?,
+                exit: map(&input.exit, colors).context("compiling exit")?,
             })
         }
+
+        let colors = parse_colors()?;
+        let parse: ParseEffects = toml::from_str(effect_config).context("parsing effect toml")?;
 
         let store = EffectSets {
             start: parse
                 .start
-                .map(|e| compile_effect(colors, e).context("compiling general start"))
+                .map(|e| compile_effect(colors, &e).context("compiling general start"))
                 .transpose()?,
             main: parse
                 .main
-                .map(|e| compile_effect(colors, e).context("compiling general main"))
+                .map(|e| compile_effect(colors, &e).context("compiling general main"))
                 .transpose()?,
             exit: parse
                 .exit
-                .map(|e| compile_effect(colors, e).context("compiling general exit"))
+                .map(|e| compile_effect(colors, &e).context("compiling general exit"))
                 .transpose()?,
             views: parse
                 .views
                 .into_iter()
                 .map(|(k, v)| -> Result<_> {
-                    let val = to_set(v, colors).with_context(|| format!("for {k}"))?;
+                    let val = to_set(&v, colors).with_context(|| format!("for {k}"))?;
                     Ok((k, val))
                 })
                 .collect::<Result<HashMap<_, _>>>()?,
@@ -236,7 +239,7 @@ impl EffectStore {
     }
 }
 
-fn compile_effect(colors: TermColors, e: ParseEffect) -> Result<EffectInfo> {
+fn compile_effect(colors: TermColors, e: &ParseEffect) -> Result<EffectInfo> {
     let effect = EffectDsl::new()
         .compiler()
         .bind("fg", colors.fg)
@@ -248,7 +251,7 @@ fn compile_effect(colors: TermColors, e: ParseEffect) -> Result<EffectInfo> {
 struct RawModeGuard;
 impl Drop for RawModeGuard {
     fn drop(&mut self) {
-        crossterm::terminal::disable_raw_mode().expect("disabling raw mode failed")
+        crossterm::terminal::disable_raw_mode().expect("disabling raw mode failed");
     }
 }
 
@@ -289,16 +292,16 @@ fn parse_hex<const N: usize>(mut i: &[u8]) -> IResult<&[u8], [u8; N]> {
 }
 
 fn parse_single_color(i: &[u8]) -> IResult<&[u8], u8> {
-    fn map_1(i: [u8; 1]) -> u8 {
+    const fn map_1(i: [u8; 1]) -> u8 {
         let i = i[0];
         i | (i << 4)
     }
-    fn map_2(i: [u8; 2]) -> u8 {
+    const fn map_2(i: [u8; 2]) -> u8 {
         let i1 = i[0];
         let i2 = i[1];
         (i1 << 4) | i2
     }
-    fn map_4(i: [u8; 4]) -> u8 {
+    const fn map_4(i: [u8; 4]) -> u8 {
         (i[3]) | ((i[2]) << 4)
     }
     let c4 = nom::combinator::map(parse_hex::<4>, map_4);
@@ -385,10 +388,9 @@ pub fn parse_colors() -> Result<TermColors> {
                                 .wrap_err("error parsing terminal colors"));
                         }
                     }
-                } else {
-                    tracing::warn!("querying terminal colors received timeout");
-                    break Ok(DEFAULT_COLORS);
                 }
+                tracing::warn!("querying terminal colors received timeout");
+                break Ok(DEFAULT_COLORS);
             }
         } else {
             Ok(DEFAULT_COLORS)

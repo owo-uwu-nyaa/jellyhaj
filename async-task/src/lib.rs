@@ -25,6 +25,7 @@ pub struct Cancellation {
 }
 
 impl Cancellation {
+    #[must_use]
     pub fn is_cancelled(&self) -> bool {
         self.inner
             .cancelled
@@ -71,7 +72,7 @@ pub struct TaskSubmitter<A, W: Wrapper<A>> {
 }
 
 impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
-    pub fn as_ref(&self) -> TaskSubmitterRef<'_, A, W> {
+    pub const fn as_ref(&self) -> TaskSubmitterRef<'_, A, W> {
         TaskSubmitterRef {
             wrapper: self.wrapper,
             sender: &self.sender,
@@ -88,9 +89,9 @@ pub struct TaskSubmitterRef<'r, A, W: Wrapper<A>> {
     cancel: &'r Cancellation,
 }
 
-impl<'r, A, W: Wrapper<A> + Copy> Copy for TaskSubmitterRef<'r, A, W> {}
+impl<A, W: Wrapper<A> + Copy> Copy for TaskSubmitterRef<'_, A, W> {}
 
-impl<'r, A, W: Wrapper<A> + Clone> Clone for TaskSubmitterRef<'r, A, W> {
+impl<A, W: Wrapper<A> + Clone> Clone for TaskSubmitterRef<'_, A, W> {
     fn clone(&self) -> Self {
         *self
     }
@@ -134,12 +135,12 @@ pin_project! {
     }
 }
 
-impl<'c, F: Future<Output = ()>> Future for Cancelled<'c, F> {
+impl<F: Future<Output = ()>> Future for Cancelled<'_, F> {
     type Output = ();
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let s = self.project();
-        if let Poll::Ready(()) = s.cancel.poll(cx) {
+        if s.cancel.poll(cx) == Poll::Ready(()) {
             Poll::Ready(())
         } else {
             s.f.poll(cx)
@@ -174,6 +175,7 @@ impl<T> Stream for EventReceiver<T> {
     }
 }
 
+#[must_use]
 pub fn new_task_pair<T: Send + 'static>(
     spawner: Spawner,
 ) -> (TaskSubmitter<T, IdWrapper>, EventReceiver<T>) {
@@ -202,7 +204,7 @@ pub fn new_task_pair<T: Send + 'static>(
 }
 
 impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
-    pub fn wrap_with<AN, WN: Wrapper<AN, F = A>>(
+    pub const fn wrap_with<AN, WN: Wrapper<AN, F = A>>(
         self,
         wrapper: WN,
     ) -> TaskSubmitterRef<'r, AN, Wrapped<WN, W>> {
@@ -217,15 +219,15 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
         }
     }
 
-    pub fn wrapper(&self) -> W {
+    pub const fn wrapper(&self) -> W {
         self.wrapper
     }
 
-    pub fn sender(&self) -> &Sender<Result<W::F>> {
+    pub const fn sender(&self) -> &Sender<Result<W::F>> {
         self.sender
     }
 
-    pub fn cancel_token(&self) -> &Cancellation {
+    pub const fn cancel_token(&self) -> &Cancellation {
         self.cancel
     }
 
@@ -248,7 +250,7 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
                     f: inner,
                     cancel: cancel.cancelled(),
                 }
-                .await
+                .await;
             },
             span,
             name,
@@ -274,7 +276,7 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
                     f: inner,
                     cancel: cancel.cancelled(),
                 }
-                .await
+                .await;
             },
             span,
             name,
@@ -282,7 +284,7 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
     }
 }
 
-impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
+impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_stream(
         &self,
@@ -307,7 +309,7 @@ impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
                     f: inner,
                     cancel: cancel.cancelled(),
                 }
-                .await
+                .await;
             },
             span,
             name,
@@ -340,7 +342,7 @@ impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
                     f: inner,
                     cancel: cancel.cancelled(),
                 }
-                .await
+                .await;
             },
             span,
             name,
@@ -348,7 +350,7 @@ impl<'r, A: Send, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
     }
 }
 
-impl<'r, A, W: Wrapper<A>> Deref for TaskSubmitterRef<'r, A, W> {
+impl<A, W: Wrapper<A>> Deref for TaskSubmitterRef<'_, A, W> {
     type Target = Spawner;
 
     fn deref(&self) -> &Self::Target {

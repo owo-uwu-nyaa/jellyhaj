@@ -37,7 +37,7 @@ impl<N: Named, W, M> Valuable for MapperWidget<N, W, M> {
     }
 
     fn visit(&self, visit: &mut dyn Visit) {
-        visit.visit_named_fields(&NamedValues::new(&[], &[]))
+        visit.visit_named_fields(&NamedValues::new(&[], &[]));
     }
 }
 

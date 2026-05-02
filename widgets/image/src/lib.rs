@@ -40,7 +40,9 @@ static IMAGE_CACHER_FIELDS: &[NamedField] = &[
     NamedField::new("tag"),
 ];
 
+#[allow(clippy::ref_option_ref)]
 static IMAGE_NONE: &Option<&str> = &None;
+#[allow(clippy::ref_option_ref)]
 static IMAGE_SOME: &Option<&str> = &Some("image not inspectable");
 
 impl Valuable for ImageCacher {
@@ -69,17 +71,6 @@ impl Valuable for ImageCacher {
 impl Structable for ImageCacher {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("ImageCacher", Fields::Named(IMAGE_CACHER_FIELDS))
-    }
-}
-
-impl std::fmt::Debug for ImageCacher {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ImageCacher")
-            .field("image", &if self.image.is_some() { "Some" } else { "None" })
-            .field("image_type", &self.image_type)
-            .field("item_id", &self.item_id)
-            .field("tag", &self.tag)
-            .finish()
     }
 }
 
@@ -135,9 +126,11 @@ impl JellyfinImage {
             self.image.image.as_ref().map(|(p, _)| p)
         } else {
             let image_picker: &Picker = cx.refs.as_ref();
-            let p_height = (self.size.height as u32) * (image_picker.font_size().1 as u32);
-            let p_width = (self.size.width as u32) * (image_picker.font_size().0 as u32);
-            if !self.loading {
+            let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().1);
+            let p_width = u32::from(self.size.width) * u32::from(image_picker.font_size().0);
+            if self.loading {
+                None
+            } else {
                 let image_size = ImageSize { p_width, p_height };
                 let cached = self.image.cache.remove(&ImageProtocolKeyRef::new(
                     self.image.image_type,
@@ -165,8 +158,6 @@ impl JellyfinImage {
                     );
                     None
                 }
-            } else {
-                None
             }
         }
     }
@@ -184,14 +175,22 @@ fn add_image<
     *loading = false;
     if action.size == size {
         let picker = Picker::get_ref(cx.refs);
-        let width = min(
-            size.width as u32,
-            action.image.width().div_ceil(picker.font_size().0 as u32),
-        ) as u16;
-        let height = min(
-            size.height as u32,
-            action.image.height().div_ceil(picker.font_size().1 as u32),
-        ) as u16;
+        let width = u16::try_from(min(
+            u32::from(size.width),
+            action
+                .image
+                .width()
+                .div_ceil(u32::from(picker.font_size().0)),
+        ))
+        .expect("width center calc failed");
+        let height = u16::try_from(min(
+            u32::from(size.height),
+            action
+                .image
+                .height()
+                .div_ceil(u32::from(picker.font_size().1)),
+        ))
+        .expect("height center calc failed");
         let image = picker
             .new_protocol(
                 action.image,
@@ -240,7 +239,7 @@ impl<
             area.y += (area.height - new_size.height) / 2;
             area.width = new_size.width;
             area.height = new_size.height;
-            Image::new(image).render(area, buf)
+            Image::new(image).render(area, buf);
         }
         Ok(())
     }
@@ -276,7 +275,6 @@ impl<
     fn min_height(&self) -> Option<u16> {
         Some(1)
     }
-    #[inline(always)]
     fn accepts_text_input(&self) -> bool {
         false
     }

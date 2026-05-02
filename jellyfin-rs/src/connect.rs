@@ -63,18 +63,16 @@ impl ConnectionConfig {
             return Err(e.into());
         }
         for cert in certs.certs {
-            cert_store.add(cert)?
+            cert_store.add(cert)?;
         }
         let cert_store = Arc::new(cert_store);
         let http1_config = ClientConfig::builder()
             .with_root_certificates(cert_store)
             .with_no_client_auth();
         let mut general_config = http1_config.clone();
-        general_config.alpn_protocols.push("h2".as_bytes().to_vec());
-        general_config
-            .alpn_protocols
-            .push("http/1.1".as_bytes().to_vec());
-        Ok(ConnectionConfig {
+        general_config.alpn_protocols.push(b"h2".to_vec());
+        general_config.alpn_protocols.push(b"http/1.1".to_vec());
+        Ok(Self {
             authority,
             host,
             port,
@@ -103,7 +101,7 @@ impl ConnectionConfig {
                 .general_config
                 .connect(self.host.clone(), stream)
                 .await?;
-            if let Some(b"h2") = stream.get_ref().1.alpn_protocol() {
+            if stream.get_ref().1.alpn_protocol() == Some(b"h2") {
                 let (send, con) = hyper::client::conn::http2::handshake(
                     TokioExecutor::new(),
                     TokioIo::new(stream),
@@ -139,8 +137,8 @@ unsafe impl<T: Send> Send for Exclusive<T> {}
 unsafe impl<T: Send> Sync for Exclusive<T> {}
 
 impl<T> Exclusive<T> {
-    fn new(v: T) -> Self {
-        Exclusive {
+    const fn new(v: T) -> Self {
+        Self {
             inner: UnsafeCell::new(v),
             in_use: AtomicBool::new(false),
         }
@@ -166,13 +164,13 @@ struct Guard<'v, T> {
     in_use: &'v AtomicBool,
 }
 
-impl<'v, T> Drop for Guard<'v, T> {
+impl<T> Drop for Guard<'_, T> {
     fn drop(&mut self) {
         self.in_use.store(false, Ordering::Release);
     }
 }
 
-impl<'v, T> Deref for Guard<'v, T> {
+impl<T> Deref for Guard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -180,7 +178,7 @@ impl<'v, T> Deref for Guard<'v, T> {
     }
 }
 
-impl<'v, T> DerefMut for Guard<'v, T> {
+impl<T> DerefMut for Guard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.inner
     }
@@ -190,7 +188,7 @@ impl Debug for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Connection")
             .field("config", &self.config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -201,7 +199,7 @@ impl Debug for ConnectionConfig {
             .field("host", &self.host)
             .field("port", &self.port)
             .field("tls", &self.tls)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -279,7 +277,7 @@ impl Connection {
                     color_eyre::eyre::bail!("sending request failed after {MAX_RETRIES} retries")
                 }
                 let resp = loop {
-                    let inner = match state.deref_mut() {
+                    let inner = match &mut *state {
                         ConnectionInner::Disconnected => self.config.connection().await?,
                         ConnectionInner::H2(send_request) => {
                             if let Err(e) = send_request.ready().await {
@@ -323,7 +321,7 @@ fn spawn_con(con: impl Future<Output = hyper::Result<()>> + Send + 'static) {
     tokio::spawn(
         async move {
             if let Err(e) = pin!(con).await {
-                error!("connection error: {e:?}")
+                error!("connection error: {e:?}");
             }
         }
         .instrument(error_span!("jellyfin_connection")),
@@ -365,7 +363,7 @@ async fn recv_response(response: Response<Incoming>) -> Result<(BytesMut, Parts)
                 match frame {
                     Ok(frame) => {
                         if let Some(data) = frame.data_ref() {
-                            out.extend_from_slice(data.as_ref())
+                            out.extend_from_slice(data.as_ref());
                         }
                     }
                     Err(e) => return Poll::Ready(Err(e.into())),
@@ -388,15 +386,13 @@ pub struct JsonResponse<T: DeserializeOwned> {
 }
 
 impl<T: DeserializeOwned> JsonResponse<T> {
-    pub fn deserialize(self) -> impl Future<Output = Result<T>> {
+    pub fn deserialize(self) -> Result<T> {
         self.deserialize_as::<T>()
     }
-    pub async fn deserialize_value(
-        self,
-    ) -> std::result::Result<serde_json::Value, serde_json::Error> {
+    pub fn deserialize_value(self) -> std::result::Result<serde_json::Value, serde_json::Error> {
         serde_json::from_slice(&self.response)
     }
-    pub async fn deserialize_as<V: DeserializeOwned>(self) -> Result<V> {
+    pub fn deserialize_as<V: DeserializeOwned>(self) -> Result<V> {
         match serde_json::from_slice::<V>(&self.response) {
             Ok(v) => Ok(v),
             Err(first_try) => {
@@ -417,7 +413,7 @@ impl<T: DeserializeOwned> JsonResponse<T> {
 
 impl<T: DeserializeOwned> From<Bytes> for JsonResponse<T> {
     fn from(value: Bytes) -> Self {
-        JsonResponse {
+        Self {
             response: value,
             deserialize: PhantomData,
         }
@@ -495,8 +491,8 @@ impl AsyncWrite for MaybeTls {
 
     fn is_write_vectored(&self) -> bool {
         match self {
-            MaybeTls::Plain { stream } => stream.is_write_vectored(),
-            MaybeTls::Tcp { stream } => stream.is_write_vectored(),
+            Self::Plain { stream } => stream.is_write_vectored(),
+            Self::Tcp { stream } => stream.is_write_vectored(),
         }
     }
 }

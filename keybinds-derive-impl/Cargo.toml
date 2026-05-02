@@ -10,3 +10,7 @@ pretty_assertions = "1.4.1"
 edition = "2024"
 name = "keybinds-derive-impl"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

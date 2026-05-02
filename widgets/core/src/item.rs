@@ -56,18 +56,18 @@ pub trait ItemWidget<R: 'static>: Valuable + Send + Sized + 'static {
 pub trait ItemWidgetExt<R: 'static>: ItemWidget<R> {
     fn render_item(
         &mut self,
-        mut area: Rect,
+        area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
     ) -> Result<()> {
         #[instrument(name = "check_item_size")]
-        fn inner(dim: Size, area: &mut Rect) {
+        fn inner(dim: Size, area: Rect) {
             assert!(dim.width <= area.width, "width is too small");
             assert!(dim.height <= area.height, "height is too small");
             assert!(dim.width == area.width, "width is too large for position");
             assert!(dim.height == area.height, "width is too large for position");
         }
-        inner(self.dimensions(), &mut area);
+        inner(self.dimensions(), area);
         self.render_item_inner(area, buf, cx)
     }
 }

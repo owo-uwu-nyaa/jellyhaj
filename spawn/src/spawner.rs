@@ -43,7 +43,7 @@ impl Spawner {
         self.spawn(
             async move {
                 if let Err(e) = fut.await {
-                    warn!("error returned from task: {e:?}")
+                    warn!("error returned from task: {e:?}");
                 }
             },
             span,

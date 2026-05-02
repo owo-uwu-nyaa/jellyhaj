@@ -43,3 +43,7 @@ license = "MIT"
 name = "jellyfin"
 repository = "https://github.com/sargon64/jellyfin-rs"
 version = "0.1.4"
+
+
+[lints]
+workspace = true

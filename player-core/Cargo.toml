@@ -20,3 +20,7 @@ use-bindgen = ["libmpv/use-bindgen"]
 edition = "2024"
 name = "player-core"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

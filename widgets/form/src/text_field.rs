@@ -13,7 +13,8 @@ pub struct TextField {
 }
 
 impl TextField {
-    pub fn new(text: String) -> Self {
+    #[must_use]
+    pub const fn new(text: String) -> Self {
         Self { text }
     }
 }
@@ -77,7 +78,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if let FormAction::Delete = action {
+        if matches!(action, FormAction::Delete) {
             self.text.pop();
         }
         Ok(None)

@@ -19,7 +19,8 @@ pub struct LabelBlock {
 }
 
 impl LabelBlock {
-    pub fn new(text: String) -> Self {
+    #[must_use]
+    pub const fn new(text: String) -> Self {
         Self { text }
     }
 }
@@ -32,7 +33,7 @@ pub struct Pos {
 
 impl From<Pos> for Position {
     fn from(value: Pos) -> Self {
-        Position {
+        Self {
             x: value.x,
             y: value.y,
         }
@@ -47,7 +48,7 @@ impl From<Pos> for (u16, u16) {
 
 impl From<Position> for Pos {
     fn from(value: Position) -> Self {
-        Pos {
+        Self {
             x: value.x,
             y: value.y,
         }
@@ -100,7 +101,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
                     if sel.is_some() {
                         let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
                     } else {
-                        *sel = Some(Position::ORIGIN.into())
+                        *sel = Some(Position::ORIGIN.into());
                     }
                 }
                 FormAction::Quit => *sel = None,

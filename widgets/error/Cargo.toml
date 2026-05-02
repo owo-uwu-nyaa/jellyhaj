@@ -9,3 +9,7 @@ valuable.workspace = true
 edition = "2024"
 name = "jellyhaj-error-widget"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

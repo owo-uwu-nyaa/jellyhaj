@@ -16,7 +16,7 @@ pub(crate) struct UserIdQuery<'id> {
     user_id: &'id str,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct User {
@@ -36,7 +36,7 @@ pub struct User {
     pub primary_image_aspect_ratio: Option<i64>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaStream {
@@ -100,7 +100,7 @@ pub struct MediaStream {
     //         "IsAnamorphic": true
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaSource {
@@ -166,7 +166,7 @@ pub struct MediaSource {
     //     },
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserItem {
@@ -552,7 +552,7 @@ pub struct UserItem {
     // "CurrentProgram": {}
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserConfiguration {
@@ -573,7 +573,7 @@ pub struct UserConfiguration {
     pub enable_next_episode_auto_play: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserPolicy {
@@ -618,7 +618,7 @@ pub struct UserPolicy {
     pub sync_play_access: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserAccessSchedule {
@@ -628,7 +628,7 @@ pub struct UserAccessSchedule {
     pub end_hour: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct UserAuth {
     pub user: User,
@@ -637,7 +637,7 @@ pub struct UserAuth {
     pub server_id: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct GetUsersQuery {
     is_hidden: bool,
     is_disabled: bool,

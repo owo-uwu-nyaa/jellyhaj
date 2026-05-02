@@ -25,7 +25,6 @@ use crate::{
     mpv::{
         EndFileReason, Format, Mpv, MpvDropHandle, events, mpv_cstr_to_str, mpv_err, mpv_format,
     },
-    protocol::ProtocolContextType,
 };
 
 use std::ffi::{CStr, CString};
@@ -39,7 +38,6 @@ use std::sync::Arc;
 use std::{
     ffi::c_void,
     future::{Future, poll_fn},
-    process::abort,
     sync::atomic::Ordering,
     task::Poll,
 };
@@ -68,24 +66,15 @@ pub mod mpv_event_id {
 }
 
 #[cfg(feature = "async")]
-struct PanicAbort;
-#[cfg(feature = "async")]
-impl Drop for PanicAbort {
-    fn drop(&mut self) {
-        eprintln!("waking waker paniced");
-        abort()
-    }
-}
-
-#[cfg(feature = "async")]
 pub struct AsyncContext {
     interval: interval::DefaultInterval,
 }
 
+// panics SHALL NOT propagate up from this function
+// because this function is extern "C", rust automatically converts panics to aborts
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
 pub(crate) unsafe extern "C" fn wake_callback(cx: *mut c_void) {
-    let abort_guard = PanicAbort;
     #[cfg(feature = "tracing")]
     {
         tracing::trace!("wake_callback called");
@@ -108,7 +97,6 @@ pub(crate) unsafe extern "C" fn wake_callback(cx: *mut c_void) {
     } {
         waker.wake_by_ref();
     }
-    std::mem::forget(abort_guard);
 }
 
 #[derive(Debug)]
@@ -122,25 +110,25 @@ pub enum PropertyData<'a> {
     Node(&'a MpvNode),
 }
 
-impl<'a> PropertyData<'a> {
+impl PropertyData<'_> {
     // SAFETY: meant to extract the data from an event property. See `mpv_event_property` in
     // `client.h`
-    unsafe fn from_raw(format: MpvFormat, ptr: *mut ctype::c_void) -> Result<PropertyData<'a>> {
+    unsafe fn from_raw(format: MpvFormat, ptr: *mut ctype::c_void) -> Result<Self> {
         assert!(!ptr.is_null());
         unsafe {
             match format {
-                mpv_format::Flag => Ok(PropertyData::Flag(*(ptr as *mut bool))),
+                mpv_format::Flag => Ok(PropertyData::Flag(*ptr.cast::<bool>())),
                 mpv_format::String => {
-                    let char_ptr = *(ptr as *mut *mut ctype::c_char);
+                    let char_ptr = *ptr.cast::<*mut ctype::c_char>();
                     Ok(PropertyData::Str(mpv_cstr_to_str(char_ptr)?))
                 }
                 mpv_format::OsdString => {
-                    let char_ptr = *(ptr as *mut *mut ctype::c_char);
+                    let char_ptr = *ptr.cast::<*mut ctype::c_char>();
                     Ok(PropertyData::OsdStr(mpv_cstr_to_str(char_ptr)?))
                 }
-                mpv_format::Double => Ok(PropertyData::Double(*(ptr as *mut f64))),
-                mpv_format::Int64 => Ok(PropertyData::Int64(*(ptr as *mut i64))),
-                mpv_format::Node => Ok(PropertyData::Node(&*(ptr as *mut MpvNode))),
+                mpv_format::Double => Ok(PropertyData::Double(*ptr.cast::<f64>())),
+                mpv_format::Int64 => Ok(PropertyData::Int64(*ptr.cast::<i64>())),
+                mpv_format::Node => Ok(PropertyData::Node(&*ptr.cast::<MpvNode>())),
                 mpv_format::None => unreachable!(),
                 _ => unimplemented!(),
             }
@@ -159,15 +147,15 @@ pub enum Event<'a> {
         text: &'a str,
         log_level: LogLevel,
     },
-    /// Received when using get_property_async
+    /// Received when using `get_property_async`
     GetPropertyReply {
         name: &'a str,
         result: PropertyData<'a>,
         reply_userdata: u64,
     },
-    /// Received when using set_property_async
+    /// Received when using `set_property_async`
     SetPropertyReply(u64),
-    /// Received when using command_async
+    /// Received when using `command_async`
     CommandReply {
         reply_userdata: u64,
         data: MpvNode,
@@ -186,7 +174,7 @@ pub enum Event<'a> {
     /// The player changed current position
     Seek,
     PlaybackRestart,
-    /// Received when used with observe_property
+    /// Received when used with `observe_property`
     PropertyChange {
         name: &'a str,
         change: PropertyData<'a>,
@@ -200,7 +188,7 @@ pub enum Event<'a> {
 }
 
 pub struct EventContextSync {
-    _drop_handle: Arc<MpvDropHandle>,
+    drop_handle: Arc<MpvDropHandle>,
     /// The handle to the mpv core
     ctx: NonNull<libmpv_sys::mpv_handle>,
 }
@@ -250,52 +238,51 @@ fn setup_waker(ctx: &MpvDropHandle) -> AsyncContext {
 
 #[cfg(feature = "async")]
 impl EventContextSync {
+    #[must_use]
     pub fn enable_async(self) -> EventContextAsync {
-        let cx = setup_waker(&self._drop_handle);
+        let cx = setup_waker(&self.drop_handle);
         EventContextAsync { inner: self, cx }
     }
 }
 
 #[cfg(feature = "async")]
-impl<Protocol: ProtocolContextType> Mpv<EventContextSync, Protocol> {
-    pub fn enable_async(self) -> Mpv<EventContextAsync, Protocol> {
+impl Mpv<EventContextSync> {
+    #[must_use]
+    pub fn enable_async(self) -> Mpv<EventContextAsync> {
         let cx = setup_waker(&self.drop_handle);
         Mpv {
             drop_handle: self.drop_handle,
             ctx: self.ctx,
             event_inline: cx,
-            protocols_inline: self.protocols_inline,
         }
     }
 }
 
-impl<Event: sealed::EventContext, Protocol: ProtocolContextType> Mpv<Event, Protocol> {
-    pub fn split_event(self) -> (Mpv<EmptyEventContext, Protocol>, Event) {
+impl<Event: sealed::EventContext> Mpv<Event> {
+    pub fn split_event(self) -> (Mpv<EmptyEventContext>, Event) {
         let new = Mpv {
             drop_handle: self.drop_handle,
             ctx: self.ctx,
             event_inline: (),
-            protocols_inline: self.protocols_inline,
         };
         let event = Event::exract(self.event_inline, &new);
         (new, event)
     }
 }
 
-impl<Protocol: ProtocolContextType> Mpv<EmptyEventContext, Protocol> {
+impl Mpv<EmptyEventContext> {
     pub fn combine_event<Event: sealed::EventContext + sealed::EventContextExt>(
         self,
         event: Event,
-    ) -> Result<Mpv<Event, Protocol>> {
-        if event.get_ctx() != self.ctx {
-            Err(Error::HandleMismatch)
-        } else {
+    ) -> Result<Mpv<Event>> {
+        if event.get_ctx() == self.ctx {
             Ok(Mpv {
                 drop_handle: self.drop_handle,
                 ctx: self.ctx,
                 event_inline: Event::to_inlined(event),
-                protocols_inline: self.protocols_inline,
             })
+        } else {
+            Err(Error::HandleMismatch)
         }
     }
 }
@@ -305,14 +292,14 @@ pub struct ClientMessage<'e> {
     args: &'e [*const std::ffi::c_char],
 }
 
-impl<'e> Debug for ClientMessage<'e> {
+impl Debug for ClientMessage<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(*self).finish()
     }
 }
 
-unsafe impl<'e> Send for ClientMessage<'e> {}
-unsafe impl<'e> Sync for ClientMessage<'e> {}
+unsafe impl Send for ClientMessage<'_> {}
+unsafe impl Sync for ClientMessage<'_> {}
 
 impl<'e> IntoIterator for ClientMessage<'e> {
     type Item = &'e CStr;
@@ -330,8 +317,8 @@ pub struct ClientMessageIter<'e> {
     args: std::slice::Iter<'e, *const std::ffi::c_char>,
 }
 
-unsafe impl<'e> Send for ClientMessageIter<'e> {}
-unsafe impl<'e> Sync for ClientMessageIter<'e> {}
+unsafe impl Send for ClientMessageIter<'_> {}
+unsafe impl Sync for ClientMessageIter<'_> {}
 
 impl<'e> Iterator for ClientMessageIter<'e> {
     type Item = &'e CStr;
@@ -344,12 +331,12 @@ impl<'e> Iterator for ClientMessageIter<'e> {
         self.args.size_hint()
     }
 }
-impl<'e> DoubleEndedIterator for ClientMessageIter<'e> {
+impl DoubleEndedIterator for ClientMessageIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.args.next_back().map(|s| unsafe { CStr::from_ptr(*s) })
     }
 }
-impl<'e> ExactSizeIterator for ClientMessageIter<'e> {}
+impl ExactSizeIterator for ClientMessageIter<'_> {}
 
 pub trait EventContextExt: sealed::EventContextExt {
     /// Enable an event.
@@ -382,8 +369,8 @@ pub trait EventContextExt: sealed::EventContextExt {
 
     /// Diable all events.
     fn disable_all_events(&self) -> Result<()> {
-        for i in 2..26 {
-            self.disable_event(i as _)?;
+        for i in 2u32..26 {
+            self.disable_event(i)?;
         }
         Ok(())
     }
@@ -397,7 +384,7 @@ pub trait EventContextExt: sealed::EventContextExt {
                 self.get_ctx().as_ptr(),
                 id,
                 name.as_ptr(),
-                format.as_mpv_format() as _,
+                format.as_mpv_format(),
             )
         })
     }
@@ -421,7 +408,7 @@ pub trait EventContextExt: sealed::EventContextExt {
         unsafe { self.wait_event_unsafe(timeout) }
     }
 
-    /// unsafe, internal version of wait_event.
+    /// unsafe, internal version of `wait_event`.
     /// # Safety
     /// requires that all previously returned Events are now unreachable.
     unsafe fn wait_event_unsafe(&self, timeout: f64) -> Option<Result<Event<'static>>> {
@@ -437,7 +424,7 @@ pub trait EventContextExt: sealed::EventContextExt {
             mpv_event_id::Shutdown => Some(Ok(Event::Shutdown)),
             mpv_event_id::LogMessage => {
                 let log_message =
-                    unsafe { *(event.data as *mut libmpv_sys::mpv_event_log_message) };
+                    unsafe { *event.data.cast::<libmpv_sys::mpv_event_log_message>() };
 
                 let prefix = unsafe { mpv_cstr_to_str(log_message.prefix) };
                 Some(prefix.and_then(|prefix| {
@@ -450,7 +437,7 @@ pub trait EventContextExt: sealed::EventContextExt {
                 }))
             }
             mpv_event_id::GetPropertyReply => {
-                let property = unsafe { *(event.data as *mut libmpv_sys::mpv_event_property) };
+                let property = unsafe { *event.data.cast::<libmpv_sys::mpv_event_property>() };
 
                 let name = unsafe { mpv_cstr_to_str(property.name) };
                 Some(name.and_then(|name| {
@@ -480,13 +467,13 @@ pub trait EventContextExt: sealed::EventContextExt {
                 }
             }
             mpv_event_id::StartFile => {
-                let start_file = unsafe { *(event.data as *mut libmpv_sys::mpv_event_start_file) };
+                let start_file = unsafe { *event.data.cast::<libmpv_sys::mpv_event_start_file>() };
                 Some(Ok(Event::StartFile {
                     playlist_entry_id: start_file.playlist_entry_id,
                 }))
             }
             mpv_event_id::EndFile => {
-                let end_file = unsafe { *(event.data as *mut libmpv_sys::mpv_event_end_file) };
+                let end_file = unsafe { *event.data.cast::<libmpv_sys::mpv_event_end_file>() };
 
                 if let Err(e) = mpv_err((), end_file.error) {
                     Some(Err(e))
@@ -497,20 +484,21 @@ pub trait EventContextExt: sealed::EventContextExt {
             mpv_event_id::FileLoaded => Some(Ok(Event::FileLoaded)),
             mpv_event_id::ClientMessage => {
                 let client_message =
-                    unsafe { *(event.data as *mut libmpv_sys::mpv_event_client_message) };
+                    unsafe { *event.data.cast::<libmpv_sys::mpv_event_client_message>() };
 
-                Some(Ok(Event::ClientMessage(ClientMessage {
-                    args: unsafe {
-                        slice::from_raw_parts(client_message.args, client_message.num_args as _)
-                    },
-                })))
+                match usize::try_from(client_message.num_args) {
+                    Ok(num_args) => Some(Ok(Event::ClientMessage(ClientMessage {
+                        args: unsafe { slice::from_raw_parts(client_message.args, num_args) },
+                    }))),
+                    Err(e) => Some(Err(e.into())),
+                }
             }
             mpv_event_id::VideoReconfig => Some(Ok(Event::VideoReconfig)),
             mpv_event_id::AudioReconfig => Some(Ok(Event::AudioReconfig)),
             mpv_event_id::Seek => Some(Ok(Event::Seek)),
             mpv_event_id::PlaybackRestart => Some(Ok(Event::PlaybackRestart)),
             mpv_event_id::PropertyChange => {
-                let property = unsafe { *(event.data as *mut libmpv_sys::mpv_event_property) };
+                let property = unsafe { *event.data.cast::<libmpv_sys::mpv_event_property>() };
 
                 // This happens if the property is not available. For example,
                 // if you reached EndFile while observing a property.
@@ -549,7 +537,7 @@ pub trait EventContextAsyncExt:
     }
     /**
     # Safety
-    ensure that 's is properly bound. It must be impossible to call any wait_event while the last returned event is still alive.
+    ensure that 's is properly bound. It must be impossible to call any `wait_event` while the last returned event is still alive.
      */
     unsafe fn poll_wait_event_inner<'s>(
         &mut self,
@@ -604,14 +592,12 @@ impl<T: sealed::EventContextAsyncExt + EventContextExt + Send + Sync> EventConte
 mod sealed {
     use std::ptr::NonNull;
 
-    use crate::protocol::ProtocolContextType;
-
     #[cfg(feature = "async")]
     use super::{AsyncContext, EventContextAsync};
     use super::{EmptyEventContext, EventContextSync, Mpv};
 
     pub trait EventContextType {
-        type Inlined;
+        type Inlined: Send + Sync;
     }
     impl EventContextType for EventContextSync {
         type Inlined = ();
@@ -625,21 +611,15 @@ mod sealed {
     }
 
     pub trait EventContext: super::EventContextType {
-        fn exract<Protocol: ProtocolContextType>(
-            inline: Self::Inlined,
-            cx: &Mpv<EmptyEventContext, Protocol>,
-        ) -> Self;
+        fn exract(inline: Self::Inlined, cx: &Mpv<EmptyEventContext>) -> Self;
         fn to_inlined(self) -> Self::Inlined;
     }
 
     impl EventContext for EventContextSync {
-        fn exract<Protocol: ProtocolContextType>(
-            _inline: Self::Inlined,
-            cx: &Mpv<EmptyEventContext, Protocol>,
-        ) -> Self {
-            EventContextSync {
+        fn exract(_inline: Self::Inlined, cx: &Mpv<EmptyEventContext>) -> Self {
+            Self {
                 ctx: cx.ctx,
-                _drop_handle: cx.drop_handle.clone(),
+                drop_handle: cx.drop_handle.clone(),
             }
         }
         fn to_inlined(self) -> Self::Inlined {}
@@ -647,11 +627,8 @@ mod sealed {
 
     #[cfg(feature = "async")]
     impl EventContext for EventContextAsync {
-        fn exract<Protocol: ProtocolContextType>(
-            inline: Self::Inlined,
-            cx: &Mpv<EmptyEventContext, Protocol>,
-        ) -> Self {
-            EventContextAsync {
+        fn exract(inline: Self::Inlined, cx: &Mpv<EmptyEventContext>) -> Self {
+            Self {
                 inner: EventContextSync::exract((), cx),
                 cx: inline,
             }
@@ -681,14 +658,14 @@ mod sealed {
         }
     }
 
-    unsafe impl<Protocol: ProtocolContextType> EventContextExt for Mpv<EventContextSync, Protocol> {
+    unsafe impl EventContextExt for Mpv<EventContextSync> {
         fn get_ctx(&self) -> NonNull<libmpv_sys::mpv_handle> {
             self.ctx
         }
     }
 
     #[cfg(feature = "async")]
-    unsafe impl<Protocol: ProtocolContextType> EventContextExt for Mpv<EventContextAsync, Protocol> {
+    unsafe impl EventContextExt for Mpv<EventContextAsync> {
         fn get_ctx(&self) -> NonNull<libmpv_sys::mpv_handle> {
             self.ctx
         }
@@ -701,7 +678,7 @@ mod sealed {
     #[cfg(feature = "async")]
     impl EventContextAsyncExt for EventContextAsync {
         fn get_callback_cx(&self) -> &crate::mpv::drop_handle::CallbackContext {
-            &self.inner._drop_handle.callback_cx
+            &self.inner.drop_handle.callback_cx
         }
 
         fn get_async_cx(&mut self) -> &mut AsyncContext {
@@ -709,7 +686,7 @@ mod sealed {
         }
     }
     #[cfg(feature = "async")]
-    impl<Protocol: ProtocolContextType> EventContextAsyncExt for Mpv<EventContextAsync, Protocol> {
+    impl EventContextAsyncExt for Mpv<EventContextAsync> {
         fn get_callback_cx(&self) -> &crate::mpv::drop_handle::CallbackContext {
             &self.drop_handle.callback_cx
         }

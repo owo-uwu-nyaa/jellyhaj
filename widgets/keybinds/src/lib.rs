@@ -26,6 +26,8 @@ static KEYBIND_WIDGET_FIELDS: &[NamedField] = &[
     NamedField::new("current_view"),
 ];
 
+const MAX_KEYBIND_WIDGET_HEIGHT: u16 = 7;
+
 impl<T: Command, W, M> Valuable for KeybindWidget<T, W, M> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
@@ -49,7 +51,7 @@ impl<T: Command, W, M> Structable for KeybindWidget<T, W, M> {
 }
 
 impl<T: Command, W, M> KeybindWidget<T, W, M> {
-    pub fn new(inner: W, top: BindingMap<T>, mapper: M) -> Self {
+    pub const fn new(inner: W, top: BindingMap<T>, mapper: M) -> Self {
         Self {
             inner,
             top_map: top,

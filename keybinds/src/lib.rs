@@ -61,7 +61,7 @@ impl PartialOrd for Key {
     }
 }
 
-fn score_key(k: &Key) -> u8 {
+const fn score_key(k: &Key) -> u8 {
     let mut v = 0;
     if k.control {
         v += 2;
@@ -154,6 +154,7 @@ impl Stream for KeybindEvents {
 pub mod __macro_support {
     use crate::{BindingMap, Command};
 
+    #[must_use]
     pub fn collect_all_names(names: &[&[&'static str]]) -> &'static [&'static str] {
         let mut out: Vec<_> = names
             .iter()

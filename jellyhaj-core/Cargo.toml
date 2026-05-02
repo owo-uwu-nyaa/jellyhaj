@@ -25,10 +25,11 @@ futures-util.workspace = true
 pin-project-lite.workspace = true
 valuable.workspace = true
 
-[lints.rust]
-unexpected_cfgs = {check-cfg = ['cfg(tokio_unstable)'], level = "warn"}
-
 [package]
 edition = "2024"
 name = "jellyhaj-core"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

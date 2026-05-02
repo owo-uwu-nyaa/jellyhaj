@@ -32,10 +32,10 @@ fn parse_variant(variant: Variant) -> Result<ParsedVariant> {
             attr.meta.require_list()?.parse_nested_meta(|meta| {
                 if meta.path.is_ident("flatten") {
                     flatten = true;
-                    if !meta.input.is_empty() {
-                        Err(meta.error("flatten must be empty"))
-                    } else {
+                    if meta.input.is_empty() {
                         Ok(())
+                    } else {
+                        Err(meta.error("flatten must be empty"))
                     }
                 } else if meta.path.is_ident("name") {
                     name = Some(meta.value()?.parse()?);
@@ -65,7 +65,7 @@ fn parse_variant(variant: Variant) -> Result<ParsedVariant> {
                 "the variant annotated with flatten must have exactly 1 field",
             ))
         }
-    } else if let Fields::Unit = variant.fields {
+    } else if variant.fields == Fields::Unit {
         let name = name.unwrap_or_else(|| ident_to_kebab_lit(&variant.ident));
         Ok(ParsedVariant::Command(CommandVariant {
             ident: variant.ident,
@@ -201,7 +201,7 @@ pub fn command(input: TokenStream) -> Result<TokenStream> {
             let mut generics = input.generics;
             for param in &mut generics.params {
                 if let GenericParam::Type(ref mut type_param) = *param {
-                    type_param.bounds.push(parse_quote!(::keybinds::Command))
+                    type_param.bounds.push(parse_quote!(::keybinds::Command));
                 }
             }
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

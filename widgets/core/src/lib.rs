@@ -54,16 +54,16 @@ pub struct WidgetContext<'p, A, W: Wrapper<A>, R: 'static> {
     pub submitter: TaskSubmitterRef<'p, A, W>,
 }
 
-impl<'p, A, W: Wrapper<A> + Copy, R> Copy for WidgetContext<'p, A, W, R> {}
+impl<A, W: Wrapper<A> + Copy, R> Copy for WidgetContext<'_, A, W, R> {}
 
-impl<'p, A, W: Wrapper<A> + Clone, R> Clone for WidgetContext<'p, A, W, R> {
+impl<A, W: Wrapper<A> + Clone, R> Clone for WidgetContext<'_, A, W, R> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
 impl<'p, A, W: Wrapper<A>, R> WidgetContext<'p, A, W, R> {
-    pub fn wrap_with<AN, WN: Wrapper<AN, F = A>>(
+    pub const fn wrap_with<AN, WN: Wrapper<AN, F = A>>(
         self,
         wrapper: WN,
     ) -> WidgetContext<'p, AN, Wrapped<WN, W>, R> {

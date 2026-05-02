@@ -16,9 +16,15 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
+#![allow(
+    non_upper_case_globals,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::doc_markdown,
+    clippy::must_use_candidate,
+    clippy::pub_underscore_fields,
+    clippy::unreadable_literal
+)]
 
 #[cfg(feature = "use-bindgen")]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

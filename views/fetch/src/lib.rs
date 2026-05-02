@@ -70,7 +70,6 @@ pub async fn single_item(
         .await
         .context("fetching episode")?
         .deserialize()
-        .await
         .context("deserializing episode")?
         .items
         .pop()
@@ -145,7 +144,6 @@ pub async fn fetch_all_children(jellyfin: &JellyfinClient, id: &str) -> Result<V
             .await
             .context("requesting items")?
             .deserialize()
-            .await
             .context("deserializing items")
     })
     .await?;

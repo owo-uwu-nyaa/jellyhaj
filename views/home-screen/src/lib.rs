@@ -16,6 +16,7 @@ pub enum Pass {
     Quit,
 }
 
+#[must_use]
 pub fn render_home_screen(
     cx: TuiContext,
     cont: Vec<MediaItem>,
@@ -27,6 +28,7 @@ pub fn render_home_screen(
     make_new_erased(cx, widget)
 }
 
+#[must_use]
 pub fn make_fetch_home_screen(cx: TuiContext) -> Erased {
     let fut = fetch::fetch(cx.jellyfin.clone());
     make_fetch(cx, "Fetching Home Screen", fut)

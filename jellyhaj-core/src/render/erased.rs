@@ -104,12 +104,11 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
                 if self.widget.accepts_text_input() {
                     self.widget.accept_text(v);
                     return (None, true);
-                } else {
-                    return (None, false);
                 }
+                return (None, false);
             }
             Event::Resize(_, _) => return (None, true),
-            _ => return (None, true),
+            _ => return (None, false),
         };
         let res = match res {
             Ok(None) => None,

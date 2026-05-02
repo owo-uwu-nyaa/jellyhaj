@@ -62,7 +62,7 @@ impl LoginInfo {
             } else {
                 return Err(eyre!("Password cmd is empty"));
             };
-            for arg in cmd[1..].iter() {
+            for arg in &cmd[1..] {
                 command.arg(arg);
             }
             let output = command
@@ -89,6 +89,7 @@ impl LoginInfo {
 }
 
 #[instrument]
+#[allow(clippy::equatable_if_let)]
 pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Config> {
     let (config_dir, config_file) = if let Some(config_file) = config_file {
         (
@@ -105,10 +106,10 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         config_file.push("config.toml");
         (config_dir, config_file)
     };
-    if !use_builtin {
-        info!("loading config from {}.", config_file.display());
+    if use_builtin {
+        info!("loading built in config.");
     } else {
-        info!("loading built in config.")
+        info!("loading config from {}.", config_file.display());
     }
 
     let config: ParseConfig = if !use_builtin && config_file.exists() {
@@ -131,7 +132,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         keybinds::from_file(keybinds, false, default_keybinds.0).context("parsing keybindings")?
     } else if !use_builtin
         && let mut keybinds_file = config_dir.clone()
-        && let _ = keybinds_file.push("keybinds.toml")
+        && let () = keybinds_file.push("keybinds.toml")
         && keybinds_file.exists()
     {
         keybinds::from_file(keybinds_file, false, default_keybinds.0)
@@ -152,7 +153,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         EffectStore::parse(&content)
     } else if !use_builtin
         && let mut effects_file = config_dir.clone()
-        && let _ = effects_file.push("effects.toml")
+        && let () = effects_file.push("effects.toml")
         && effects_file.exists()
     {
         let content = std::fs::read_to_string(effects_file).context("reading effects file")?;
@@ -165,8 +166,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
     let mpv_profile = config
         .mpv_profile
         .as_deref()
-        .map(MpvProfile::from_str)
-        .unwrap_or(Ok(MpvProfile::default()))
+        .map_or_else(|| Ok(MpvProfile::default()), MpvProfile::from_str)
         .context("parsing mpv_profile")?;
 
     let login_file = if let Some(login_file) = config.login_file {

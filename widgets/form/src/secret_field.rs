@@ -13,7 +13,8 @@ pub struct SecretField {
 }
 
 impl SecretField {
-    pub fn new(secret: String) -> Self {
+    #[must_use]
+    pub const fn new(secret: String) -> Self {
         Self { secret }
     }
 }
@@ -98,7 +99,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for SecretField {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if let FormAction::Delete = action {
+        if matches!(action, FormAction::Delete) {
             self.secret.pop();
         }
         Ok(None)

@@ -1,3 +1,4 @@
+#![allow(clippy::struct_excessive_bools)]
 use std::{borrow::Cow, fmt::Debug, future::Future, ops::Deref, sync::Arc};
 
 use color_eyre::eyre::{OptionExt, eyre};
@@ -79,7 +80,7 @@ mod sealed {
     impl AuthSealed for KeyAuth {}
 }
 
-pub trait AuthStatus: AuthSealed + Clone + Debug {
+pub trait AuthStatus: AuthSealed + Clone + Debug + Send + Sync {
     fn add_auth_header(&self, builder: http::request::Builder) -> http::request::Builder;
 }
 impl AuthStatus for NoAuth {
@@ -146,7 +147,7 @@ impl JellyfinClient {
         concurrency: usize,
     ) -> err::Result<JellyfinClient<NoAuth>> {
         let uri = Uri::try_from(uri.as_ref())?.into_parts();
-        let tls = match uri.scheme.as_ref().map(|s| s.as_str()) {
+        let tls = match uri.scheme.as_ref().map(http::uri::Scheme::as_str) {
             None => return Err(eyre!("jellyfin uri has no scheme")),
             Some("http") => false,
             Some("https") => true,
@@ -154,10 +155,9 @@ impl JellyfinClient {
         };
         let authority = uri.authority.ok_or_eyre("uri has no authority part")?;
         let host_header = HeaderValue::from_str(authority.as_str())?;
-        let uri_base = uri
-            .path_and_query
-            .map(|path| path.path().trim_end_matches("/").to_string())
-            .unwrap_or(String::new());
+        let uri_base = uri.path_and_query.map_or(String::new(), |path| {
+            path.path().trim_end_matches('/').to_string()
+        });
         Ok(JellyfinClient {
             inner: Arc::new(ClientInner {
                 uri_base,
@@ -171,6 +171,7 @@ impl JellyfinClient {
         })
     }
 
+    #[allow(clippy::future_not_send)]
     /// Creates a new `JellyfinConnection` with auth
     /// * `url` The base jellyfin server url, without a traling "/"
     /// * `username` The username of the user to auth with
@@ -183,7 +184,7 @@ impl JellyfinClient {
         password: impl AsRef<str>,
         unique: UniqueId,
         concurrency: usize,
-    ) -> err::Result<JellyfinClient<Auth>> {
+    ) -> err::Result<Self> {
         Self::new(url, client_info, device_name, unique, concurrency)?
             .auth_user_name(username, password)
             .await
@@ -203,15 +204,19 @@ impl JellyfinClient {
 }
 
 impl<AuthS: AuthStatus> JellyfinClient<AuthS> {
+    #[must_use]
     pub fn get_auth(&self) -> &AuthS {
         &self.inner.auth
     }
+    #[must_use]
     pub fn get_base_uri(&self) -> &str {
         &self.inner.uri_base
     }
+    #[must_use]
     pub fn get_client_info(&self) -> &ClientInfo {
         &self.inner.client_info
     }
+    #[must_use]
     pub fn get_device_name(&self) -> &str {
         &self.inner.device_name
     }
@@ -247,12 +252,13 @@ fn client_with_auth<Auth1: AuthStatus, Auth2: AuthStatus>(
 }
 
 impl<Auth: Authed> JellyfinClient<Auth> {
+    #[must_use]
     pub fn without_auth(self) -> JellyfinClient<NoAuth> {
         client_with_auth(self, NoAuth)
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct JellyfinVec<T> {
     pub items: Vec<T>,
@@ -264,7 +270,7 @@ impl<T> JellyfinVec<T> {
     pub async fn collect<I, F, E>(mut f: F) -> std::result::Result<Vec<T>, E>
     where
         F: FnMut(u32) -> I,
-        I: Future<Output = std::result::Result<JellyfinVec<T>, E>>,
+        I: Future<Output = std::result::Result<Self, E>>,
     {
         let initial = f(0).await?;
         let mut last_len = initial.items.len();
@@ -279,7 +285,11 @@ impl<T> JellyfinVec<T> {
             if last_len == 0 {
                 break;
             }
-            let mut next = f(res.len() as u32).await?;
+            let Ok(res_len) = u32::try_from(res.len()) else {
+                tracing::error!("Collecting List from jellyfin overflowed 32 bit integer");
+                break;
+            };
+            let mut next = f(res_len).await?;
             last_len = next.items.len();
             res.append(&mut next.items);
         }

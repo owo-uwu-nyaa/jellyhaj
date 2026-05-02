@@ -15,8 +15,7 @@ pub fn flatten_control_flow(
     match v {
         Err(e) => Err(e),
         Ok(None) => Ok(None),
-        Ok(Some(ControlFlow::Continue(v))) => Ok(Some(v)),
-        Ok(Some(ControlFlow::Break(v))) => Ok(Some(v)),
+        Ok(Some(ControlFlow::Continue(v) | ControlFlow::Break(v))) => Ok(Some(v)),
     }
 }
 
@@ -86,12 +85,12 @@ impl From<Infallible> for Navigation {
 
 impl From<GlobalCommand> for Navigation {
     fn from(value: GlobalCommand) -> Self {
-        match value {
-            GlobalCommand::ShowStats => Navigation::Push(NextScreen::Stats),
-            GlobalCommand::ShowLogs => Navigation::Push(NextScreen::Logs),
-            GlobalCommand::ShowInspect => Navigation::Push(NextScreen::Inspect),
-            GlobalCommand::QuickConnect => Navigation::Push(NextScreen::QuickConnect),
-        }
+        Self::Push(match value {
+            GlobalCommand::ShowStats => NextScreen::Stats,
+            GlobalCommand::ShowLogs => NextScreen::Logs,
+            GlobalCommand::ShowInspect => NextScreen::Inspect,
+            GlobalCommand::QuickConnect => NextScreen::QuickConnect,
+        })
     }
 }
 

@@ -8,7 +8,7 @@ use parking_lot::RwLock;
 use tracing::{Level, Metadata, field::FieldSet, level_filters::STATIC_MAX_LEVEL};
 use tracing_core::{Callsite, LevelFilter, callsite::DefaultCallsite, identify_callsite};
 
-pub(crate) fn log_message(prefix: &str, level: LogLevel, text: &str) {
+pub fn log_message(prefix: &str, level: LogLevel, text: &str) {
     let level = match level {
         mpv_log_level::Fatal | mpv_log_level::Error => Level::ERROR,
         mpv_log_level::Warn => Level::WARN,
@@ -43,19 +43,6 @@ static STATIC_CALLSITE: LazyLock<RwLock<HashMap<(&'static str, Level), &'static 
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn get_tracing_callsite(prefix: &str, level: Level) -> &'static DefaultCallsite {
-    if let Some(metadata) = STATIC_CALLSITE.read().get(&(prefix, level)) {
-        return metadata;
-    }
-    let prefix: &'static str = 'prefix: {
-        // ensures that lock guard is dropped before writing
-        if let Some(prefix) = STATIC_STRING.read().get(prefix) {
-            break 'prefix prefix;
-        }
-        let prefix = prefix.to_string().leak();
-        STATIC_STRING.write().insert(prefix);
-        prefix
-    };
-
     static MESSAGE_FIELD: &[&str] = &["message"];
     static MESSAGE_FIELD_SET_CALLSITE: DefaultCallsite = DefaultCallsite::new({
         static META: Metadata = Metadata::new(
@@ -73,6 +60,19 @@ fn get_tracing_callsite(prefix: &str, level: Level) -> &'static DefaultCallsite 
         );
         &META
     });
+    if let Some(metadata) = STATIC_CALLSITE.read().get(&(prefix, level)) {
+        return metadata;
+    }
+    let prefix: &'static str = 'prefix: {
+        // ensures that lock guard is dropped before writing
+        if let Some(prefix) = STATIC_STRING.read().get(prefix) {
+            break 'prefix prefix;
+        }
+        let prefix = prefix.to_string().leak();
+        STATIC_STRING.write().insert(prefix);
+        prefix
+    };
+
     let metadata: &'static Metadata<'static> = Box::leak(Box::new(Metadata::new(
         "libmpv log message",
         prefix,

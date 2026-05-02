@@ -21,15 +21,9 @@ mod errors;
 /// Event handling
 pub mod events;
 pub mod node;
-/// Custom protocols (`protocol://$url`) for playback
-pub mod protocol;
-/// Custom rendering
-#[cfg(feature = "render")]
-pub mod render;
 
 use events::{EventContextSync, EventContextType};
 use node::ToNode;
-use protocol::{ProtocolContextType, UninitProtocolContext};
 
 #[cfg(feature = "tracing")]
 use tracing::info;
@@ -39,7 +33,7 @@ use crate::mpv::drop_handle::CallbackContext;
 use crate::node::{MpvNodeArrayRef, MpvNodeRef};
 
 pub use self::errors::*;
-use super::*;
+use super::{EndFileReason, mpv_format, MpvFormat};
 
 use std::{
     ffi::{CStr, CString, c_char},
@@ -69,7 +63,7 @@ fn mpv_err<T>(ret: T, err: ctype::c_int) -> Result<T> {
  * This trait describes which types are allowed to be passed to getter mpv APIs.
  *
  * # Safety
- * The result of get_format must match the pointer consumed through get_from_c_void.
+ * The result of `get_format` must match the pointer consumed through `get_from_c_void`.
  *  */
 pub unsafe trait GetData: Sized {
     /**
@@ -80,8 +74,8 @@ pub unsafe trait GetData: Sized {
     unsafe fn get_from_c_void<T, F: FnMut(*mut ctype::c_void) -> Result<T>>(
         mut fun: F,
     ) -> Result<Self> {
-        let mut val = MaybeUninit::uninit();
-        let _ = fun(val.as_mut_ptr() as *mut _)?;
+        let mut val = MaybeUninit::<Self>::uninit();
+        let _ = fun(val.as_mut_ptr().cast())?;
         Ok(unsafe { val.assume_init() })
     }
     fn get_format() -> Format;
@@ -108,9 +102,9 @@ unsafe impl GetData for bool {
 unsafe impl GetData for String {
     unsafe fn get_from_c_void<T, F: FnMut(*mut ctype::c_void) -> Result<T>>(
         mut fun: F,
-    ) -> Result<String> {
+    ) -> Result<Self> {
         let ptr = &mut ptr::null();
-        let _ = fun(ptr as *mut *const ctype::c_char as _)?;
+        let _ = fun(std::ptr::from_mut::<*const ctype::c_char>(ptr).cast())?;
 
         let ret = unsafe { mpv_cstr_to_str(*ptr) }?.to_owned();
         unsafe { libmpv_sys::mpv_free(*ptr as *mut _) };
@@ -134,16 +128,16 @@ impl Deref for MpvStr<'_> {
 }
 impl Drop for MpvStr<'_> {
     fn drop(&mut self) {
-        unsafe { libmpv_sys::mpv_free(self.0.as_ptr() as *mut u8 as _) };
+        unsafe { libmpv_sys::mpv_free(self.0.as_ptr().cast_mut().cast())};
     }
 }
 
-unsafe impl<'a> GetData for MpvStr<'a> {
+unsafe impl GetData for MpvStr<'_> {
     unsafe fn get_from_c_void<T, F: FnMut(*mut ctype::c_void) -> Result<T>>(
         mut fun: F,
-    ) -> Result<MpvStr<'a>> {
+    ) -> Result<Self> {
         let ptr = &mut ptr::null();
-        let _ = fun(ptr as *mut *const ctype::c_char as _)?;
+        let _ = fun(std::ptr::from_mut::<*const ctype::c_char>(ptr).cast())?;
 
         Ok(MpvStr(unsafe { mpv_cstr_to_str(*ptr) }?))
     }
@@ -165,14 +159,14 @@ pub enum Format {
 }
 
 impl Format {
-    fn as_mpv_format(&self) -> MpvFormat {
-        match *self {
-            Format::String => mpv_format::String,
-            Format::Flag => mpv_format::Flag,
-            Format::Int64 => mpv_format::Int64,
-            Format::Double => mpv_format::Double,
-            Format::Node => mpv_format::Node,
-            Format::Map => mpv_format::Map,
+    const fn as_mpv_format(self) -> MpvFormat {
+        match self {
+            Self::String => mpv_format::String,
+            Self::Flag => mpv_format::Flag,
+            Self::Int64 => mpv_format::Int64,
+            Self::Double => mpv_format::Double,
+            Self::Node => mpv_format::Node,
+            Self::Map => mpv_format::Map,
         }
     }
 }
@@ -187,16 +181,16 @@ pub enum FileState {
     /// If current playlist is empty: play, otherwise append to playlist.
     AppendPlay,
 }
-
+#[derive(Debug,Clone, Copy, PartialEq, Eq)]
 pub enum Cycle {
     Up,
     Down,
 }
 impl Cycle {
-    fn to_cstr(&self) -> &'static CStr {
+    const fn to_cstr(self) -> &'static CStr {
         match self {
-            Cycle::Up => c"up",
-            Cycle::Down => c"down",
+            Self::Up => c"up",
+            Self::Down => c"down",
         }
     }
 }
@@ -223,11 +217,12 @@ impl FromStr for MpvProfile {
 }
 
 impl MpvProfile {
-    pub fn to_str(self) -> &'static str {
+    #[must_use]
+    pub const fn to_str(self) -> &'static str {
         match self {
-            MpvProfile::Fast => "fast",
-            MpvProfile::HighQuality => "high-quality",
-            MpvProfile::Default => "default",
+            Self::Fast => "fast",
+            Self::HighQuality => "high-quality",
+            Self::Default => "default",
         }
     }
 }
@@ -310,22 +305,20 @@ mod drop_handle {
 /// The central mpv context.
 pub struct Mpv<
     Event: EventContextType = EventContextSync,
-    Protocol: ProtocolContextType = UninitProtocolContext,
 > {
     drop_handle: Arc<MpvDropHandle>,
     ctx: NonNull<libmpv_sys::mpv_handle>,
     event_inline: Event::Inlined,
-    protocols_inline: Protocol::Inlined,
 }
 
-unsafe impl<Event: EventContextType, Protocol: ProtocolContextType> Send for Mpv<Event, Protocol> {}
-unsafe impl<Event: EventContextType, Protocol: ProtocolContextType> Sync for Mpv<Event, Protocol> {}
+unsafe impl<Event: EventContextType> Send for Mpv<Event> {}
+unsafe impl<Event: EventContextType> Sync for Mpv<Event> {}
 
 impl Mpv {
     /// Create a new `Mpv`.
     /// The default settings can be probed by running: `$ mpv --show-profile=libmpv`.
     #[cfg_attr(all(feature = "async", feature = "tracing"), track_caller)]
-    pub fn new() -> Result<Mpv<EventContextSync, UninitProtocolContext>> {
+    pub fn new() -> Result<Self> {
         Self::with_initializer(|_| Ok(()))
     }
 
@@ -334,7 +327,7 @@ impl Mpv {
     #[cfg_attr(all(feature = "async", feature = "tracing"), track_caller)]
     pub fn with_initializer<E: From<Error>, F: FnOnce(MpvInitializer) -> StdResult<(), E>>(
         initializer: F,
-    ) -> StdResult<Mpv<EventContextSync, UninitProtocolContext>, E> {
+    ) -> StdResult<Self, E> {
         let api_version = unsafe { libmpv_sys::mpv_client_api_version() };
         if crate::MPV_CLIENT_API_MAJOR != api_version >> 16 {
             return Err(Error::VersionMismatch {
@@ -382,16 +375,15 @@ impl Mpv {
 
         initializer(MpvInitializer { ctx })?;
         mpv_err((), unsafe { libmpv_sys::mpv_initialize(ctx.as_ptr()) })?;
-        Ok(Mpv {
+        Ok(Self {
             ctx,
             drop_handle,
             event_inline: (),
-            protocols_inline: (),
         })
     }
 }
 
-impl<Event: EventContextType, Protocol: ProtocolContextType> Mpv<Event, Protocol> {
+impl<Event: EventContextType> Mpv<Event> {
     pub fn client_name(&self) -> &CStr {
         unsafe { CStr::from_ptr(libmpv_sys::mpv_client_name(self.ctx.as_ptr())) }
     }

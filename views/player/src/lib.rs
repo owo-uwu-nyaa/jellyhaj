@@ -60,6 +60,7 @@ pub fn render_play(cx: TuiContext, items: Vec<(MediaItem, PlaybackInfo)>, index:
     make_new_erased(cx, widget)
 }
 
+#[must_use]
 pub fn render_fetch_play(cx: TuiContext, item: LoadPlay) -> Erased {
     let fut = fetch_items(cx.jellyfin.clone(), item);
     jellyhaj_fetch_view::make_fetch(cx, "Loading related items for playlist", fut)
@@ -88,7 +89,6 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
                 .await
                 .context("fetching media items")?
                 .deserialize()
-                .await
                 .context("deserializing media items")?
                 .items;
             if let Some(first) = season_items.first() {
@@ -111,8 +111,7 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
                 let item = cx
                     .get_item(&id, Some(&cx.get_auth().user.id))
                     .await?
-                    .deserialize()
-                    .await?;
+                    .deserialize()?;
                 (vec![item], 0)
             }
         }
@@ -134,7 +133,6 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
                 .await
                 .context("fetching playlist items")?
                 .deserialize()
-                .await
                 .context("deserializing playlist items")
             })
             .await?;
@@ -155,7 +153,6 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
             .await
             .context("getting playback info")?
             .deserialize()
-            .await
             .context("parsing playback info")?;
         Ok::<_, Report>((item, info))
     }))
@@ -196,7 +193,6 @@ async fn fetch_childs(cx: &JellyfinClient, parent_id: &str) -> Result<Vec<MediaI
         .await
         .context("fetching media items")?
         .deserialize()
-        .await
         .context("deserializing media items")
     })
     .await?;
@@ -223,7 +219,6 @@ async fn fetch_series(cx: &JellyfinClient, series_id: &str) -> Result<Vec<MediaI
         .await
         .context("fetching media items")?
         .deserialize()
-        .await
         .context("deserializing media items")
     })
     .await?;

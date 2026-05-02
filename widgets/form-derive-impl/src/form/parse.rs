@@ -19,7 +19,7 @@ struct Args {
 
 impl Parse for Args {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        Ok(Args {
+        Ok(Self {
             name: input
                 .parse()
                 .map_err(|e| Error::new(e.span(), "Expected form name attribute parameter"))?,
@@ -53,8 +53,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                 let index = field.attrs.iter().enumerate().find_map(|(i, a)| {
                     if a.path()
                         .get_ident()
-                        .map(|i| i.to_string().as_str() == "skip")
-                        .unwrap_or(false)
+                        .is_some_and(|i| i.to_string().as_str() == "skip")
                     {
                         Some(i)
                     } else {
@@ -81,8 +80,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                 let attr_index = field.attrs.iter().enumerate().find_map(|(i, a)| {
                     if a.path()
                         .get_ident()
-                        .map(|i| i.to_string().as_str() == "descr")
-                        .unwrap_or(false)
+                        .is_some_and(|i| i.to_string().as_str() == "descr")
                     {
                         Some(i)
                     } else {
@@ -96,8 +94,7 @@ pub fn parse(args: TokenStream, input: TokenStream) -> Result<ParseResult> {
                 let show_if_index = field.attrs.iter().enumerate().find_map(|(i, a)| {
                     if a.path()
                         .get_ident()
-                        .map(|i| i.to_string().as_str() == "show_if")
-                        .unwrap_or(false)
+                        .is_some_and(|i| i.to_string().as_str() == "show_if")
                     {
                         Some(i)
                     } else {

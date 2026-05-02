@@ -47,7 +47,7 @@ fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         }
         NextScreen::FetchPlay(load_play) => jellyhaj_player_view::render_fetch_play(cx, load_play),
         NextScreen::Play { items, index } => jellyhaj_player_view::render_play(cx, items, index),
-        NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, report),
+        NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, &report),
         NextScreen::ItemDetails(media_item) => {
             jellyhaj_item_details_view::render_item_details(cx, media_item)
         }
@@ -105,7 +105,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
                 }
                 StateValue::WithoutTui(without_tui) => {
                     if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
-                        jellyhaj_error_view::render_error(cx.clone(), e)
+                        jellyhaj_error_view::render_error(cx.clone(), &e)
                     } else {
                         continue;
                     }
@@ -115,7 +115,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
         match render_widget(widget.as_mut(), events, term).await.into() {
             Navigation::Push(next) => {
                 cx.state.push(widget, widget_creator.clone());
-                top = Some(next)
+                top = Some(next);
             }
             Navigation::PopContext => {
                 match render_widget_stop(widget.as_mut(), events, term).await {
@@ -132,7 +132,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
             Navigation::Exit => break,
             Navigation::PushWithoutTui(without_tui) => {
                 if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
-                    top = Some(NextScreen::Error(e))
+                    top = Some(NextScreen::Error(e));
                 }
             }
         }
@@ -150,7 +150,7 @@ async fn run_app_inner(
 ) -> Result<()> {
     let config = Arc::new(config);
     debug!("logging in to jellyfin");
-    if let Some(jellyfin) = jellyhaj_login_view::login(
+    if let Some(jellyfin) = Box::pin(jellyhaj_login_view::login(
         clap::crate_name!(),
         clap::crate_version!(),
         &mut term,
@@ -158,7 +158,7 @@ async fn run_app_inner(
         spawner.clone(),
         config.clone(),
         &cache,
-    )
+    ))
     .await?
     {
         let jellyfin_events = JellyfinEventInterests::new(&spawner, &jellyfin)?;
@@ -193,12 +193,12 @@ async fn run_app_inner(
                 image_cache: ImageProtocolCache::new(),
                 mpv_handle: mpv_handle.clone(),
                 image_picker: Arc::new(image_picker),
-                stats: Default::default(),
+                stats: Arc::default(),
                 spawn: spawner,
                 state: Arc::new(StateStack::new()),
             },
         )
-        .await
+        .await;
     }
     Ok(())
 }

@@ -63,7 +63,7 @@ trait ResExt {
 impl ResExt for Result<()> {
     fn trace_error(self) {
         if let Err(e) = self {
-            warn!("Error handling mpv player: {e:?}")
+            warn!("Error handling mpv player: {e:?}");
         }
     }
 }
@@ -120,7 +120,7 @@ trait TraceSendError {
 impl<E, T> TraceSendError for std::result::Result<T, E> {
     fn trace_send_error(self) {
         if self.is_err() {
-            trace!("unable to send message to non-existing peer.")
+            trace!("unable to send message to non-existing peer.");
         }
     }
 }
@@ -482,7 +482,7 @@ fn insert_at(
         .as_ref()
         .ok_or_eyre("user data missing")?
         .playback_position_ticks
-        / 10000000;
+        / 10_000_000;
 
     debug!("adding {uri} to queue");
     let at = i64::try_from(index).context("converting index to i64")?;
@@ -526,7 +526,7 @@ fn insert_at(
         })
         .trace_send_error();
     if play {
-        mpv.playlist_play_index(at).context("playing new item")?
+        mpv.playlist_play_index(at).context("playing new item")?;
     }
     Ok(())
 }

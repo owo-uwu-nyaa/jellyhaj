@@ -38,3 +38,7 @@ license = "LGPL-2.1"
 name = "libmpv-sys"
 repository = "https://github.com/ParadoxSpiral/libmpv-rs"
 version = "3.1.0"
+
+
+[lints]
+workspace = true

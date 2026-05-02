@@ -35,19 +35,20 @@ async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Resul
             .await
             .context("requesting items")?
             .deserialize()
-            .await
             .context("deserializing items")
     })
     .await?;
     Ok(NextScreen::UserView { view, items })
 }
 
+#[must_use]
 pub fn render_fetch_user_view(cx: TuiContext, view: Box<UserView>) -> Erased {
     let title = format!("Loading user view {}", view.name);
     let inner = fetch_user_view(cx.jellyfin.clone(), view);
     make_fetch(cx, title, inner)
 }
 
+#[must_use]
 pub fn render_user_view(cx: TuiContext, view: Box<UserView>, items: Vec<MediaItem>) -> Erased {
     let widget = LibraryWidget::new(view, items, &cx);
     make_new_erased(cx, widget)

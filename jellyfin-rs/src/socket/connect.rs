@@ -26,6 +26,6 @@ pub async fn make_socket(config: &ConnectInfo) -> WebSocketStream<MaybeTls> {
         if let Some(socket) = make_socket_inner(config).await.trace_err() {
             return socket;
         }
-        backoff = min(backoff * 2, Duration::from_secs(60));
+        backoff = min(backoff * 2, Duration::from_mins(1));
     }
 }

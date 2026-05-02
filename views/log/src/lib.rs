@@ -42,6 +42,7 @@ impl Named for Name {
     const NAME: &str = "log-view";
 }
 
+#[must_use]
 pub fn render_log(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         LogWidget::new(),

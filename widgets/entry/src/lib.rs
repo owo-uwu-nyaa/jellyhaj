@@ -39,33 +39,35 @@ pub enum EntryData {
 
 impl From<MediaItem> for EntryData {
     fn from(value: MediaItem) -> Self {
-        EntryData::Item(value)
+        Self::Item(value)
     }
 }
 impl From<UserView> for EntryData {
     fn from(value: UserView) -> Self {
-        EntryData::View(value)
+        Self::View(value)
     }
 }
 
 impl EntryData {
-    pub fn item(&self) -> Option<&MediaItem> {
-        if let EntryData::Item(i) = self {
+    #[must_use]
+    pub const fn item(&self) -> Option<&MediaItem> {
+        if let Self::Item(i) = self {
             Some(i)
         } else {
             None
         }
     }
-    pub fn item_mut(&mut self) -> Option<&mut MediaItem> {
-        if let EntryData::Item(i) = self {
+    pub const fn item_mut(&mut self) -> Option<&mut MediaItem> {
+        if let Self::Item(i) = self {
             Some(i)
         } else {
             None
         }
     }
 
+    #[must_use]
     pub fn into_item(self) -> Option<MediaItem> {
-        if let EntryData::Item(i) = self {
+        if let Self::Item(i) = self {
             Some(i)
         } else {
             None
@@ -75,6 +77,7 @@ impl EntryData {
 
 fn calc_dimensions(config: &Config, font_size: FontSize) -> Size {
     let image_width = config.entry_image_width;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let image_height = {
         let width = image_width * font_size.0;
         let width: f64 = width.into();
@@ -92,7 +95,7 @@ fn updated_user_data(
     data: UserData,
     entry: &mut EntryData,
     watch_status: &mut Option<Cow<'static, str>>,
-) -> Result<Option<Navigation>> {
+) {
     *watch_status = if let Some(num @ 1..) = data.unplayed_item_count {
         Some(format!("{num}").into())
     } else if data.played {
@@ -104,7 +107,6 @@ fn updated_user_data(
         .item_mut()
         .expect("should only be requested for item inners")
         .user_data = Some(data);
-    Ok(None)
 }
 
 #[derive(Valuable)]
@@ -122,7 +124,8 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn data(&self) -> &EntryData {
+    #[must_use]
+    pub const fn data(&self) -> &EntryData {
         &self.inner
     }
     pub fn new(
@@ -194,7 +197,7 @@ impl<
                     cx.submitter.wrap_with(|changed: ChangedUserData| {
                         EntryAction::UpdatedUserData(changed.user_data)
                     }),
-                )
+                );
             });
         }
         if let Some(image) = self.image.as_mut() {
@@ -222,7 +225,8 @@ impl<
             }
             EntryAction::Command(entry_command) => self.inner.apply_command(entry_command, cx.refs),
             EntryAction::UpdatedUserData(user_data) => {
-                return updated_user_data(user_data, &mut self.inner, &mut self.watch_status);
+                updated_user_data(user_data, &mut self.inner, &mut self.watch_status);
+                return Ok(None);
             }
         })
     }
@@ -260,7 +264,7 @@ impl<
         }
         let inner = outer.inner(area);
         if let Some(image) = &mut self.image {
-            image.render_fallible(inner, buf, cx.wrap_with(EntryWrapper))?
+            image.render_fallible(inner, buf, cx.wrap_with(EntryWrapper))?;
         }
         outer.render(area, buf);
         if let Some(watch_status) = self.watch_status.as_ref() {
@@ -279,7 +283,7 @@ impl<
         Ok(())
     }
     fn set_active(&mut self, active: bool) {
-        self.active = active
+        self.active = active;
     }
 
     fn item_accepts_text_input(&self) -> bool {
@@ -297,21 +301,23 @@ impl<
 
 fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>, size: Size) -> Entry {
     let (title, subtitle) = match &item.item_type {
-        ItemType::Movie | ItemType::Unknown { item_type: _ } | ItemType::CollectionFolder => {
-            (item.name.clone(), None)
-        }
+        ItemType::Movie
+        | ItemType::Unknown { item_type: _ }
+        | ItemType::CollectionFolder
+        | ItemType::Series
+        | ItemType::MusicAlbum
+        | ItemType::Playlist
+        | ItemType::Folder => (item.name.clone(), None),
         ItemType::Episode {
             season_id: _,
             season_name: _,
             series_id: _,
             series_name,
-        } => (series_name.clone(), item.name.clone().into()),
-        ItemType::Season {
+        }
+        | ItemType::Season {
             series_id: _,
             series_name,
         } => (series_name.clone(), item.name.clone().into()),
-        ItemType::Series | ItemType::MusicAlbum => (item.name.clone(), None),
-        ItemType::Playlist | ItemType::Folder => (item.name.clone(), None),
         ItemType::Music { album_id: _, album } => (album.clone(), item.name.clone().into()),
     };
     let image = select_images(&item)

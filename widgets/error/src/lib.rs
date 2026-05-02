@@ -16,13 +16,14 @@ use valuable::Valuable;
 pub struct ErrorWidget {
     text: String,
     #[valuable(skip)]
-    pos_x: usize,
+    pos_x: u16,
     #[valuable(skip)]
-    pos_y: usize,
+    pos_y: u16,
 }
 
 impl ErrorWidget {
-    pub fn new(text: String) -> Self {
+    #[must_use]
+    pub const fn new(text: String) -> Self {
         Self {
             text,
             pos_x: 0,
@@ -105,28 +106,28 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
             .text
             .to_text()
             .context("handling color eyre error message")?;
-        let width = text.width();
-        let height = text.height();
+        let width = u16::try_from(text.width()).context("error message to wide")?;
+        let height = u16::try_from(text.height()).context("error message has to many lines")?;
         let outer = Block::bordered()
             .title("Error encountered")
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
-        self.pos_x = min(width.saturating_sub(main.width as usize), self.pos_x);
-        self.pos_y = min(height.saturating_sub(main.height as usize), self.pos_y);
-        let text = Paragraph::new(text).scroll((self.pos_y as u16, self.pos_x as u16));
+        self.pos_x = min(width.saturating_sub(main.width), self.pos_x);
+        self.pos_y = min(height.saturating_sub(main.height), self.pos_y);
+        let text = Paragraph::new(text).scroll((self.pos_y, self.pos_x));
         text.render(main, buf);
-        if height > main.height as usize {
+        if height > main.height {
             Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
                 main.inner(Margin::new(0, 2)),
                 buf,
-                &mut ScrollbarState::new(self.pos_y).position(self.pos_y),
+                &mut ScrollbarState::new(self.pos_y as usize).position(self.pos_y as usize),
             );
         }
-        if width > main.width as usize {
+        if width > main.width {
             Scrollbar::new(ScrollbarOrientation::HorizontalBottom).render(
                 main.inner(Margin::new(2, 0)),
                 buf,
-                &mut ScrollbarState::new(self.pos_x).position(self.pos_x),
+                &mut ScrollbarState::new(self.pos_x as usize).position(self.pos_x as usize),
             );
         }
         outer.render(area, buf);

@@ -28,6 +28,7 @@ impl Named for Name {
     const NAME: &str = "stats";
 }
 
+#[must_use]
 pub fn render_stats(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         StatsWidget::new(&cx.stats),

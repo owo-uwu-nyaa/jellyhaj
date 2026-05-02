@@ -1,4 +1,4 @@
-pub fn calc_offset(len: u16, window: u16, cur: u16) -> u16 {
+pub const fn calc_offset(len: u16, window: u16, cur: u16) -> u16 {
     let split = window / 2;
     if cur < split {
         0

@@ -1,6 +1,8 @@
 use std::cmp::{max, min};
 
-use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
+use crate::{
+    CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MAX_KEYBIND_WIDGET_HEIGHT,
+};
 use color_eyre::Result;
 use itertools::Itertools;
 use jellyhaj_core::Config;
@@ -33,9 +35,13 @@ pub fn render_keybinds<
         let width = (area.width - 4) / 20;
         let full_usable_height = len.div_ceil(width as usize);
         let full_height = full_usable_height + 4;
-        let height = min(full_height, max(5, area.height as usize / 4));
+        let height = u16::try_from(min(
+            full_height,
+            max(MAX_KEYBIND_WIDGET_HEIGHT as usize, area.height as usize / 4),
+        ))
+        .expect("should be bounded by max height");
         let usable_height = height - 4;
-        let num_views = full_usable_height.div_ceil(usable_height);
+        let num_views = full_usable_height.div_ceil(usable_height as usize);
         this.current_view = min(this.current_view, num_views - 1);
         this.inner.render_fallible(
             Rect {
@@ -62,7 +68,7 @@ pub fn render_keybinds<
                 .title_bottom("switch with Ctrl+left/right");
         }
         let main = block.inner(area);
-        let items_per_screen = width as usize * usable_height;
+        let items_per_screen = width as usize * usable_height as usize;
         for ((key, binding), pos) in this
             .current_map
             .iter()
@@ -70,7 +76,7 @@ pub fn render_keybinds<
             .kmerge_by(|(a, _), (b, _)| a < b)
             .skip(items_per_screen * this.current_view)
             .take(items_per_screen)
-            .zip((0u16..usable_height as u16).flat_map(|y| {
+            .zip((0u16..usable_height).flat_map(|y| {
                 (0u16..width).map(move |x| Position {
                     x: main.x + x * 20,
                     y: main.y + y,

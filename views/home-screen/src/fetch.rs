@@ -21,7 +21,6 @@ async fn user_views(client: &JellyfinClient) -> Result<Vec<UserView>> {
         .await
         .context("fetching user views")?
         .deserialize()
-        .await
         .context("deserializing user views")
         .map(|v| v.items)
 }
@@ -46,7 +45,6 @@ async fn resume(client: &JellyfinClient) -> Result<Vec<MediaItem>> {
         .await
         .context("fetching resumes")?
         .deserialize()
-        .await
         .context("deserializing resumes")
         .map(|v| v.items)
 }
@@ -71,7 +69,6 @@ async fn next_up(client: &JellyfinClient) -> Result<Vec<MediaItem>> {
         .await
         .context("fetching next up")?
         .deserialize()
-        .await
         .context("deserializing next up")
         .map(|i| i.items)
 }
@@ -102,7 +99,7 @@ async fn latest(
                     .await
                     .with_context(|| format!("fetching latest media from {}", view.name))
                 {
-                    Ok(items) => match items.deserialize().await {
+                    Ok(items) => match items.deserialize() {
                         Ok(items) => Some(Ok((view.name.clone(), items))),
                         Err(e) => Some(Err(e)),
                     },

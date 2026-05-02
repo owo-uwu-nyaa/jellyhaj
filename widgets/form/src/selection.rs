@@ -19,8 +19,9 @@ use crate::{FormAction, FormItem, FormItemInfo, offset::calc_offset};
 pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + Valuable + 'static {
     fn descr(self) -> &'static str;
     fn index(self) -> usize;
-    const MAX_LEN: usize;
+    const MAX_LEN: u16;
     const ALL: &[Self];
+    const ALL_LEN: u16;
 }
 
 fn selection_next<S: Selection>(cur: S) -> S {
@@ -35,7 +36,7 @@ fn selection_prev<S: Selection>(cur: S) -> S {
     let mut index = cur.index();
     if index == 0 {
         index = S::ALL.len();
-    };
+    }
     index = index.strict_sub(1);
     S::ALL[index]
 }
@@ -91,10 +92,8 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
                 }
                 _ => {}
             }
-        } else {
-            if let FormAction::Enter = action {
-                *sel = Some(*self);
-            }
+        } else if matches!(action, FormAction::Enter) {
+            *sel = Some(*self);
         }
         Ok(None)
     }
@@ -148,12 +147,11 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN as u16 + 2, area.width) - 1;
+            full_area.width = min(S::MAX_LEN + 2, area.width) - 1;
             full_area.x += 1;
-            let needed_height = S::ALL.len() as u16 + 2;
+            let needed_height = S::ALL_LEN + 2;
             let mut items = S::ALL;
-            let mut scrollbar = false;
-            if needed_height > full_area.height {
+            let scrollbar = if needed_height > full_area.height {
                 let window = full_area.height;
                 let offset = calc_offset(
                     S::ALL.len().try_into().expect("len is to large"),
@@ -161,16 +159,17 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
                     sel_inner.index().try_into().expect("index is to large"),
                 );
                 items = &items[offset as usize..(offset + window) as usize];
-                scrollbar = true;
+                true
             } else {
                 full_area.height = needed_height;
-            }
+                false
+            };
             Clear.render(full_area, buf);
             let selection_block = Block::bordered().border_type(BorderType::Thick);
             let inner = selection_block.inner(full_area);
             for (i, c) in items.iter().copied().enumerate() {
                 let mut area = inner;
-                area.y += i as u16;
+                area.y += u16::try_from(i).expect("bounded size");
                 area.height = 1;
                 c.descr().render(area, buf);
                 if *sel_inner == c {
@@ -204,8 +203,8 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN as u16 + 2, area.width);
-            let needed_height = S::ALL.len() as u16 + 2;
+            full_area.width = min(S::MAX_LEN + 2, area.width);
+            let needed_height = S::ALL_LEN + 2;
             if needed_height >= full_area.height {
                 full_area.height = needed_height;
             }
@@ -230,14 +229,14 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind {
+        if kind == MouseEventKind::Down(MouseButton::Left) {
             let sel_inner = sel.as_mut().expect("inner must be set");
             let mut full_area: Rect = ((0, 0).into(), full_area).into();
             let offset = area.y - full_area.y + 2;
             full_area.y += offset;
             full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN as u16 + 2, area.width);
-            let needed_height = S::ALL.len() as u16 + 2;
+            full_area.width = min(S::MAX_LEN + 2, area.width);
+            let needed_height = S::ALL_LEN + 2;
             let mut items = S::ALL;
             if needed_height < full_area.height {
                 let window = full_area.height;
@@ -278,7 +277,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind {
+        if kind == MouseEventKind::Down(MouseButton::Left) {
             Ok((Some(Some(*self)), None))
         } else {
             Ok((None, None))

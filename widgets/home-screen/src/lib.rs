@@ -178,8 +178,9 @@ impl<
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         let action = match action {
-            KeybindAction::Inner(HomeScreenAction::Reload)
-            | KeybindAction::Inner(HomeScreenAction::PotentialReload(true)) => {
+            KeybindAction::Inner(
+                HomeScreenAction::Reload | HomeScreenAction::PotentialReload(true),
+            ) => {
                 return Ok(Some(Navigation::Replace(NextScreen::LoadHomeScreen)));
             }
             KeybindAction::Inner(HomeScreenAction::PotentialReload(false)) => return Ok(None),

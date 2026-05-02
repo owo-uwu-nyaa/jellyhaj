@@ -3,7 +3,9 @@ use std::{
     ops::ControlFlow,
 };
 
-use crate::{CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper};
+use crate::{
+    CommandMapper, KeybindAction, KeybindWidget, KeybindWrapper, MAX_KEYBIND_WIDGET_HEIGHT,
+};
 use color_eyre::Result;
 use jellyhaj_core::{Config, state::Navigation};
 use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, WidgetContext, Wrapper};
@@ -29,9 +31,13 @@ pub fn apply_click<
         let width = (size.width - 4) / 20;
         let full_usable_height = len.div_ceil(width as usize);
         let full_height = full_usable_height + 4;
-        let height = min(full_height, max(5, size.height as usize / 4));
+        let height = u16::try_from(min(
+            full_height,
+            max(MAX_KEYBIND_WIDGET_HEIGHT as usize, size.height as usize / 4),
+        ))
+        .expect("bounded by max height");
         let usable_height = height - 4;
-        let num_views = full_usable_height.div_ceil(usable_height);
+        let num_views = full_usable_height.div_ceil(usable_height as usize);
         this.current_view = min(this.current_view, num_views - 1);
         if position.y < size.height - height as u16 {
             return match this.inner.click(
@@ -48,53 +54,52 @@ pub fn apply_click<
                 Ok(Some(action)) => Ok(Some(ControlFlow::Continue(action))),
                 Err(e) => Err(e),
             };
-        } else {
-            position.y = position.y.saturating_sub(size.height - height as u16 + 2);
-            position.x = position.x.saturating_sub(2);
+        }
+        position.y = position.y.saturating_sub(size.height - height as u16 + 2);
+        position.x = position.x.saturating_sub(2);
 
-            let items_per_screen = width as usize * usable_height;
-            if let Some(c) = this
-                .current_map
-                .iter()
-                .flat_map(|m| m.iter())
-                .skip(items_per_screen * this.current_view)
-                .take(items_per_screen)
-                .zip(
-                    (0u16..usable_height as u16)
-                        .flat_map(|y| (0u16..width).map(move |x| Position { x: x * 20, y })),
-                )
-                .filter(|(_, pos)| {
-                    position.y == pos.y && (position.x..position.x + 16).contains(&pos.x)
-                })
-                .map(|((_, v), _)| v.clone())
-                .next()
-            {
-                match c {
-                    KeyBinding::Command(c) => {
-                        debug!("found matching command");
-                        this.current_map = None;
-                        debug!("executing command {c:?}");
-                        let mapped = this.mapper.map(c);
-                        debug!("triggering action {mapped:?}");
-                        return match mapped {
-                            ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
-                            ControlFlow::Continue(a) => {
-                                match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
-                                    Ok(None) => Ok(None),
-                                    Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
-                                    Err(e) => Err(e),
-                                }
+        let items_per_screen = width as usize * usable_height as usize;
+        if let Some(c) = this
+            .current_map
+            .iter()
+            .flat_map(|m| m.iter())
+            .skip(items_per_screen * this.current_view)
+            .take(items_per_screen)
+            .zip(
+                (0u16..usable_height as u16)
+                    .flat_map(|y| (0u16..width).map(move |x| Position { x: x * 20, y })),
+            )
+            .filter(|(_, pos)| {
+                position.y == pos.y && (position.x..position.x + 16).contains(&pos.x)
+            })
+            .map(|((_, v), _)| v.clone())
+            .next()
+        {
+            match c {
+                KeyBinding::Command(c) => {
+                    debug!("found matching command");
+                    this.current_map = None;
+                    debug!("executing command {c:?}");
+                    let mapped = this.mapper.map(c);
+                    debug!("triggering action {mapped:?}");
+                    return match mapped {
+                        ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
+                        ControlFlow::Continue(a) => {
+                            match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
+                                Ok(None) => Ok(None),
+                                Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
+                                Err(e) => Err(e),
                             }
-                        };
-                    }
-                    KeyBinding::Group { map, name } => {
-                        debug!(name, "found matching group");
-                        this.current_map = Some(map.clone());
-                    }
-                    KeyBinding::Invalid(name) => {
-                        warn!("'{name}' is an invalid command");
-                        this.current_map = None;
-                    }
+                        }
+                    };
+                }
+                KeyBinding::Group { map, name } => {
+                    debug!(name, "found matching group");
+                    this.current_map = Some(map);
+                }
+                KeyBinding::Invalid(name) => {
+                    warn!("'{name}' is an invalid command");
+                    this.current_map = None;
                 }
             }
         }

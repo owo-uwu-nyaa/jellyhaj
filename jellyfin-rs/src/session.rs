@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::items::MediaItem;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SessionInfo {
     pub play_state: PlayState,
@@ -36,7 +36,7 @@ pub struct SessionInfo {
     pub supported_commands: Vec<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct PlayState {
@@ -53,7 +53,7 @@ pub struct PlayState {
     pub live_stream_id: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct AdditionalUser {
@@ -61,7 +61,7 @@ pub struct AdditionalUser {
     pub user_name: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Capabilities {
     pub playable_media_types: Vec<String>,
@@ -76,7 +76,7 @@ pub struct Capabilities {
     pub icon_url: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DeviceProfile {
     pub name: String,
@@ -120,7 +120,7 @@ pub struct DeviceProfile {
     pub subtitle_profiles: Vec<SubtitleProfile>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct Identification {
@@ -135,7 +135,7 @@ pub struct Identification {
     pub headers: Vec<Header>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct Header {
@@ -144,7 +144,7 @@ pub struct Header {
     pub match_field: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct XmlRootAttribute {
@@ -152,7 +152,7 @@ pub struct XmlRootAttribute {
     pub value: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct DirectPlayProfile {
@@ -162,7 +162,7 @@ pub struct DirectPlayProfile {
     pub type_field: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TranscodingProfile {
     pub container: String,
@@ -183,7 +183,7 @@ pub struct TranscodingProfile {
     pub conditions: Vec<Value>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ContainerProfile {
     pub type_field: String,
@@ -191,7 +191,7 @@ pub struct ContainerProfile {
     pub container: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CodecProfile {
     pub type_field: String,
@@ -201,7 +201,7 @@ pub struct CodecProfile {
     pub container: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ResponseProfile {
     pub container: String,
@@ -214,7 +214,7 @@ pub struct ResponseProfile {
 }
 
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SubtitleProfile {
     pub format: String,
@@ -225,7 +225,7 @@ pub struct SubtitleProfile {
 }
 
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TranscodingInfo {
     pub audio_codec: String,

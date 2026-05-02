@@ -30,7 +30,6 @@ pub struct IdFormResultMapper;
 impl<R: 'static, S: FormDataTypes> FormResultMapper<R, S> for IdFormResultMapper {
     type Res = S::AR;
 
-    #[inline(always)]
     fn map(
         _state: &S,
         form_result: S::AR,
@@ -172,11 +171,11 @@ impl<
     }
 
     fn accept_char(&mut self, text: char) {
-        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyChar(text))
+        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyChar(text));
     }
 
     fn accept_text(&mut self, text: String) {
-        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyText(text))
+        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyText(text));
     }
 
     fn apply_action(
@@ -602,9 +601,9 @@ struct ClickCurrent<'s, const TOTAL_SIZE: usize> {
     offset: u16,
 }
 
-impl<'s, R: 'static, const TOTAL_SIZE: usize, AR>
+impl<R: 'static, const TOTAL_SIZE: usize, AR>
     WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
-    for &mut ClickCurrent<'s, { TOTAL_SIZE }>
+    for &mut ClickCurrent<'_, { TOTAL_SIZE }>
 {
     fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
         self,
@@ -654,8 +653,8 @@ struct ClickItem<'s, const TOTAL_SIZE: usize, AR> {
     modifier: KeyModifiers,
 }
 
-impl<'s, R: 'static, const TOTAL_SIZE: usize, AR> WithIndexMut<R, AR>
-    for &mut ClickItem<'s, TOTAL_SIZE, AR>
+impl<R: 'static, const TOTAL_SIZE: usize, AR> WithIndexMut<R, AR>
+    for &mut ClickItem<'_, TOTAL_SIZE, AR>
 {
     fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
         self,
@@ -738,8 +737,8 @@ struct Pass1<'s, const TOTAL_SIZE: usize> {
     cur: usize,
 }
 
-impl<'s, const TOTAL_SIZE: usize, R: 'static, AR> WithIterItemsMut<R, AR>
-    for Pass1<'s, { TOTAL_SIZE }>
+impl<const TOTAL_SIZE: usize, R: 'static, AR> WithIterItemsMut<R, AR>
+    for Pass1<'_, { TOTAL_SIZE }>
 {
     fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
         &mut self,
@@ -764,8 +763,8 @@ struct Pass2<'s, const TOTAL_SIZE: usize> {
     offset: u16,
 }
 
-impl<'s, const TOTAL_SIZE: usize, R: 'static, AR> WithSelectionMutCX<R, AR, Result<()>>
-    for Pass2<'s, { TOTAL_SIZE }>
+impl<const TOTAL_SIZE: usize, R: 'static, AR> WithSelectionMutCX<R, AR, Result<()>>
+    for Pass2<'_, { TOTAL_SIZE }>
 {
     fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
         self,
@@ -787,9 +786,7 @@ pub struct FormCommandMapper<I: Debug + Send + 'static> {
 
 impl<I: Debug + Send + 'static> Default for FormCommandMapper<I> {
     fn default() -> Self {
-        Self {
-            _i: Default::default(),
-        }
+        Self { _i: PhantomData }
     }
 }
 

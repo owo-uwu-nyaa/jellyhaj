@@ -16,7 +16,7 @@ use ratatui::{
 pub struct ItemGrid<T> {
     items: Vec<T>,
     current: usize,
-    width: usize,
+    width: u16,
     title: String,
     item_size: Size,
     skip_rows: usize,
@@ -46,6 +46,7 @@ impl<T> Structable for ItemGrid<T> {
 impl<T> ItemGrid<T> {
     /*
      */
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&T> {
         self.items.get(index)
     }
@@ -152,7 +153,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                 })
                 .transpose(),
             ItemGridAction::Up => {
-                self.current = self.current.saturating_sub(self.width);
+                self.current = self.current.saturating_sub(self.width as usize);
                 Ok(None)
             }
             ItemGridAction::Left => {
@@ -166,7 +167,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
             ItemGridAction::Down => {
                 self.current = min(
                     self.items.len().saturating_sub(1),
-                    self.current + self.width,
+                    self.current + self.width as usize,
                 );
                 Ok(None)
             }
@@ -194,7 +195,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
             let row = (row as usize) + self.skip_rows;
             let y_position = position.y % (self.item_size.height + 1);
             let col = position.x / (self.item_size.width + 1);
-            let index = row * self.width + (col as usize);
+            let index = row * (self.width as usize) + (col as usize);
             let x_position = position.x % (self.item_size.width + 1);
             if x_position < self.item_size.width
                 && y_position < self.item_size.height
@@ -226,30 +227,30 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
             .title_top(self.title.as_str())
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
-        self.width = ((main.width + 1) / (self.item_size.width + 1)).into();
-        let height: usize = ((main.height + 1) / (self.item_size.height + 1)).into();
-        let rows = self.items.len().div_ceil(self.width);
-        let row_index = self.current / self.width;
-        self.skip_rows = if height < rows
-            && let position = height / 2
+        self.width = (main.width + 1) / (self.item_size.width + 1);
+        let height = (main.height + 1) / (self.item_size.height + 1);
+        let rows = self.items.len().div_ceil(self.width as usize);
+        let row_index = self.current / self.width as usize;
+        self.skip_rows = if (height as usize) < rows
+            && let position = (height / 2) as usize
             && row_index > position
         {
-            min(row_index - position, rows - height)
+            min(row_index - position, rows - height as usize)
         } else {
             0
         };
         let position = (0..height)
-            .map(|row| main.y + (self.item_size.height + 1) * (row as u16))
+            .map(|row| main.y + (self.item_size.height + 1) * row)
             .flat_map(|y| {
                 (0..self.width)
-                    .map(|col| main.x + (self.item_size.width + 1) * (col as u16))
+                    .map(|col| main.x + (self.item_size.width + 1) * col)
                     .map(move |x| Position { x, y })
             });
         for ((index, item), position) in self
             .items
             .iter_mut()
             .enumerate()
-            .skip(self.skip_rows * self.width)
+            .skip(self.skip_rows * self.width as usize)
             .zip(position)
         {
             item.set_active(self.current == index);
@@ -257,10 +258,10 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                 Rect::from((position, self.item_size)),
                 buf,
                 cx.wrap_with(GridWrapper { index }),
-            )?
+            )?;
         }
         outer.render(area, buf);
-        if height < rows {
+        if (height as usize) < rows {
             Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight).render(
                 area,
                 buf,
@@ -281,8 +282,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
 
     fn accepts_text_input(&self) -> bool {
         self.get(self.current)
-            .map(|i| i.item_accepts_text_input())
-            .unwrap_or(false)
+            .is_some_and(ItemWidget::item_accepts_text_input)
     }
 
     fn accept_char(&mut self, text: char) {

@@ -11,7 +11,7 @@ use http::header::AUTHORIZATION;
 use serde::{Deserialize, Serialize};
 use std::result::Result as StdResult;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct QuickConnectStatus {
@@ -86,7 +86,6 @@ impl JellyfinClient<NoAuth> {
             )
             .await?
             .deserialize()
-            .await
         }
         .await;
         let auth = match auth {

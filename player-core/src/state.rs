@@ -6,7 +6,7 @@ use valuable::{Fields, StructDef, Structable, Valuable, Value};
 
 use crate::{Events, PLAYER_STATE_FIELDS, PlayerState};
 
-pub trait State {
+pub trait State: Send + Sync {
     fn update(&mut self, event: Events);
 }
 
@@ -19,14 +19,14 @@ impl State for PlayerState {
                 new_playlist,
             } => {
                 self.current = current_index;
-                self.playlist = new_playlist
+                self.playlist = new_playlist;
             }
             Events::AddPlaylistItem {
                 after: _,
                 index: _,
                 new_playlist,
-            } => self.playlist = new_playlist,
-            Events::RemovePlaylistItem {
+            }
+            | Events::RemovePlaylistItem {
                 removed: _,
                 new_playlist,
             } => self.playlist = new_playlist,
@@ -63,7 +63,7 @@ impl Valuable for SharedPlayerState {
     }
 }
 
-impl Structable for SharedPlayerState{
+impl Structable for SharedPlayerState {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("SharedPlayerState", Fields::Named(PLAYER_STATE_FIELDS))
     }
@@ -84,7 +84,7 @@ impl<S: State + std::fmt::Debug> std::fmt::Debug for EventReceiver<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EventReceiver")
             .field("state", &self.state)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -112,6 +112,7 @@ impl<S: State> Deref for EventReceiver<S> {
 }
 
 impl EventReceiver<PlayerState> {
+    #[must_use]
     pub fn with_shared_state(self) -> EventReceiver<SharedPlayerState> {
         EventReceiver {
             state: SharedPlayerState(Arc::new(Mutex::new(self.state))),

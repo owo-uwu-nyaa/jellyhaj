@@ -28,7 +28,7 @@ pub struct PlaylistItemIdGen {
 }
 
 impl PlaylistItemIdGen {
-    fn next(&mut self) -> PlaylistItemId {
+    const fn next(&mut self) -> PlaylistItemId {
         let r = self.id;
         self.id = self.id.wrapping_add(1);
         PlaylistItemId { id: r }
@@ -50,7 +50,7 @@ impl FromStr for PlaylistItemId {
     type Err = ParseIntError;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Ok(PlaylistItemId {
+        Ok(Self {
             id: FromStr::from_str(s)?,
         })
     }
@@ -64,14 +64,13 @@ pub struct PlayItem {
 
 impl From<(MediaItem, PlaybackInfo)> for PlayItem {
     fn from((item, playback): (MediaItem, PlaybackInfo)) -> Self {
-        PlayItem {
+        Self {
             item,
             playback_session_id: playback.play_session_id,
         }
     }
 }
 
-#[derive(Debug)]
 pub enum Command {
     Pause(bool),
     TogglePause,
@@ -206,19 +205,12 @@ impl PlayerHandle {
     pub fn send(&self, command: Command) {
         if !self.closed.load(Ordering::Relaxed) && self.send.send(command).is_err() {
             self.closed.store(true, Ordering::Relaxed);
-        };
+        }
     }
+    #[must_use]
     pub fn get_state(&self) -> oneshot::Receiver<EventReceiver> {
         let (send, receive) = oneshot::channel();
         self.send(Command::GetEventReceiver(send));
         receive
-    }
-}
-
-impl Debug for PlayerHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PlayerRef")
-            .field("closed", &self.closed.load(Ordering::Relaxed))
-            .finish()
     }
 }

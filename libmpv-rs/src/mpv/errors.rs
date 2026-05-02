@@ -27,7 +27,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub enum Error {
     Loadfiles {
         index: usize,
-        error: Box<Error>,
+        error: Box<Self>,
     },
     VersionMismatch {
         linked: ctype::c_ulong,
@@ -44,24 +44,24 @@ pub enum Error {
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Error::Loadfiles { index, error } => {
+            Self::Loadfiles { index, error } => {
                 write!(f, "error loading file at index {index}:\n{error:?}")
             }
-            Error::VersionMismatch { linked, loaded } => write!(
+            Self::VersionMismatch { linked, loaded } => write!(
                 f,
                 "version mismatch with libmpv: linked: {linked}, loaded: {loaded}"
             ),
-            Error::InvalidUtf8 => f.write_str("Invalid utf-8"),
-            Error::Null => f.write_str("libmpc handle is null"),
-            Error::Raw(err) => {
+            Self::InvalidUtf8 => f.write_str("Invalid utf-8"),
+            Self::Null => f.write_str("libmpc handle is null"),
+            Self::Raw(err) => {
                 f.write_str("error from libmpv: ")?;
                 f.write_str(mpv_error_str(*err))
             }
-            Error::IntConversion(try_from_int_error) => {
+            Self::IntConversion(try_from_int_error) => {
                 write!(f, "Int conversion error: {try_from_int_error:?}")
             }
-            Error::HandleMismatch => f.write_str("tried to combine different handles"),
-            Error::UnknownProfile(name) => {
+            Self::HandleMismatch => f.write_str("tried to combine different handles"),
+            Self::UnknownProfile(name) => {
                 f.write_str("unknown profile: ")?;
                 f.write_str(name)
             }
@@ -72,21 +72,21 @@ impl fmt::Debug for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Error::Loadfiles { index, error } => {
+            Self::Loadfiles { index, error } => {
                 write!(f, "error loading file at index {index}:\n    {error}")
             }
-            Error::VersionMismatch { linked, loaded } => write!(
+            Self::VersionMismatch { linked, loaded } => write!(
                 f,
                 "version mismatch with libmpv:\n    linked: {linked}\n    loaded: {loaded}"
             ),
-            Error::InvalidUtf8 => f.write_str("Invalid utf-8"),
-            Error::Null => f.write_str("libmpc handle is null"),
-            Error::Raw(err) => f.write_str(mpv_error_str(*err)),
-            Error::IntConversion(try_from_int_error) => {
+            Self::InvalidUtf8 => f.write_str("Invalid utf-8"),
+            Self::Null => f.write_str("libmpc handle is null"),
+            Self::Raw(err) => f.write_str(mpv_error_str(*err)),
+            Self::IntConversion(try_from_int_error) => {
                 write!(f, "Int conversion error: {try_from_int_error}")
             }
-            Error::HandleMismatch => f.write_str("tried to combine different handles"),
-            Error::UnknownProfile(name) => {
+            Self::HandleMismatch => f.write_str("tried to combine different handles"),
+            Self::UnknownProfile(name) => {
                 f.write_str("unknown profile: ")?;
                 f.write_str(name)
             }
@@ -95,25 +95,25 @@ impl fmt::Display for Error {
 }
 
 impl From<NulError> for Error {
-    fn from(_other: NulError) -> Error {
-        Error::Null
+    fn from(_other: NulError) -> Self {
+        Self::Null
     }
 }
 
 impl From<Utf8Error> for Error {
-    fn from(_other: Utf8Error) -> Error {
-        Error::InvalidUtf8
+    fn from(_other: Utf8Error) -> Self {
+        Self::InvalidUtf8
     }
 }
 impl From<crate::MpvError> for Error {
-    fn from(other: crate::MpvError) -> Error {
-        Error::Raw(other)
+    fn from(other: crate::MpvError) -> Self {
+        Self::Raw(other)
     }
 }
 
 impl From<TryFromIntError> for Error {
     fn from(value: TryFromIntError) -> Self {
-        Error::IntConversion(value)
+        Self::IntConversion(value)
     }
 }
 

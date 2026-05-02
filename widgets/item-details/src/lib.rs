@@ -1,5 +1,6 @@
 use std::{cmp::min, convert::Infallible};
 
+use color_eyre::eyre::Context;
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
     Config,
@@ -38,7 +39,8 @@ pub struct Overview {
 }
 
 impl Overview {
-    pub fn new(text: String, title: String) -> Self {
+    #[must_use]
+    pub const fn new(text: String, title: String) -> Self {
         Self {
             text,
             title,
@@ -121,7 +123,12 @@ impl<R: 'static> JellyhajWidget<R> for Overview {
         let len = lines.len();
         self.scroll = min(self.scroll, lines.len() - 1);
         Paragraph::new(lines)
-            .scroll((self.scroll as u16, 0))
+            .scroll((
+                self.scroll
+                    .try_into()
+                    .context("current scroll overflowed")?,
+                0,
+            ))
             .render(main, buf);
         Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
             area.inner(Margin {
@@ -319,7 +326,7 @@ impl<
                     .into(),
                 buf,
                 cx.wrap_with(|_| unreachable!()),
-            )?
+            )?;
         }
         Block::bordered()
             .title(
@@ -554,7 +561,7 @@ impl<
                     .into(),
                 buf,
                 cx.wrap_with(|_| unreachable!()),
-            )?
+            )?;
         }
         Block::bordered()
             .title(self.item.name.as_str())

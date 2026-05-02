@@ -7,6 +7,8 @@ use std::{
     ptr::null_mut,
 };
 
+use libmpv_sys::mpv_node;
+
 use crate::{mpv::mpv_cstr_to_str, mpv_error, mpv_format};
 
 use super::{Format, GetData, Result, errors::Error};
@@ -21,7 +23,7 @@ pub enum MpvNodeValue<'a> {
     None,
 }
 
-impl<'a> std::fmt::Debug for MpvNodeValue<'a> {
+impl std::fmt::Debug for MpvNodeValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
@@ -153,14 +155,15 @@ impl Debug for MpvNodeRef<'_> {
 }
 
 impl<'p> MpvNodeRef<'p> {
-    pub(crate) unsafe fn new<'s>(val: libmpv_sys::mpv_node) -> MpvNodeRef<'s> {
+    pub(crate) const unsafe fn new<'s>(val: libmpv_sys::mpv_node) -> MpvNodeRef<'s> {
         MpvNodeRef {
             node: val,
             _does_not_outlive: PhantomData,
         }
     }
 
-    pub fn node(&self) -> *mut libmpv_sys::mpv_node {
+    #[must_use]
+    pub const fn node(&self) -> *mut libmpv_sys::mpv_node {
         (&raw const self.node).cast_mut()
     }
 
@@ -187,6 +190,7 @@ impl<'p> MpvNodeRef<'p> {
         })
     }
 
+    #[must_use]
     pub fn to_bool(&self) -> Option<bool> {
         if let MpvNodeValue::Flag(value) = self.value().ok()? {
             Some(value)
@@ -194,6 +198,7 @@ impl<'p> MpvNodeRef<'p> {
             None
         }
     }
+    #[must_use]
     pub fn to_i64(&self) -> Option<i64> {
         if let MpvNodeValue::Int64(value) = self.value().ok()? {
             Some(value)
@@ -201,6 +206,7 @@ impl<'p> MpvNodeRef<'p> {
             None
         }
     }
+    #[must_use]
     pub fn to_f64(&self) -> Option<f64> {
         if let MpvNodeValue::Double(value) = self.value().ok()? {
             Some(value)
@@ -209,6 +215,7 @@ impl<'p> MpvNodeRef<'p> {
         }
     }
 
+    #[must_use]
     pub fn to_str(&self) -> Option<&'p str> {
         if let MpvNodeValue::String(value) = self.value().ok()? {
             Some(value)
@@ -217,6 +224,7 @@ impl<'p> MpvNodeRef<'p> {
         }
     }
 
+    #[must_use]
     pub fn to_array(&self) -> Option<MpvNodeArrayRef<'p>> {
         if let MpvNodeValue::Array(value) = self.value().ok()? {
             Some(value)
@@ -225,6 +233,7 @@ impl<'p> MpvNodeRef<'p> {
         }
     }
 
+    #[must_use]
     pub fn to_map(&self) -> Option<MpvNodeMapRef<'p>> {
         if let MpvNodeValue::Map(value) = self.value().ok()? {
             Some(value)
@@ -241,15 +250,16 @@ pub struct MpvNode {
 
 impl Drop for MpvNode {
     fn drop(&mut self) {
-        unsafe { libmpv_sys::mpv_free_node_contents(&mut self.node) };
+        unsafe { libmpv_sys::mpv_free_node_contents(&raw mut self.node) };
     }
 }
 
 impl MpvNode {
-    pub(crate) unsafe fn new(val: libmpv_sys::mpv_node) -> Self {
-        MpvNode { node: val }
+    pub(crate) const unsafe fn new(val: libmpv_sys::mpv_node) -> Self {
+        Self { node: val }
     }
-    pub fn as_ref<'s>(&'s self) -> MpvNodeRef<'s> {
+    #[must_use]
+    pub const fn as_ref(&self) -> MpvNodeRef<'_> {
         MpvNodeRef {
             node: self.node,
             _does_not_outlive: PhantomData,
@@ -266,10 +276,10 @@ impl Debug for MpvNode {
 unsafe impl GetData for MpvNode {
     unsafe fn get_from_c_void<T, F: FnMut(*mut c_void) -> Result<T>>(
         mut fun: F,
-    ) -> Result<MpvNode> {
-        let mut val = MaybeUninit::uninit();
-        let _ = fun(val.as_mut_ptr() as *mut _)?;
-        Ok(MpvNode {
+    ) -> Result<Self> {
+        let mut val = MaybeUninit::<mpv_node>::uninit();
+        let _ = fun(val.as_mut_ptr().cast())?;
+        Ok(Self {
             node: unsafe { val.assume_init() },
         })
     }
@@ -312,7 +322,7 @@ impl ToNode<'static> for bool {
         unsafe {
             MpvNodeRef::new(libmpv_sys::mpv_node {
                 u: libmpv_sys::mpv_node__bindgen_ty_1 {
-                    flag: if self { 1 } else { 0 },
+                    flag: i32::from(self),
                 },
                 format: libmpv_sys::mpv_format_MPV_FORMAT_FLAG,
             })
@@ -332,6 +342,7 @@ impl ToNode<'static> for f64 {
 }
 
 impl<'n> MpvNodeArrayRef<'n> {
+    #[must_use]
     pub fn new(list: &'n [MpvNodeRef<'n>]) -> Self {
         MpvNodeArrayRef {
             list: libmpv_sys::mpv_node_list {
@@ -364,7 +375,8 @@ pub struct BorrowingCPtr<'n> {
 }
 
 impl<'n> BorrowingCPtr<'n> {
-    pub fn new(s: &'n CStr) -> Self {
+    #[must_use]
+    pub const fn new(s: &'n CStr) -> Self {
         BorrowingCPtr {
             ptr: s.as_ptr().cast_mut(),
             _l: PhantomData,
@@ -373,6 +385,7 @@ impl<'n> BorrowingCPtr<'n> {
 }
 
 impl<'n> MpvNodeMapRef<'n> {
+    #[must_use]
     pub fn new(keys: &'n [BorrowingCPtr<'n>], values: &'n [MpvNodeRef<'n>]) -> Self {
         assert_eq!(
             keys.len(),

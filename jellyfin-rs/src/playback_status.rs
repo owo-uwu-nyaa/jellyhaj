@@ -12,7 +12,7 @@ struct PlayingBody<'s> {
     item_id: &'s str,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ProgressBody<'s> {
     pub item_id: &'s str,

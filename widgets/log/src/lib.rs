@@ -44,6 +44,7 @@ impl std::fmt::Debug for LogWidget {
 }
 
 impl LogWidget {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             state: TuiWidgetState::new(),

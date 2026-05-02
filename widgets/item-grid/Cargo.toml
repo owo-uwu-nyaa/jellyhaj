@@ -7,3 +7,7 @@ ratatui.workspace = true
 edition = "2024"
 name = "jellyhaj-item-grid"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

@@ -22,16 +22,19 @@ const DB_IMAGE_CACHE_HITS: &str = "DB image cache hits";
 const MEMORY_IMAGE_CACHE_HITS: &str = "In memory image cache hits";
 
 const fn max_c(v1: usize, v2: usize) -> usize {
-    if v1 > v2 { v1 } else { v2 }
+    let res = if v1 > v2 { v1 } else { v2 };
+    assert!(res <= u16::MAX as usize);
+    res
 }
 
-const LABEL_MAX_LEN: usize = max_c(
+#[allow(clippy::cast_possible_truncation)]
+const LABEL_MAX_LEN: u16 = max_c(
     IMAGE_FETCHES.len(),
     max_c(DB_IMAGE_CACHE_HITS.len(), MEMORY_IMAGE_CACHE_HITS.len()),
-);
+) as u16;
 
 impl<'r> BorderedTable<'r> {
-    fn new(rows: &'r [&'r [&'r str]], col_widths: &'r [u16]) -> Self {
+    const fn new(rows: &'r [&'r [&'r str]], col_widths: &'r [u16]) -> Self {
         Self { rows, col_widths }
     }
 }
@@ -109,8 +112,7 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
 
     fn min_width(&self) -> Option<u16> {
         Some(
-            u16::try_from(LABEL_MAX_LEN)
-                .expect("label to large")
+            LABEL_MAX_LEN
                 .strict_add(
                     max(
                         self.image_fetches.len(),
@@ -188,7 +190,7 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
                 self.memory_image_cache_hits.len(),
             ),
         );
-        let cols = [LABEL_MAX_LEN as u16, col as u16];
+        let cols = [LABEL_MAX_LEN, col.try_into()?];
         let table = BorderedTable::new(&rows, &cols);
         let table_area = block.inner(area).centered(
             Constraint::Length(<Self as JellyhajWidget<R>>::min_width(self).unwrap()),

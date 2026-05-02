@@ -1,4 +1,4 @@
-use std::{future::Future, ops::DerefMut, sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use sqlx::{ConnectOptions, SqliteConnection, query, sqlite::SqliteConnectOptions};
 
@@ -42,12 +42,12 @@ async fn cache_maintainance<Fut: Future<Output = Result<()>>>(
     mut f: impl FnMut(Arc<Mutex<SqliteConnection>>) -> Fut,
     db: Arc<Mutex<SqliteConnection>>,
 ) {
-    let mut interval = interval(Duration::from_secs(60 * 60));
+    let mut interval = interval(Duration::from_hours(1));
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
         interval.tick().await;
         if let Err(err) = f(db.clone()).await {
-            error!("Error maintaining cache: {err:?}")
+            error!("Error maintaining cache: {err:?}");
         }
     }
 }
@@ -63,14 +63,14 @@ pub async fn cache() -> Result<Arc<Mutex<SqliteConnection>>> {
     migrate.in_scope(|| info!("migrations applied"));
     let maintainance = info_span!("cache_maintainance");
     let db = Arc::new(Mutex::new(db));
-    tokio::spawn(cache_maintainance(clean_images, db.clone()).instrument(maintainance.clone()));
+    tokio::spawn(cache_maintainance(clean_images, db.clone()).instrument(maintainance));
     Ok(db)
 }
 
 #[instrument]
 pub async fn clean_images(db: Arc<Mutex<SqliteConnection>>) -> Result<()> {
     let res = query!("delete from image_cache where (added+7*24*60*60)<unixepoch()")
-        .execute(db.lock().await.deref_mut())
+        .execute(&mut *db.lock().await)
         .await
         .context("deleting old images from cache")?;
     if res.rows_affected() > 0 {

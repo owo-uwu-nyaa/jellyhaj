@@ -44,7 +44,7 @@ impl OwnedPlayerHandle {
         let mpv = MpvStream::new(&jellyfin, hwdec, profile, log_level, minimized)?;
         if let Some(mpv_config_file) = mpv_config_file {
             mpv.load_config(mpv_config_file)
-                .context("loading extra mpv config file")?
+                .context("loading extra mpv config file")?;
         }
         let mut position_send_timer = interval(Duration::from_secs(1));
         position_send_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -67,7 +67,7 @@ impl OwnedPlayerHandle {
                 index: None,
                 fullscreen: true,
                 stop: stop.clone().cancelled_owned(),
-                jellyfin: jellyfin.clone(),
+                jellyfin,
                 playlist,
                 playlist_id_gen: PlaylistItemIdGen::default(),
                 minimized,
@@ -100,10 +100,10 @@ pub fn set_playlist(
         .as_ref()
         .ok_or_eyre("user data missing")?
         .playback_position_ticks
-        / 10000000;
+        / 10_000_000;
 
-    for item in items[0..index].iter() {
-        append(mpv, jellyfin, item)?
+    for item in &items[0..index] {
+        append(mpv, jellyfin, item)?;
     }
     debug!("previous files added");
     let item = &items[index];
@@ -134,8 +134,8 @@ pub fn set_playlist(
     ])
     .context("added main item")?;
     debug!("main file added to playlist at index {index}");
-    for item in items[index + 1..].iter() {
-        append(mpv, jellyfin, item)?
+    for item in &items[index + 1..] {
+        append(mpv, jellyfin, item)?;
     }
     debug!("later files added");
     Ok(items
@@ -178,8 +178,8 @@ fn name(item: &MediaItem) -> Result<CString> {
         ItemType::Music {
             album_id: _,
             album: _,
-        } => item.name.clone(),
-        ItemType::Movie => item.name.clone(),
+        }
+        | ItemType::Movie => item.name.clone(),
         ItemType::Episode {
             season_id: _,
             season_name: _,

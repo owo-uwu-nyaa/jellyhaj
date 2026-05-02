@@ -187,7 +187,7 @@ impl JellyfinEventInterests {
         guard.clean();
     }
     pub fn new(spawn: &Spawner, jellyfin: &JellyfinClient) -> Result<Self> {
-        let this = JellyfinEventInterests {
+        let this = Self {
             inner: Arc::new(Mutex::new(Interests {
                 refresh_progress: HashMap::new(),
                 changed_user_data: HashMap::new(),
@@ -216,10 +216,10 @@ async fn poll_socket_cancellable(
     cancel: Arc<ManualResetEvent>,
 ) {
     tokio::select! {
-        _ = jellyfin_poll_socket(interests, stream) => {
+        () = jellyfin_poll_socket(interests, stream) => {
             debug!("socket closed");
         }
-        _ = cancel.wait() => {
+        () = cancel.wait() => {
             debug!("interests dropped");
         }
     }
@@ -247,7 +247,7 @@ async fn jellyfin_poll_socket(
                 };
                 let message = RefrshProgressInterest { item_id, progress };
                 for i in vec {
-                    i.send(message.clone()).await
+                    i.send(message.clone()).await;
                 }
             }
             JellyfinMessage::UserDataChanged {
@@ -267,7 +267,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(change.clone()).await
+                        i.send(change.clone()).await;
                     }
                 }
             }
@@ -292,7 +292,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(folder.clone()).await
+                        i.send(folder.clone()).await;
                     }
                 }
                 for removed in items_removed {
@@ -305,7 +305,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(removed.clone()).await
+                        i.send(removed.clone()).await;
                     }
                 }
                 for updated in items_updated {
@@ -318,7 +318,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(updated.clone()).await
+                        i.send(updated.clone()).await;
                     }
                 }
             }

@@ -9,3 +9,8 @@ proc-macro = true
 edition = "2024"
 name = "jellyhaj-form-derive"
 version = "0.1.0"
+
+
+
+[lints]
+workspace = true

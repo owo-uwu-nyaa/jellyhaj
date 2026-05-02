@@ -112,7 +112,7 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + S
             "do_fetch",
         );
         cx.submitter
-            .wrap_with(|_| FetchAction::FetchTimeout)
+            .wrap_with(|()| FetchAction::FetchTimeout)
             .spawn_task_infallible(
                 tokio::time::sleep(Duration::from_secs(
                     Config::get_ref(cx.refs).fetch_timeout.into(),

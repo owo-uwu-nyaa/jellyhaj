@@ -85,7 +85,7 @@ impl PathBuilder for &str {
 }
 impl<F: FnOnce(&mut String)> PathBuilder for F {
     fn append(self, str: &mut String) {
-        self(str)
+        self(str);
     }
 }
 
@@ -94,7 +94,7 @@ pub trait Query: QuerySealed {
 }
 pub struct NoQuery;
 impl Query for NoQuery {
-    #[inline(always)]
+    #[inline]
     fn append(self, _str: &mut String) -> std::result::Result<(), serde_urlencoded::ser::Error> {
         Ok(())
     }

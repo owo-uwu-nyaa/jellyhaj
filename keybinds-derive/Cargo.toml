@@ -8,3 +8,7 @@ proc-macro = true
 edition = "2024"
 name = "keybinds-derive"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

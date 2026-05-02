@@ -97,10 +97,10 @@ fn main() -> Result<()> {
                         .display()
                 ),
                 PrintAction::Keybinds => {
-                    stdout().write_all(include_str!("../config/keybinds.toml").as_bytes())?
+                    stdout().write_all(include_bytes!("../config/keybinds.toml"))?;
                 }
                 PrintAction::Config => {
-                    stdout().write_all(include_str!("../config/config.toml").as_bytes())?
+                    stdout().write_all(include_bytes!("../config/config.toml"))?;
                 }
             }
             Ok(())
@@ -133,7 +133,7 @@ fn main() -> Result<()> {
                 handler_cancel.cancel();
                 let report = panic_hook.panic_report(panic);
                 error!("{}", report);
-                eprintln!("{}", report)
+                eprintln!("{report}");
             }));
             ThreadPoolBuilder::new()
                 .thread_name(|n| format!("tui-worker-{n}"))

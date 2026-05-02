@@ -67,7 +67,6 @@ pub fn apply_key_event<
                 {
                     debug!("keyboard press in text field");
                     this.inner.accept_char(c);
-                    Ok(None)
                 } else {
                     let current_map = mem::take(&mut this.current_map);
                     debug!(?current_map, "matching on active keymaps");
@@ -103,8 +102,8 @@ pub fn apply_key_event<
                         }
                         None => {}
                     }
-                    Ok(None)
                 }
+                Ok(None)
             }
             _ => Ok(None),
         },

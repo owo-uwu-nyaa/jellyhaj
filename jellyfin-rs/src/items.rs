@@ -143,21 +143,22 @@ pub enum ImageType {
     Profile,
 }
 impl ImageType {
-    pub fn name(&self) -> &'static str {
+    #[must_use]
+    pub const fn name(&self) -> &'static str {
         match self {
-            ImageType::Primary => "Primary",
-            ImageType::Art => "Art",
-            ImageType::Backdrop => "Backdrop",
-            ImageType::Banner => "Banner",
-            ImageType::Logo => "Logo",
-            ImageType::Thumb => "Thumb",
-            ImageType::Disc => "Disc",
-            ImageType::Box => "Box",
-            ImageType::Screenshot => "Screenshot",
-            ImageType::Menu => "Menu",
-            ImageType::Chapter => "Chapter",
-            ImageType::BoxRear => "BoxRear",
-            ImageType::Profile => "Profile",
+            Self::Primary => "Primary",
+            Self::Art => "Art",
+            Self::Backdrop => "Backdrop",
+            Self::Banner => "Banner",
+            Self::Logo => "Logo",
+            Self::Thumb => "Thumb",
+            Self::Disc => "Disc",
+            Self::Box => "Box",
+            Self::Screenshot => "Screenshot",
+            Self::Menu => "Menu",
+            Self::Chapter => "Chapter",
+            Self::BoxRear => "BoxRear",
+            Self::Profile => "Profile",
         }
     }
 }
@@ -212,7 +213,7 @@ pub enum ItemType {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct UserData {
@@ -231,7 +232,7 @@ pub struct SetUserData {
     pub played: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaItem {
@@ -251,7 +252,7 @@ pub struct MediaItem {
     pub run_time_ticks: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlaybackInfo {
     pub media_sources: Vec<MediaSource>,
@@ -291,7 +292,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
                 |base: &mut String| {
                     base.push_str("/Items/");
                     base.push_str(item);
-                    base.push_str("/Refresh")
+                    base.push_str("/Refresh");
                 },
                 query,
             )?
@@ -338,7 +339,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
     pub fn get_video_uri(&self, item_id: &str, play_session_id: &str) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.config.tls { "https" } else { "http" })
-            .authority(self.config.authority.to_owned())
+            .authority(self.config.authority.clone())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/videos/");
@@ -366,7 +367,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
     ) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.config.tls { "https" } else { "http" })
-            .authority(self.config.authority.to_owned())
+            .authority(self.config.authority.clone())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/Videos/");

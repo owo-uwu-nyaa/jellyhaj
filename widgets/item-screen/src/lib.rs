@@ -77,6 +77,7 @@ impl<T> Structable for ItemScreen<T> {
 }
 
 impl<T> ItemScreen<T> {
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&ItemList<T>> {
         self.lists.get(index)
     }
@@ -242,20 +243,21 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         let outer = Block::bordered()
-            .title_top(self.title.deref())
+            .title_top(&*self.title)
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
-        let visible = min(
+        let visible = u16::try_from(min(
             self.lists.len(),
             ((main.height + 1) / (self.item_size.height + 5)).into(),
-        );
-        self.offset = if visible < self.lists.len()
+        ))
+        .expect("bounded by height/entry height");
+        self.offset = if (visible as usize) < self.lists.len()
             && let position_in_visible = visible / 2
-            && self.current > position_in_visible
+            && self.current > position_in_visible as usize
         {
             min(
-                self.current - position_in_visible,
-                self.lists.len() - visible,
+                self.current - position_in_visible as usize,
+                self.lists.len() - visible as usize,
             )
         } else {
             0
@@ -275,9 +277,9 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
                 width: main.width,
                 height: self.item_size.height + 4,
             };
-            list.render_fallible(area, buf, cx.wrap_with(ScreenWrapper { index: i }))?
+            list.render_fallible(area, buf, cx.wrap_with(ScreenWrapper { index: i }))?;
         }
-        if visible < self.lists.len() {
+        if (visible as usize) < self.lists.len() {
             Scrollbar::new(HorizontalBottom).render(
                 area,
                 buf,
@@ -300,8 +302,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
 
     fn accepts_text_input(&self) -> bool {
         self.get(self.current)
-            .map(|i| i.accepts_text_input())
-            .unwrap_or(false)
+            .is_some_and(JellyhajWidget::accepts_text_input)
     }
 
     fn accept_char(&mut self, text: char) {

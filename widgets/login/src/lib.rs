@@ -2,6 +2,7 @@ use std::time::Duration;
 use std::{convert::Infallible, ops::ControlFlow};
 
 use color_eyre::Report;
+use color_eyre::eyre::Context;
 use jellyhaj_core::Config;
 use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
 use jellyhaj_form_widget::button::Button;
@@ -113,14 +114,15 @@ pub enum LoginType {
 }
 
 impl LoginType {
+    #[must_use]
     pub fn get_server_url(&self) -> &str {
         match self {
-            LoginType::Password {
+            Self::Password {
                 server_url,
                 username: _,
                 password: _,
-            } => server_url,
-            LoginType::QuickConnect { server_url } => server_url,
+            }
+            | Self::QuickConnect { server_url } => server_url,
         }
     }
 }
@@ -195,7 +197,7 @@ impl LoginWidget {
         username: String,
         password: String,
         password_cmd_set: bool,
-        error: Report,
+        error: &Report,
         c: &Config,
     ) -> Self {
         let selection = if server_url.is_empty() {
@@ -207,13 +209,13 @@ impl LoginWidget {
         } else {
             LoginDataSelection::Submit(())
         };
-        LoginWidget {
+        Self {
             inner: FlattenWidget::new(KeybindWidget::new(
                 LoginData {
                     server_url: TextField::new(server_url),
                     username: TextField::new(username),
                     password: SecretField::new(password),
-                    password_set: Default::default(),
+                    password_set: Label,
                     password_cmd: password_cmd_set,
                     submit: Button::new(ButtonAction::Submit),
                     quick_connect: Button::new(ButtonAction::QuickConnect),
@@ -221,7 +223,7 @@ impl LoginWidget {
                 }
                 .make_with(selection),
                 c.keybinds.form.clone(),
-                Default::default(),
+                FormCommandMapper::default(),
             )),
         }
     }
@@ -234,7 +236,8 @@ pub struct QuickConnectWidget {
 }
 
 impl QuickConnectWidget {
-    pub fn new(code: String) -> Self {
+    #[must_use]
+    pub const fn new(code: String) -> Self {
         Self { code, position: 0 }
     }
 }
@@ -312,7 +315,7 @@ impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
     ) -> Result<Option<Self::ActionResult>> {
         if kind.is_down() && {
             let mut area = Rect::from((Position::ORIGIN, size)).centered(
-                Constraint::Length(CANCEL_STR.len() as u16 + 2),
+                Constraint::Length(u16::try_from(CANCEL_STR.len()).expect("known length") + 2),
                 Constraint::Length(5),
             );
             area.y += 2;
@@ -343,13 +346,19 @@ impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
             "Enter code {} to login {}",
             self.code, spin[self.position as usize]
         );
-        let mut text_area = main.centered_horizontally(Constraint::Length(text.len() as u16));
+        let mut text_area = main.centered_horizontally(Constraint::Length(
+            text.len()
+                .try_into()
+                .context("text lenght conversion overflowed")?,
+        ));
         text_area.height = 1;
         info!("text_area: {text_area:?}");
         text.render(text_area, buf);
         main.y += 2;
         main.height -= 2;
-        main = main.centered_horizontally(Constraint::Length(CANCEL_STR.len() as u16 + 2));
+        main = main.centered_horizontally(Constraint::Length(
+            u16::try_from(CANCEL_STR.len()).expect("known length") + 2,
+        ));
         let cancel_block = Block::bordered();
         CANCEL_STR.render(cancel_block.inner(main), buf);
         cancel_block.render(main, buf);

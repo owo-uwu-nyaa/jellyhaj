@@ -10,7 +10,6 @@ use jellyfin::{JellyfinClient, image::GetImageQuery};
 use ratatui::layout::Size;
 use sqlx::SqliteConnection;
 use stats_data::Stats;
-use std::ops::DerefMut;
 use tracing::instrument;
 
 use crate::{ImageSize, cache::ImageProtocolKey};
@@ -47,7 +46,7 @@ pub async fn get_image(
             key.size.p_width,
             key.size.p_height
         )
-        .fetch_optional(db.lock().await.deref_mut())
+        .fetch_optional(&mut *db.lock().await)
         .await
     }
     .context("Get image from cache")
@@ -79,7 +78,7 @@ pub async fn get_image(
                         image_type,
                         tag,
                     )
-                    .execute(db.lock().await.deref_mut())
+                    .execute(&mut *db.lock().await)
                     .await
                     .context("delete image from cache after error")?;
                     Err(e)
@@ -130,7 +129,7 @@ async fn fetch_image(
     let image_type = key.image_type.name();
     sqlx::query!("insert into image_cache (item_id, image_type, tag, size_x, size_y, val) values (?,?,?,?,?,?)",
         key.item_id,image_type, key.tag, key.size.p_width, key.size.p_height,val
-    ).execute(db.lock().await.deref_mut()).await?;
+    ).execute(&mut *db.lock().await).await?;
     Ok(image)
 }
 

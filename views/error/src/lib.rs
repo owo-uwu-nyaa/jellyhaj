@@ -35,7 +35,7 @@ impl Named for Name {
     const NAME: &str = "error";
 }
 
-pub fn render_error(cx: TuiContext, e: Report) -> Erased {
+pub fn render_error(cx: TuiContext, e: &Report) -> Erased {
     tracing::error!("Error encountered: {e:?}");
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         ErrorWidget::new(format!("{e:?}")),

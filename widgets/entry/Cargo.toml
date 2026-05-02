@@ -13,3 +13,7 @@ valuable.workspace = true
 edition = "2024"
 name = "jellyhaj-entry-widget"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

@@ -28,8 +28,8 @@ pin_project! {
 }
 
 impl PollSocket {
-    pub(crate) fn new(stream: WebSocketStream<MaybeTls>) -> Self {
-        PollSocket {
+    pub(crate) const fn new(stream: WebSocketStream<MaybeTls>) -> Self {
+        Self {
             closed: false,
             keep_alive: None,
             send_keep_alive: false,
@@ -69,9 +69,8 @@ impl Stream for PollSocket {
                     {
                         *this.closed = true;
                         break poll_close(cx, this.socket);
-                    } else {
-                        *this.send_keep_alive = false;
                     }
+                    *this.send_keep_alive = false;
                 }
                 if let Some(message) = ready!(poll_message(cx, this.socket.as_mut())) {
                     break Poll::Ready(Some(match message {
@@ -85,10 +84,9 @@ impl Stream for PollSocket {
                         }
                         JellyfinMessageInternal::Public(message) => message,
                     }));
-                } else {
-                    *this.closed = true;
-                    break poll_close(cx, this.socket);
                 }
+                *this.closed = true;
+                break poll_close(cx, this.socket);
             }
         }
     }
@@ -123,5 +121,5 @@ fn poll_message(
             );
         }
     };
-    Poll::Ready(res.and_then(|f| f.trace_err()))
+    Poll::Ready(res.and_then(super::TraceResult::trace_err))
 }

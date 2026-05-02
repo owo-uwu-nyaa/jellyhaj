@@ -62,7 +62,7 @@ pub mod mpv_format {
     pub use libmpv_sys::mpv_format_MPV_FORMAT_STRING as String;
 }
 
-/// An libmpv_sys mpv error.
+/// An `libmpv_sys` mpv error.
 pub use libmpv_sys::mpv_error as MpvError;
 pub mod mpv_error {
     pub use libmpv_sys::mpv_error_MPV_ERROR_AO_INIT_FAILED as AoInitFailed;

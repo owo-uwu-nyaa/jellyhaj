@@ -9,3 +9,7 @@ color-eyre.workspace = true
 edition = "2024"
 name = "jellyhaj-inspect-view"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

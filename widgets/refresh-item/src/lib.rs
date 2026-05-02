@@ -90,7 +90,8 @@ impl Default for RefreshItemSelection {
 }
 
 impl RefreshItem {
-    pub fn new(id: String) -> Self {
+    #[must_use]
+    pub const fn new(id: String) -> Self {
         Self {
             id,
             action: Action::NewUpdated,
@@ -102,7 +103,7 @@ impl RefreshItem {
 }
 
 impl RefreshItem {
-    fn to_query(&self) -> RefreshItemQuery {
+    const fn to_query(&self) -> RefreshItemQuery {
         match self.action {
             Action::NewUpdated => RefreshItemQuery {
                 recursive: true,

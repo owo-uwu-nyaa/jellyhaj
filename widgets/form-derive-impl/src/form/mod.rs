@@ -65,7 +65,9 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let show_if_fns = fields.iter().filter_map(|item| {
         if let (Some(name), Some(expr)) = (item.show_if_fun.as_ref(), item.show_if.as_ref()) {
             let span = expr.span();
-            Some(quote_spanned! {span=> pub fn #name(&self)->#exports::bool{
+            Some(quote_spanned! {span=>
+            #[must_use]
+            pub fn #name(&self)->#exports::bool{
                 #expr
             }})
         } else {

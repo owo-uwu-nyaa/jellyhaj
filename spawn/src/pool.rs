@@ -12,7 +12,7 @@ use tracing::Span;
 
 pin_project! {
     pub struct Pool<T> where T: Send {
-        pool: Arc<Mutex<JoinSet<()>>>,
+        inner: Arc<Mutex<JoinSet<()>>>,
         closed: bool,
         cancellation: CancellationToken,
         #[pin]
@@ -33,7 +33,8 @@ impl<T: Send> Future for Pool<T> {
         'poll: loop {
             if *this.closed {
                 loop {
-                    match this.pool.lock().poll_join_next(cx) {
+                    let next = this.inner.lock().poll_join_next(cx);
+                    match next {
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(None) => {
                             break;
@@ -44,10 +45,10 @@ impl<T: Send> Future for Pool<T> {
                 let res = ready!(this.res.poll(cx));
                 break Poll::Ready(res.ok());
             } else if this.cancellation_fut.as_mut().poll(cx).is_ready() {
-                this.pool.lock().abort_all();
+                this.inner.lock().abort_all();
                 *this.closed = true;
             } else {
-                let mut pool = this.pool.lock();
+                let mut pool = this.inner.lock();
                 loop {
                     let pool_res = pool.poll_join_next(cx);
                     match pool_res {
@@ -60,7 +61,7 @@ impl<T: Send> Future for Pool<T> {
                         Poll::Ready(Some(Ok(()))) => {}
                         Poll::Ready(Some(Err(e))) => {
                             if e.is_panic() {
-                                this.pool.lock().abort_all();
+                                this.inner.lock().abort_all();
                                 *this.closed = true;
                                 this.cancellation.cancel();
                                 continue 'poll;
@@ -82,10 +83,10 @@ pub fn run_with_spawner<T: Send + 'static, F: Future<Output = T> + Send + 'stati
     name: &'static str,
 ) -> Pool<T> {
     let pool = Arc::new(Mutex::new(JoinSet::new()));
-    let spawn = Spawner { pool: pool.clone() };
+    let spawner = Spawner { pool: pool.clone() };
     let (send, res) = tokio::sync::oneshot::channel();
-    let f = f(spawn.clone());
-    spawn.spawn(
+    let f = f(spawner.clone());
+    spawner.spawn(
         async move {
             let _ = send.send(f.await);
         },
@@ -94,7 +95,7 @@ pub fn run_with_spawner<T: Send + 'static, F: Future<Output = T> + Send + 'stati
     );
     let fut = cancel.clone().cancelled_owned();
     Pool {
-        pool,
+        inner: pool,
         closed: false,
         cancellation: cancel,
         cancellation_fut: fut,

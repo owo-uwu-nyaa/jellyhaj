@@ -2,11 +2,9 @@ use proc_macro2::TokenStream;
 use quote::quote_spanned;
 use syn::{Error, Field, Ident, ItemStruct, LitStr, Result, parse2, spanned::Spanned};
 
-pub fn keybind_config(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
+pub fn keybind_config(args: &TokenStream, input: TokenStream) -> Result<TokenStream> {
     let input: ItemStruct = parse2(input)?;
-    if !args.is_empty() {
-        Err(Error::new(input.span(), "from_config takes no arguments"))
-    } else {
+    if args.is_empty() {
         let id = &input.ident;
         let fields = input.fields.iter().map(|field|{
             if let Some(ref ident)=field.ident{
@@ -54,6 +52,8 @@ pub fn keybind_config(args: TokenStream, input: TokenStream) -> Result<TokenStre
                            }
 
         })
+    } else {
+        Err(Error::new(input.span(), "from_config takes no arguments"))
     }
 }
 

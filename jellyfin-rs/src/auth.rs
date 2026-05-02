@@ -22,8 +22,8 @@ struct AuthUserNameReq<'a> {
     pw: &'a str,
 }
 impl JellyfinClient<NoAuth> {
+    #[must_use]
     pub fn auth_key(self, key: String) -> JellyfinClient<KeyAuth> {
-        let key = key.to_string();
         let device_id = make_client_id(
             &self.inner.unique,
             &self.inner.client_info,
@@ -46,6 +46,7 @@ impl JellyfinClient<NoAuth> {
     }
 
     #[instrument(skip_all)]
+    #[allow(clippy::future_not_send)]
     pub async fn auth_user_name(
         self,
         username: impl AsRef<str>,
@@ -75,7 +76,6 @@ impl JellyfinClient<NoAuth> {
             )
             .await?
             .deserialize()
-            .await
         }
         .await;
         let auth = match auth {
@@ -134,7 +134,6 @@ impl JellyfinClient<KeyAuth> {
             self.send_request_json(self.get("/Users/Me", NoQuery)?.empty_body()?)
                 .await?
                 .deserialize()
-                .await
         };
         let user: User = match user.await {
             Ok(v) => v,

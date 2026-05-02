@@ -49,13 +49,13 @@ pub enum WidgetResult<T> {
     Exit,
 }
 
-impl From<WidgetResult<Navigation>> for Navigation {
-    fn from(value: WidgetResult<Navigation>) -> Self {
+impl From<WidgetResult<Self>> for Navigation {
+    fn from(value: WidgetResult<Self>) -> Self {
         match value {
             WidgetResult::Ok(v) => v,
-            WidgetResult::Err(report) => Navigation::Replace(NextScreen::Error(report)),
-            WidgetResult::Pop => Navigation::PopContext,
-            WidgetResult::Exit => Navigation::Exit,
+            WidgetResult::Err(report) => Self::Replace(NextScreen::Error(report)),
+            WidgetResult::Pop => Self::PopContext,
+            WidgetResult::Exit => Self::Exit,
         }
     }
 }
@@ -78,8 +78,8 @@ unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
 
 #[instrument(skip_all, level = "trace")]
 unsafe fn replace_element(
-    entry: Arc<StateEntry>,
-    new_entry: Arc<StateEntry>,
+    entry: &Arc<StateEntry>,
+    new_entry: &Arc<StateEntry>,
     token: &mut ListAccessToken,
 ) {
     tracing::trace!("replacing element");
@@ -90,18 +90,18 @@ unsafe fn replace_element(
             entry.prev.take().as_ref().and_then(Weak::upgrade),
         )
     } {
-        unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
+        unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(new_entry));
         let new = unsafe { new_entry.get_list_mut(token) };
         new.next = Some(next);
         new.prev = Some(Arc::downgrade(&prev));
         unsafe { prev.get_list_mut(token) }.next = Some(new_entry.clone());
     }
-    unsafe { inspect_list(&new_entry, token) };
+    unsafe { inspect_list(new_entry, token) };
 }
 
 #[instrument(skip_all, level = "trace")]
 unsafe fn append_element(
-    entry: Arc<StateEntry>,
+    entry: &Arc<StateEntry>,
     new_entry: Arc<StateEntry>,
     token: &mut ListAccessToken,
 ) {
@@ -110,19 +110,19 @@ unsafe fn append_element(
         unsafe { next.get_list_mut(token) }.prev = Some(Arc::downgrade(&new_entry));
         let new = unsafe { new_entry.get_list_mut(token) };
         new.next = Some(next);
-        new.prev = Some(Arc::downgrade(&entry));
+        new.prev = Some(Arc::downgrade(entry));
         unsafe { entry.get_list_mut(token) }.next = Some(new_entry);
     }
-    unsafe { inspect_list(&entry, token) };
+    unsafe { inspect_list(entry, token) };
 }
 
 #[instrument(skip_all, level = "trace")]
 unsafe fn prepend_element(
-    entry: Arc<StateEntry>,
+    entry: &Arc<StateEntry>,
     new_entry: Arc<StateEntry>,
     token: &mut ListAccessToken,
 ) {
-    unsafe { inspect_list(&entry, token) };
+    unsafe { inspect_list(entry, token) };
     tracing::trace!("prepending element");
     if let Some(prev) = {
         unsafe { entry.get_list_mut(token) }
@@ -136,7 +136,7 @@ unsafe fn prepend_element(
         new.prev = Some(Arc::downgrade(&prev));
         unsafe { prev.get_list_mut(token) }.next = Some(new_entry);
     }
-    unsafe { inspect_list(&entry, token) };
+    unsafe { inspect_list(entry, token) };
 }
 
 unsafe fn inspect_list(start: &Arc<StateEntry>, token: &ListAccessToken) {
@@ -151,8 +151,8 @@ unsafe fn inspect_list(start: &Arc<StateEntry>, token: &ListAccessToken) {
                 StateValue::WithoutTui(_) => "WithoutTui",
             };
             let entry = unsafe { cur.get_list(token) };
-            let prev = entry.prev.as_ref().map(Weak::as_ptr).unwrap_or(null());
-            let next = entry.next.as_ref().map(Arc::as_ptr).unwrap_or(null());
+            let prev = entry.prev.as_ref().map_or(null(), Weak::as_ptr);
+            let next = entry.next.as_ref().map_or(null(), Arc::as_ptr);
             tracing::trace!(name: "list-entry", kind = kind, prev = ?prev, next = ?next);
             next_entry = entry.next.as_ref();
             if let Some(e) = next_entry
@@ -204,8 +204,8 @@ async unsafe fn run_suspended(
                                         state_token.clone()
                                     ))));
                                 replace_element(
-                                    entry,
-                                    new.clone(),
+                                    &entry,
+                                    &new,
                                     &mut token,
                                 );
                             }
@@ -223,7 +223,7 @@ async unsafe fn run_suspended(
                                         state_token.clone()
                                     ))));
                                 append_element(
-                                    entry,
+                                    &entry,
                                     new.clone(),
                                     &mut token,
                                 );
@@ -235,19 +235,19 @@ async unsafe fn run_suspended(
                         if let Some(entry) = state_entry.upgrade(){
                             unsafe{
                                 let new = Arc::new(StateEntry::new(StateValue::WithoutTui(next)));
-                                append_element(entry,new.clone() , &mut token);
+                                append_element(&entry,new.clone() , &mut token);
                             }
                         }
                     }
                     None => return RunResult::Exit
                 }
             }
-            _ = stop.wait() => {
+            () = stop.wait() => {
                 return RunResult::Cont(state)
             }
             visitor = visitors.recv() => {
                 if let Some(visitor) = visitor{
-                    visitor(&|visitor|state.visit(visitor))
+                    visitor(&|visitor|state.visit(visitor));
                 }else {
                     return RunResult::Cont(state)
                 }
@@ -352,17 +352,17 @@ unsafe impl Send for StateEntry {}
 
 impl StateEntry {
     /// # Safety
-    /// the ListAccessToken must be from this list
+    /// the `ListAccessToken` must be from this list
     unsafe fn get_list<'a>(&'a self, _token: &'a ListAccessToken) -> &'a ListEntry {
         unsafe { &*self.list.get() }
     }
     /// # Safety
-    /// the ListAccessToken must be from this list
+    /// the `ListAccessToken` must be from this list
     unsafe fn get_list_mut<'a>(&'a self, _token: &'a mut ListAccessToken) -> &'a mut ListEntry {
         unsafe { &mut *self.list.get() }
     }
 
-    fn new(val: StateValue) -> Self {
+    const fn new(val: StateValue) -> Self {
         Self {
             list: UnsafeCell::new(ListEntry {
                 next: None,
@@ -410,12 +410,12 @@ impl StateStack {
         unsafe {
             let entry = &mut *list.list.get();
             entry.next = Some(list.clone());
-            entry.prev = Some(Arc::downgrade(&list))
+            entry.prev = Some(Arc::downgrade(&list));
         }
 
         let token = ListAccessToken { _evil: () };
         unsafe { inspect_list(&list, &token) };
-        StateStack {
+        Self {
             lock: Arc::new(RwLock::new(token)),
             list,
         }
@@ -424,7 +424,7 @@ impl StateStack {
         let mut token = self.lock.write();
         unsafe {
             prepend_element(
-                self.list.clone(),
+                &self.list,
                 Arc::new_cyclic(|this| {
                     StateEntry::new(StateValue::Suspended(SuspendedInner::new(
                         widget,
@@ -437,6 +437,7 @@ impl StateStack {
             );
         }
     }
+    #[must_use]
     pub fn pop(&self) -> StateValue {
         let mut token = self.lock.write();
         let entry = unsafe { self.list.get_list(&token) }
@@ -484,6 +485,7 @@ impl Default for StateStack {
     }
 }
 
+#[must_use]
 pub struct ShadedWidgetGen<W: ?Sized> {
     last: Instant,
     start: Option<EffectInfo>,
@@ -682,7 +684,7 @@ pub async fn render_widget<Res: 'static>(
                 }
                 Ok(Ok(fps)) => {
                     duration = if fps > 0 {
-                        Duration::from_secs(1) / fps as u32
+                        Duration::from_secs(1) / u32::from(fps)
                     } else {
                         Duration::ZERO
                     }
@@ -691,15 +693,15 @@ pub async fn render_widget<Res: 'static>(
             }
         }
         select! {
-            _ = sleep_until(last_render+duration), if !duration.is_zero() => {
+            () = sleep_until(last_render+duration), if !duration.is_zero() => {
                 render = true;
             }
             nav = widget.next() => {
                 match nav{
-                    Some(Some(WidgetResult::Exit)) => return WidgetResult::Exit,
+                    Some(Some(WidgetResult::Exit))|
+                    None => return WidgetResult::Exit,
                     Some(Some(nav)) => return nav,
                     Some(None) => {render = true;}
-                    None => return WidgetResult::Exit,
                 }
             }
             event = events.next() => {
@@ -743,7 +745,7 @@ pub async fn render_widget_stop<Res: 'static>(
         }
         Ok(Ok(fps)) => {
             duration = if fps > 0 {
-                Duration::from_secs(1) / fps as u32
+                Duration::from_secs(1) / u32::from(fps)
             } else {
                 Duration::ZERO
             };
@@ -758,17 +760,17 @@ pub async fn render_widget_stop<Res: 'static>(
         if widget.is_stopped_finished() {
             break RenderStopRes::Ok;
         }
-        if duration.is_zero() {
-            panic!("Stop effect with fps 0 may never complete!")
-        }
+        assert!(
+            !duration.is_zero(),
+            "Stop effect with fps 0 may never complete!"
+        );
         select! {
-            _ = sleep_until(last_render + duration), if ! duration.is_zero() => {
+            () = sleep_until(last_render + duration), if ! duration.is_zero() => {
                 render = true;
             }
             nav = widget.next() => {
                 match nav{
-                    Some(Some(_)) => {render = true;},
-                    Some(None) => {render = true;}
+                    Some(Some(_) | None) => {render = true;}
                     None => return RenderStopRes::Exit,
                 }
             }
@@ -795,7 +797,7 @@ pub async fn render_widget_stop<Res: 'static>(
                 }
                 Ok(Ok(fps)) => {
                     duration = if fps > 0 {
-                        Duration::from_secs(1) / fps as u32
+                        Duration::from_secs(1) / u32::from(fps)
                     } else {
                         Duration::ZERO
                     }

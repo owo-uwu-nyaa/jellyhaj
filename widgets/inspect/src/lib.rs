@@ -14,6 +14,7 @@ type Id = (usize, usize);
 
 type IdTreeItem = TreeItem<'static, Id>;
 
+#[allow(clippy::too_many_lines)]
 fn inspect_valuable(
     mut name: String,
     view_id: usize,
@@ -207,7 +208,7 @@ impl valuable::Visit for StructVisitor<'_> {
         }
     }
     fn visit_named_fields(&mut self, named_values: &valuable::NamedValues<'_>) {
-        for (field, value) in named_values.iter() {
+        for (field, value) in named_values {
             let mut prefix = field.name().to_string();
             prefix += ": ";
             self.values
@@ -235,7 +236,7 @@ struct MapVisitor<'g> {
 impl valuable::Visit for MapVisitor<'_> {
     fn visit_value(&mut self, value: Value<'_>) {
         if let Value::Mappable(m) = value {
-            m.visit(self)
+            m.visit(self);
         }
     }
 
@@ -342,7 +343,7 @@ async fn collect_tree_items(items: Vec<ViewInfo>) -> Vec<IdTreeItem> {
             }
         } else {
             TreeItem::new_leaf(id, name)
-        })
+        });
     }
     res
 }
@@ -363,7 +364,7 @@ impl Valuable for InspectWidget {
     }
 
     fn visit(&self, visit: &mut dyn valuable::Visit) {
-        visit.visit_named_fields(&NamedValues::new(&[], &[]))
+        visit.visit_named_fields(&NamedValues::new(&[], &[]));
     }
 }
 impl Structable for InspectWidget {
@@ -476,7 +477,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
         kind: jellyhaj_widgets_core::MouseEventKind,
         _modifier: jellyhaj_widgets_core::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind
+        if kind == MouseEventKind::Down(MouseButton::Left)
             && let Some(at) = self.state.rendered_at(position)
         {
             tracing::debug!(rendered_at=?at, selected=?self.state.selected(), "clicked");

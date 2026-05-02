@@ -68,6 +68,7 @@ impl Named for Name {
     const NAME: &str = "quick-connect";
 }
 
+#[must_use]
 pub fn make_quick_connect(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         UnwrapWidget::new(QuickConnect::default().make_with(QuickConnectSelection::Code(()))),
@@ -77,6 +78,7 @@ pub fn make_quick_connect(cx: TuiContext) -> Erased {
     make_new_erased(cx, widget)
 }
 
+#[must_use]
 pub fn make_quick_connect_auth(cx: TuiContext, code: String) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {

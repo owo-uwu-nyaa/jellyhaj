@@ -11,3 +11,7 @@ jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }
 jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
 valuable.workspace = true
+
+
+[lints]
+workspace = true

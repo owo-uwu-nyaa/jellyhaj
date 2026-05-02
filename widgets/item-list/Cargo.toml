@@ -8,3 +8,7 @@ tracing.workspace = true
 edition = "2024"
 name = "jellyhaj-item-list"
 version = "0.1.0"
+
+
+[lints]
+workspace = true

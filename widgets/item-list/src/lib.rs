@@ -61,7 +61,7 @@ impl<T> Valuable for ItemList<T> {
                 self.title.as_value(),
                 self.active.as_value(),
             ],
-        ))
+        ));
     }
 }
 
@@ -72,7 +72,8 @@ impl<T> Structable for ItemList<T> {
 }
 
 impl<T> ItemList<T> {
-    pub fn height(&self) -> u16 {
+    #[must_use]
+    pub const fn height(&self) -> u16 {
         self.item_size.height + 4
     }
 }
@@ -236,13 +237,10 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
             0
         };
 
-        for ((i, item), x) in self
-            .items
-            .iter_mut()
-            .enumerate()
-            .skip(self.offset)
-            .zip((0..visible as u16).map(|i| main.x + i * (self.item_size.width + 1)))
-        {
+        for ((i, item), x) in self.items.iter_mut().enumerate().skip(self.offset).zip(
+            (0..u16::try_from(visible).expect("bounded by width/entry width"))
+                .map(|i| main.x + i * (self.item_size.width + 1)),
+        ) {
             item.set_active(self.active && i == self.current);
             let area = Rect {
                 x,
@@ -250,7 +248,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
                 width: self.item_size.width,
                 height: main.height,
             };
-            item.render_item(area, buf, cx.wrap_with(ListWrapper { index: i }))?
+            item.render_item(area, buf, cx.wrap_with(ListWrapper { index: i }))?;
         }
         if visible < self.items.len() {
             Scrollbar::new(HorizontalBottom).render(
@@ -275,8 +273,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
 
     fn accepts_text_input(&self) -> bool {
         self.get(self.current)
-            .map(|i| i.item_accepts_text_input())
-            .unwrap_or(false)
+            .is_some_and(jellyhaj_widgets_core::ItemWidget::item_accepts_text_input)
     }
 
     fn accept_char(&mut self, text: char) {

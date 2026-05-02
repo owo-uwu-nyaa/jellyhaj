@@ -20,21 +20,21 @@ impl EntryData {
         cx: &(impl ContextRef<Spawner> + ContextRef<JellyfinClient>),
     ) -> Option<Navigation> {
         let next: NextScreen = match (self, command) {
-            (EntryData::Item(item), EntryCommand::Activate | EntryCommand::Play) => {
+            (Self::Item(item), EntryCommand::Activate | EntryCommand::Play) => {
                 play_item(item.clone())?
             }
-            (EntryData::View(view), EntryCommand::Activate | EntryCommand::Open) => {
+            (Self::View(view), EntryCommand::Activate | EntryCommand::Open) => {
                 NextScreen::LoadUserView(Box::new(view.clone()))
             }
             (
-                EntryData::Item(MediaItem { id, .. }) | EntryData::View(UserView { id, .. }),
+                Self::Item(MediaItem { id, .. }) | Self::View(UserView { id, .. }),
                 EntryCommand::RefreshItem,
             ) => NextScreen::RefreshItem(id.clone()),
-            (EntryData::Item(item), EntryCommand::Open) => open_item(item)?,
-            (EntryData::Item(item), EntryCommand::OpenSeries) => item_series(item)?,
-            (EntryData::Item(item), EntryCommand::OpenSeason) => item_season(item)?,
-            (EntryData::Item(item), EntryCommand::OpenEpisode) => item_episode(item)?,
-            (EntryData::Item(item), EntryCommand::SetWatched) => {
+            (Self::Item(item), EntryCommand::Open) => open_item(item)?,
+            (Self::Item(item), EntryCommand::OpenSeries) => item_series(item)?,
+            (Self::Item(item), EntryCommand::OpenSeason) => item_season(item)?,
+            (Self::Item(item), EntryCommand::OpenEpisode) => item_episode(item)?,
+            (Self::Item(item), EntryCommand::SetWatched) => {
                 let jellyfin = JellyfinClient::get_ref(cx).clone();
                 let id = item.id.clone();
                 Spawner::get_ref(cx).spawn_res(
@@ -44,7 +44,7 @@ impl EntryData {
                 );
                 return None;
             }
-            (EntryData::Item(item), EntryCommand::UnsetWatched) => {
+            (Self::Item(item), EntryCommand::UnsetWatched) => {
                 let jellyfin = JellyfinClient::get_ref(cx).clone();
                 let id = item.id.clone();
                 Spawner::get_ref(cx).spawn_res(
@@ -55,7 +55,7 @@ impl EntryData {
                 return None;
             }
             (
-                EntryData::View(_),
+                Self::View(_),
                 EntryCommand::Play
                 | EntryCommand::OpenSeries
                 | EntryCommand::OpenSeason
@@ -68,6 +68,7 @@ impl EntryData {
     }
 }
 
+#[must_use]
 pub fn play_item(item: MediaItem) -> Option<NextScreen> {
     Some(NextScreen::FetchPlay(match item {
         v @ MediaItem {
@@ -152,6 +153,7 @@ fn item_episode(item: &MediaItem) -> Option<NextScreen> {
     })
 }
 
+#[must_use]
 pub fn item_season(item: &MediaItem) -> Option<NextScreen> {
     Some(match item {
         MediaItem {
@@ -159,23 +161,12 @@ pub fn item_season(item: &MediaItem) -> Option<NextScreen> {
                 ItemType::Episode {
                     season_id: Some(id),
                     ..
-                },
+                }
+                | ItemType::Music { album_id: id, .. },
             ..
         } => NextScreen::FetchItemListDetailsRef(id.clone()),
         i @ MediaItem {
-            item_type: ItemType::Season { .. },
-            ..
-        } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
-        i @ MediaItem {
-            item_type: ItemType::Series,
-            ..
-        } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
-        MediaItem {
-            item_type: ItemType::Music { album_id, .. },
-            ..
-        } => NextScreen::FetchItemListDetailsRef(album_id.clone()),
-        i @ MediaItem {
-            item_type: ItemType::MusicAlbum,
+            item_type: ItemType::Season { .. } | ItemType::Series | ItemType::MusicAlbum,
             ..
         } => NextScreen::FetchItemListDetails(Box::new(i.clone())),
         _ => return None,

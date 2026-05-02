@@ -42,9 +42,7 @@ impl Config {
     pub fn try_parse<T: Command>(&self, name: &str, strict: bool) -> Result<Option<BindingMap<T>>> {
         let empty_template = HashMap::new();
         let template = self.template.as_ref().unwrap_or(&empty_template);
-        let map = if let Some(map) = self.maps.get(name) {
-            map
-        } else {
+        let Some(map) = self.maps.get(name) else {
             return Ok(None);
         };
         let mapping = parse_mapping(strict, template, map, &Seen::Empty)?;
@@ -121,21 +119,19 @@ fn parse_key_code(mut name: &str) -> Option<Key> {
     let mut control = false;
     let mut alt = false;
 
-    while let Some(b'-') = name.as_bytes().get(1) {
+    while matches!(name.as_bytes().get(1), Some(b'-')) {
         match name.as_bytes()[0] {
             b'C' => {
                 if control {
                     return None;
-                } else {
-                    control = true;
                 }
+                control = true;
             }
             b'A' => {
                 if alt {
                     return None;
-                } else {
-                    alt = true;
                 }
+                alt = true;
             }
             _ => return None,
         }
@@ -180,7 +176,7 @@ fn parse_key_code(mut name: &str) -> Option<Key> {
 
 enum Seen<'s> {
     Empty,
-    Item { name: &'s str, next: &'s Seen<'s> },
+    Item { name: &'s str, next: &'s Self },
 }
 
 impl Seen<'_> {
@@ -209,7 +205,7 @@ fn do_parse_binding<T: Command>(
             } else if strict {
                 Err(eyre!("unknown command {name}"))
             } else {
-                Ok(KeyBinding::Invalid(name.to_string()))
+                Ok(KeyBinding::Invalid(name.clone()))
             }
         }
         ParseKeybinding::Group { map, name } => Ok(KeyBinding::Group {

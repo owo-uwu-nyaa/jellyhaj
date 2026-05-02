@@ -35,6 +35,7 @@ impl Named for Name {
     const NAME: &str = "inspect";
 }
 
+#[must_use]
 pub fn render_inspect(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         InspectWidget::default(),

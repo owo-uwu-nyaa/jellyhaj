@@ -28,7 +28,13 @@ pub struct ImageProtocolKeyRef<'s> {
 }
 
 impl<'s> ImageProtocolKeyRef<'s> {
-    pub fn new(image_type: ImageType, item_id: &'s str, tag: &'s str, size: ImageSize) -> Self {
+    #[must_use]
+    pub const fn new(
+        image_type: ImageType,
+        item_id: &'s str,
+        tag: &'s str,
+        size: ImageSize,
+    ) -> Self {
         Self {
             image_type,
             item_id,
@@ -51,24 +57,24 @@ impl AsKeyRef for ImageProtocolKey {
         }
     }
 }
-impl<'s> AsKeyRef for ImageProtocolKeyRef<'s> {
+impl AsKeyRef for ImageProtocolKeyRef<'_> {
     fn as_key_ref(&self) -> ImageProtocolKeyRef<'_> {
         *self
     }
 }
 
-impl<'s> PartialEq for dyn AsKeyRef + 's {
+impl PartialEq for dyn AsKeyRef + '_ {
     fn eq(&self, other: &Self) -> bool {
         self.as_key_ref() == other.as_key_ref()
     }
 }
-impl<'s> Eq for dyn AsKeyRef + 's {}
-impl<'s> Hash for dyn AsKeyRef + 's {
+impl Eq for dyn AsKeyRef + '_ {}
+impl Hash for dyn AsKeyRef + '_ {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_key_ref().hash(state);
     }
 }
-impl<'s> Debug for dyn AsKeyRef + 's {
+impl Debug for dyn AsKeyRef + '_ {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.as_key_ref(), f)
     }
@@ -95,6 +101,7 @@ impl ImageProtocolCache {
         trace!("storing image protocol in cache");
         self.protocols.lock().insert(key, protocol);
     }
+    #[must_use]
     pub fn new() -> Self {
         Self {
             protocols: Arc::new(Mutex::new(HashMap::new())),

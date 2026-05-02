@@ -15,6 +15,7 @@ impl Named for Name {
     const NAME: &str = "refresh-item";
 }
 
+#[must_use]
 pub fn render_refresh_item_form(cx: TuiContext, id: String) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         UnwrapWidget::new(RefreshItem::new(id).make_with_default()),
@@ -24,6 +25,7 @@ pub fn render_refresh_item_form(cx: TuiContext, id: String) -> Erased {
     make_new_erased(cx, widget)
 }
 
+#[must_use]
 pub fn render_do_refresh_item(cx: TuiContext, id: String, query: RefreshItemQuery) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {

@@ -8,7 +8,7 @@ use crate::JellyfinVec;
 use crate::connect::JsonResponse;
 use crate::request::RequestBuilderExt;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct ActivityLogEntry {

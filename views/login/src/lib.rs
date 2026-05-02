@@ -56,7 +56,7 @@ impl ContextRef<Spawner> for LoginContext {
 async fn edit_login_info(
     term: &mut DefaultTerminal,
     info: &LoginInfo,
-    error: Report,
+    error: &Report,
     events: &mut KeybindEvents,
     spawner: Spawner,
     config: Arc<Config>,
@@ -87,10 +87,10 @@ async fn edit_login_info(
             }
             WidgetResult::Ok(ControlFlow::Continue(login)) => {
                 let stop_res = render_widget_stop(widget.as_mut(), events, term).await;
-                if stop_res != RenderStopRes::Exit {
-                    Ok(Some(login))
-                } else {
+                if stop_res == RenderStopRes::Exit {
                     Ok(None)
+                } else {
+                    Ok(Some(login))
                 }
             }
             WidgetResult::Err(report) => Err(report),
@@ -234,7 +234,7 @@ macro_rules! rendered {
     };
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn login_loop(
     name: &'static str,
     version: &'static str,
@@ -311,7 +311,7 @@ pub async fn login_loop(
             }
             Err((client, e)) => {
                 current_client = Some(client);
-                error = e
+                error = e;
             }
         }
     } else {
@@ -323,7 +323,7 @@ pub async fn login_loop(
         match rendered!(edit_login_info(
             term,
             login_info,
-            error,
+            &error,
             events,
             spawner.clone(),
             config.clone()
@@ -499,7 +499,7 @@ pub async fn login(
             .context("writing out new login info")?;
     }
     if config.store_access_token {
-        store_creds(&mut db, &client.get_auth().access_token).await?
+        store_creds(&mut db, &client.get_auth().access_token).await?;
     }
     Ok(Some(client))
 }
@@ -515,18 +515,21 @@ async fn jellyfin_login(
 ) -> Result<Option<StdResult<JellyfinClient, (JellyfinClient<NoAuth>, Report)>>> {
     match kind {
         LoginKind::PW => {
-            with_render(
+            Box::pin(with_render(
                 jellyfin_login_pw(client, info),
                 term,
                 events,
                 spawner,
                 config,
                 "Logging in",
-            )
+            ))
             .await
         }
         LoginKind::QuickConnect => {
-            jellyfin_login_quick_connect(client, term, events, spawner, config).await
+            Box::pin(jellyfin_login_quick_connect(
+                client, term, events, spawner, config,
+            ))
+            .await
         }
     }
 }
@@ -554,7 +557,7 @@ async fn jellyfin_login_quick_connect(
     spawner: Spawner,
     config: Arc<Config>,
 ) -> Result<Option<StdResult<JellyfinClient, (JellyfinClient<NoAuth>, Report)>>> {
-    let available = async { client.quick_connect_enabled().await?.deserialize().await };
+    let available = async { client.quick_connect_enabled().await?.deserialize() };
     match rendered!(with_render(
         available,
         term,
@@ -577,7 +580,7 @@ async fn jellyfin_login_quick_connect(
             ))));
         }
     }
-    let start_quick_connect = async { client.initiate_quick_connect().await?.deserialize().await };
+    let start_quick_connect = async { client.initiate_quick_connect().await?.deserialize() };
     let mut quick_connect_status = match rendered!(with_render(
         start_quick_connect,
         term,
@@ -623,8 +626,7 @@ async fn poll_quick_connect(
             let status = client
                 .get_quick_connect_status(&secret)
                 .await?
-                .deserialize()
-                .await?;
+                .deserialize()?;
             if status.authenticated {
                 break Ok(status);
             }

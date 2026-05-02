@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::min, convert::Infallible, ops::Deref, time::Duration};
+use std::{borrow::Cow, cmp::min, convert::Infallible, time::Duration};
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{JellyhajWidget, Rect, WidgetContext, Wrapper};
@@ -43,8 +43,8 @@ impl Structable for Loading {
 }
 
 impl Loading {
-    pub fn new(title: impl Into<Cow<'static, str>>) -> Loading {
-        Loading {
+    pub fn new(title: impl Into<Cow<'static, str>>) -> Self {
+        Self {
             title: title.into(),
             timeout: 0,
             lines: Vec::new(),
@@ -73,7 +73,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
             Some((Ok(AdvanceLoadingScreen), interval))
         });
         cx.submitter
-            .spawn_stream(timer, info_span!("update-loading"), "update-loading")
+            .spawn_stream(timer, info_span!("update-loading"), "update-loading");
     }
 
     fn min_width(&self) -> Option<u16> {
@@ -116,7 +116,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
-        let outer = Block::bordered().title(self.title.deref());
+        let outer = Block::bordered().title(&*self.title);
         let main = outer.inner(area);
         let max_size = (min(main.width, main.height) - 1) / 2;
         let width_rem = main.width - (max_size * 2);

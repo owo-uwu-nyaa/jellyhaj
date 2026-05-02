@@ -30,7 +30,8 @@ impl Drop for PlayerWidget {
 }
 
 impl PlayerWidget {
-    pub fn new(handle: PlayerHandle) -> Self {
+    #[must_use]
+    pub const fn new(handle: PlayerHandle) -> Self {
         Self {
             handle,
             state: None,
@@ -68,7 +69,7 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
             },
             info_span!("get_event_receiver"),
             "get_event_receiver",
-        )
+        );
     }
 
     fn min_width(&self) -> Option<u16> {

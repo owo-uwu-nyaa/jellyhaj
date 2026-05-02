@@ -45,7 +45,9 @@ pub fn select_images(item: &MediaItem) -> impl Iterator<Item = (ImageType, &str)
 }
 
 pub fn select_images_owned(item: MediaItem) -> impl Iterator<Item = (ImageType, String)> {
-    item.image_tags.into_iter().flat_map(|map| map.into_iter())
+    item.image_tags
+        .into_iter()
+        .flat_map(std::iter::IntoIterator::into_iter)
 }
 
 impl<Auth: AuthStatus> JellyfinClient<Auth> {
@@ -69,7 +71,7 @@ impl<Auth: AuthStatus> JellyfinClient<Auth> {
     ) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.config.tls { "https" } else { "http" })
-            .authority(self.config.authority.to_owned())
+            .authority(self.config.authority.clone())
             .path_and_query(self.build_uri(
                 |prefix: &mut String| {
                     prefix.push_str("/Items/");

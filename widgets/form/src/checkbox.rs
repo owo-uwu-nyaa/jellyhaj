@@ -59,7 +59,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
-        if let FormAction::Enter = action {
+        if matches!(action, FormAction::Enter) {
             *self ^= true;
         }
         Ok(None)
@@ -117,9 +117,7 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
-        if let MouseEventKind::Down(MouseButton::Left) = kind
-            && pos.x < 3
-        {
+        if kind == MouseEventKind::Down(MouseButton::Left) && pos.x < 3 {
             *self ^= true;
         }
         Ok((None, None))
