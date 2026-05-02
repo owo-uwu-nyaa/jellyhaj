@@ -274,9 +274,7 @@ impl Debug for MpvNode {
 }
 
 unsafe impl GetData for MpvNode {
-    unsafe fn get_from_c_void<T, F: FnMut(*mut c_void) -> Result<T>>(
-        mut fun: F,
-    ) -> Result<Self> {
+    unsafe fn get_from_c_void<T, F: FnMut(*mut c_void) -> Result<T>>(mut fun: F) -> Result<Self> {
         let mut val = MaybeUninit::<mpv_node>::uninit();
         let _ = fun(val.as_mut_ptr().cast())?;
         Ok(Self {

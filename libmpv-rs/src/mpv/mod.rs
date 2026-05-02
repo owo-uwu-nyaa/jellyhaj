@@ -33,7 +33,7 @@ use crate::mpv::drop_handle::CallbackContext;
 use crate::node::{MpvNodeArrayRef, MpvNodeRef};
 
 pub use self::errors::*;
-use super::{EndFileReason, mpv_format, MpvFormat};
+use super::{EndFileReason, MpvFormat, mpv_format};
 
 use std::{
     ffi::{CStr, CString, c_char},
@@ -128,7 +128,7 @@ impl Deref for MpvStr<'_> {
 }
 impl Drop for MpvStr<'_> {
     fn drop(&mut self) {
-        unsafe { libmpv_sys::mpv_free(self.0.as_ptr().cast_mut().cast())};
+        unsafe { libmpv_sys::mpv_free(self.0.as_ptr().cast_mut().cast()) };
     }
 }
 
@@ -181,7 +181,7 @@ pub enum FileState {
     /// If current playlist is empty: play, otherwise append to playlist.
     AppendPlay,
 }
-#[derive(Debug,Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cycle {
     Up,
     Down,
@@ -303,9 +303,7 @@ mod drop_handle {
 }
 
 /// The central mpv context.
-pub struct Mpv<
-    Event: EventContextType = EventContextSync,
-> {
+pub struct Mpv<Event: EventContextType = EventContextSync> {
     drop_handle: Arc<MpvDropHandle>,
     ctx: NonNull<libmpv_sys::mpv_handle>,
     event_inline: Event::Inlined,
