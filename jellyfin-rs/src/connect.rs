@@ -82,6 +82,7 @@ impl ConnectionConfig {
         })
     }
 
+    #[allow(clippy::large_futures)]
     pub async fn http1_base_connection(&self) -> Result<MaybeTls> {
         let stream = get_stream(&self.host, self.port).await?;
         let stream = if self.tls {
@@ -94,6 +95,7 @@ impl ConnectionConfig {
         Ok(stream)
     }
 
+    #[allow(clippy::large_futures)]
     async fn connection(&self) -> Result<ConnectionInner> {
         let stream = get_stream(&self.host, self.port).await?;
         Ok(if self.tls {
@@ -260,60 +262,66 @@ impl Connection {
     ) -> impl Future<Output = Result<(BytesMut, Parts)>> {
         let uri = req.uri().to_string();
         let span = info_span!("send_request", uri);
-        let permit = self.guard.acquire();
-        async move {
-            let permit = permit.await.expect("should never be closed");
-            let mut state = 'outer: {
-                for s in &self.inner {
-                    if let Some(s) = s.get() {
-                        break 'outer s;
+        Box::pin(
+            async move {
+                let permit = self.guard.acquire();
+                let permit = permit.await.expect("should never be closed");
+                let mut state = 'outer: {
+                    for s in &self.inner {
+                        if let Some(s) = s.get() {
+                            break 'outer s;
+                        }
                     }
-                }
-                panic!("all states are currently locked")
-            };
-            let mut retries = 0u8;
-            let res = loop {
-                if retries > MAX_RETRIES {
-                    color_eyre::eyre::bail!("sending request failed after {MAX_RETRIES} retries")
-                }
-                let resp = loop {
-                    let inner = match &mut *state {
-                        ConnectionInner::Disconnected => self.config.connection().await?,
-                        ConnectionInner::H2(send_request) => {
-                            if let Err(e) = send_request.ready().await {
-                                error!("error sending request: {e:?}");
-                                retries += 1;
-                                ConnectionInner::Disconnected
-                            } else {
-                                break send_request.send_request(req.clone()).left_future();
-                            }
-                        }
-                        ConnectionInner::H1(send_request) => {
-                            if let Err(e) = send_request.ready().await {
-                                error!("error sending request: {e:?}");
-                                retries += 1;
-                                ConnectionInner::Disconnected
-                            } else {
-                                break send_request.send_request(req.clone()).right_future();
-                            }
-                        }
-                    };
-                    *state = inner;
+                    panic!("all states are currently locked")
                 };
-                match resp.await {
-                    Ok(resp) => break recv_response(check_status(resp)?).await,
-                    Err(e) => {
-                        warn!("received connection error: {e:?}");
-                        retries += 1;
-                        warn!("retrying request");
+                let mut retries = 0u8;
+                let res = loop {
+                    if retries > MAX_RETRIES {
+                        color_eyre::eyre::bail!(
+                            "sending request failed after {MAX_RETRIES} retries"
+                        )
                     }
-                }
-            };
-            drop(state);
-            drop(permit);
-            res
-        }
-        .instrument(span)
+                    let resp = loop {
+                        let inner = match &mut *state {
+                            ConnectionInner::Disconnected => {
+                                Box::pin(self.config.connection()).await?
+                            }
+                            ConnectionInner::H2(send_request) => {
+                                if let Err(e) = send_request.ready().await {
+                                    error!("error sending request: {e:?}");
+                                    retries += 1;
+                                    ConnectionInner::Disconnected
+                                } else {
+                                    break send_request.send_request(req.clone()).left_future();
+                                }
+                            }
+                            ConnectionInner::H1(send_request) => {
+                                if let Err(e) = send_request.ready().await {
+                                    error!("error sending request: {e:?}");
+                                    retries += 1;
+                                    ConnectionInner::Disconnected
+                                } else {
+                                    break send_request.send_request(req.clone()).right_future();
+                                }
+                            }
+                        };
+                        *state = inner;
+                    };
+                    match resp.await {
+                        Ok(resp) => break recv_response(check_status(resp)?).await,
+                        Err(e) => {
+                            warn!("received connection error: {e:?}");
+                            retries += 1;
+                            warn!("retrying request");
+                        }
+                    }
+                };
+                drop(state);
+                drop(permit);
+                res
+            }
+            .instrument(span),
+        )
     }
 }
 

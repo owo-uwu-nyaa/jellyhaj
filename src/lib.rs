@@ -150,7 +150,7 @@ async fn run_app_inner(
 ) -> Result<()> {
     let config = Arc::new(config);
     debug!("logging in to jellyfin");
-    if let Some(jellyfin) = Box::pin(jellyhaj_login_view::login(
+    if let Some(jellyfin) = jellyhaj_login_view::login(
         clap::crate_name!(),
         clap::crate_version!(),
         &mut term,
@@ -158,7 +158,7 @@ async fn run_app_inner(
         spawner.clone(),
         config.clone(),
         &cache,
-    ))
+    )
     .await?
     {
         let jellyfin_events = JellyfinEventInterests::new(&spawner, &jellyfin)?;

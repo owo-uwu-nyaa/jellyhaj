@@ -142,6 +142,7 @@ impl JellyfinClient<Auth> {
             config: self.config.clone(),
         };
         let connections = futures_util::stream::unfold(connect, |info| async move {
+            #[allow(clippy::large_futures)]
             let socket = make_socket(&info).await;
             Some((PollSocket::new(socket), info))
         });

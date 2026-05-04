@@ -515,21 +515,18 @@ async fn jellyfin_login(
 ) -> Result<Option<StdResult<JellyfinClient, (JellyfinClient<NoAuth>, Report)>>> {
     match kind {
         LoginKind::PW => {
-            Box::pin(with_render(
+            with_render(
                 jellyfin_login_pw(client, info),
                 term,
                 events,
                 spawner,
                 config,
                 "Logging in",
-            ))
+            )
             .await
         }
         LoginKind::QuickConnect => {
-            Box::pin(jellyfin_login_quick_connect(
-                client, term, events, spawner, config,
-            ))
-            .await
+            jellyfin_login_quick_connect(client, term, events, spawner, config).await
         }
     }
 }
