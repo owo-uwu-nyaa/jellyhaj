@@ -309,7 +309,7 @@ impl SuspendedInner {
             #[cfg(tokio_unstable)]
             {
                 tokio::task::Builder::new()
-                    .name(W::State::NAME)
+                    .name(name)
                     .spawn(fut)
                     .expect("spawning future should not fail")
             }
