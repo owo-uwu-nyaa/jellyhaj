@@ -215,6 +215,18 @@ pub async fn run_app(
     tokio::spawn(async move {
         let _ = tokio::signal::ctrl_c().await;
         info!("interrupt received");
+        //produce coredump
+        #[cfg(unix)]
+        {
+            if let Ok(res) = unsafe { nix::unistd::fork() } {
+                if matches!(res, nix::unistd::ForkResult::Child) {
+                    let _ = nix::sys::signal::raise(nix::sys::signal::SIGTRAP);
+                    std::process::abort()
+                } else {
+                    info!("produced coredump");
+                }
+            }
+        }
         signal_cancel.cancel();
     });
     let cache = config::cache().await?;

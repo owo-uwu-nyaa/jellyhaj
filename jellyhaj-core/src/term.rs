@@ -19,12 +19,16 @@ struct TermGuard;
 
 impl Drop for TermGuard {
     fn drop(&mut self) {
-        let _ = execute!(stdout(), DisableBracketedPaste);
-        let _ = execute!(stdout(), DisableMouseCapture);
-        let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
-        let _ = execute!(stdout(), LeaveAlternateScreen);
-        let _ = disable_raw_mode();
+        disable_unconditional();
     }
+}
+
+pub fn disable_unconditional() {
+    let _ = execute!(stdout(), DisableBracketedPaste);
+    let _ = execute!(stdout(), DisableMouseCapture);
+    let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
+    let _ = execute!(stdout(), LeaveAlternateScreen);
+    let _ = disable_raw_mode();
 }
 
 pub fn run_with(f: impl FnOnce(DefaultTerminal) -> Result<()>) -> Result<()> {

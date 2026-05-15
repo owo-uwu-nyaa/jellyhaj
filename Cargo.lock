@@ -1850,6 +1850,7 @@ dependencies = [
  "keybinds",
  "libc",
  "mimalloc",
+ "nix 0.31.2",
  "parking_lot",
  "pin-project-lite",
  "player-core",

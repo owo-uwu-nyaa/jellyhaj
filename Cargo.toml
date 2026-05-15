@@ -54,6 +54,9 @@ ratatui.workspace = true
 tui-logger.workspace = true
 jellyhaj-quick-connect-view = { version = "0.1.0", path = "views/quick-connect" }
 
+[target.'cfg(unix)'.dependencies]
+nix = {workspace=true, features = ["signal", "process"]}
+
 [features]
 attach = ["dep:libc"]
 console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tracing"]
@@ -152,7 +155,7 @@ hyper-util = {features = ["tokio"], version = "0.1.16"}
 image = {default-features = false, features = ["png", "webp"], version = "0.25.5"}
 itertools = "0.14.0"
 log = "0.4.26"
-nix = {features = ["poll"], version = "0.31.2"}
+nix = "0.31.2"
 nom = "8.0.0"
 parking_lot = "0.12.3"
 pin-project-lite = "0.2.16"

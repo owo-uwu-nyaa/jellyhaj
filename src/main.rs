@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{Write, stdout},
     path::PathBuf,
+    process::abort,
     sync::Mutex,
 };
 
@@ -9,6 +10,8 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, OptionExt, Result};
 use crossterm::{ExecutableCommand, terminal::SetTitle};
 use jellyhaj::run_app;
+#[cfg(unix)]
+use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal};
 use rayon::ThreadPoolBuilder;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, level_filters::LevelFilter};
@@ -77,8 +80,32 @@ fn attach() -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
+extern "C" fn signal_handler(_: std::ffi::c_int) {
+    std::thread::spawn(|| {
+        jellyhaj_core::term::disable_unconditional();
+        abort()
+    });
+}
+
+#[cfg(unix)]
+fn register_signal_handler() -> Result<()> {
+    unsafe {
+        nix::sys::signal::sigaction(
+            Signal::SIGUSR1,
+            &SigAction::new(
+                SigHandler::Handler(signal_handler),
+                SaFlags::SA_RESETHAND | SaFlags::SA_NODEFER,
+                SigSet::empty(),
+            ),
+        )
+    }?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     unsafe { std::env::set_var("LC_NUMERIC", "C") };
+    #[cfg(unix)]
     #[cfg(feature = "attach")]
     attach()?;
     let args = Args::parse();
@@ -126,6 +153,7 @@ fn main() -> Result<()> {
             tui_logger::set_env_filter_from_env(None);
             let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::new().into_hooks();
             eyre_hook.install().expect("installing eyre hook");
+            register_signal_handler()?;
             let cancel = CancellationToken::new();
             let handler_cancel = cancel.clone();
             std::io::stdout().execute(SetTitle("jellyhaj"))?;

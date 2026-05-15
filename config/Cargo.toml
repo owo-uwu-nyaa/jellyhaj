@@ -10,7 +10,7 @@ tokio = {features = ["macros", "process", "rt"], workspace = true}
 toml = {workspace = true}
 tracing = {workspace = true}
 crossterm.workspace = true
-nix.workspace = true
+nix = {workspace = true, features = ["poll"]}
 nom.workspace = true
 ratatui-core.workspace = true
 tachyonfx.workspace = true
