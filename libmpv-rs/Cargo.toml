@@ -20,7 +20,7 @@
 travis-ci = {branch = "master", repository = "https://github.com/ParadoxSpiral/mpv-rs"}
 
 [dependencies]
-crossbeam-epoch = {optional = true, version = "0.9.18"}
+arcshift = {workspace = true, optional = true}
 libmpv-sys = {path = "libmpv-sys"}
 tokio = {features = ["time"], optional = true, workspace = true}
 tracing = {optional = true, workspace = true}
@@ -29,7 +29,7 @@ tracing = {optional = true, workspace = true}
 crossbeam = "0.8"
 
 [features]
-async = ["dep:crossbeam-epoch"]
+async = ["dep:arcshift"]
 default = ["tokio"]
 tokio = ["async", "dep:tokio"]
 tracing = ["dep:tracing"]

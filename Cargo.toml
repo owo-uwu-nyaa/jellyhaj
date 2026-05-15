@@ -132,6 +132,7 @@ members = [
 ]
 
 [workspace.dependencies]
+arcshift = "0.4.2"
 ansi-to-tui = "8.0.0"
 aws-lc-rs = {default-features = false, version = "1.13.3"}
 base64 = "0.22.1"

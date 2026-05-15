@@ -279,7 +279,7 @@ mod drop_handle {
     use std::ptr::NonNull;
     #[cfg(feature = "async")]
     pub struct CallbackContext {
-        pub(crate) waker: crossbeam_epoch::Atomic<std::task::Waker>,
+        pub(crate) waker: arcshift::ArcShift<Option<std::task::Waker>>,
         #[cfg(feature = "tracing")]
         pub(crate) resource_span: tracing::Span,
     }
@@ -365,7 +365,7 @@ impl Mpv {
             ctx,
             #[cfg(feature = "async")]
             callback_cx: Box::new(CallbackContext {
-                waker: crossbeam_epoch::Atomic::null(),
+                waker: arcshift::ArcShift::new(None),
                 #[cfg(feature = "tracing")]
                 resource_span,
             }),

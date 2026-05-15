@@ -108,6 +108,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "arcshift"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "809ce7e2c99d17c161c0ca1673665bab3a3e1aa277b0f793abffc66b57c32d9f"
+
+[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2574,8 +2580,8 @@ dependencies = [
 name = "libmpv"
 version = "2.0.1"
 dependencies = [
+ "arcshift",
  "crossbeam",
- "crossbeam-epoch",
  "libmpv-sys",
  "tokio",
  "tracing",

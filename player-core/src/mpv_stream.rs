@@ -1,6 +1,9 @@
 use std::{
     ffi::{CStr, CString},
+    marker::PhantomPinned,
+    mem,
     ops::Deref,
+    pin::Pin,
     task::{Poll, ready},
 };
 
@@ -10,7 +13,8 @@ use jellyfin::JellyfinClient;
 use libmpv::{
     Format, Mpv, MpvProfile,
     events::{
-        Event, EventContextAsync, EventContextAsyncExt, EventContextExt, PropertyData, mpv_event_id,
+        Event, EventContextAsync, EventContextAsyncExt, EventContextExt, EventStream, PropertyData,
+        mpv_event_id,
     },
     node::{MpvNodeArrayRef, ToNode},
 };
@@ -44,6 +48,8 @@ pub enum MpvEvent {
 
 pub struct MpvStream {
     mpv: Mpv<EventContextAsync>,
+    poll: Option<EventStream<'static, Mpv<EventContextAsync>>>,
+    _pin: PhantomPinned,
 }
 
 impl Deref for MpvStream {
@@ -57,12 +63,21 @@ impl Stream for MpvStream {
     type Item = Result<MpvEvent>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
+        let mpv = unsafe {
+            let this = Pin::get_unchecked_mut(self);
+            if let Some(poll) = &mut this.poll {
+                poll
+            } else {
+                let poll: EventStream<'static, Mpv<EventContextAsync>> =
+                    mem::transmute(this.mpv.events());
+                this.poll.insert(poll)
+            }
+        };
         Poll::Ready(loop {
-            let event = match ready!(self.mpv.poll_wait_event(cx)).context("waiting for mpv events")
-            {
+            let event = match ready!(mpv.poll_wait_event(cx)).context("waiting for mpv events") {
                 Err(e) => break Some(Err(e)),
                 Ok(v) => v,
             };
@@ -204,7 +219,11 @@ impl MpvStream {
             c"on quit stop the player instead".to_node(),
         ])?;
         info!("mpv initialized");
-        Ok(Self { mpv })
+        Ok(Self {
+            mpv,
+            poll: None,
+            _pin: PhantomPinned,
+        })
     }
 }
 
