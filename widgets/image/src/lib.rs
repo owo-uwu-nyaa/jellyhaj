@@ -192,14 +192,7 @@ fn add_image<
         ))
         .expect("height center calc failed");
         let image = picker
-            .new_protocol(
-                action.image,
-                Size {
-                    width,
-                    height,
-                },
-                Resize::Fit(None),
-            )
+            .new_protocol(action.image, Size { width, height }, Resize::Fit(None))
             .context("generating protocol")?;
         *image_out = Some((image, action.image_size));
     }
