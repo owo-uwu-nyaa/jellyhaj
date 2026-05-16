@@ -76,6 +76,8 @@
                 buildInputs = [
                   pkgs.mpv-unwrapped
                   pkgs.sqlite
+                  pkgs.chafa
+                  pkgs.glib
                 ];
                 DATABASE_URL = "sqlite://db.sqlite";
               };

@@ -126,8 +126,8 @@ impl JellyfinImage {
             self.image.image.as_ref().map(|(p, _)| p)
         } else {
             let image_picker: &Picker = cx.refs.as_ref();
-            let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().1);
-            let p_width = u32::from(self.size.width) * u32::from(image_picker.font_size().0);
+            let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().height);
+            let p_width = u32::from(self.size.width) * u32::from(image_picker.font_size().width);
             if self.loading {
                 None
             } else {
@@ -180,7 +180,7 @@ fn add_image<
             action
                 .image
                 .width()
-                .div_ceil(u32::from(picker.font_size().0)),
+                .div_ceil(u32::from(picker.font_size().width)),
         ))
         .expect("width center calc failed");
         let height = u16::try_from(min(
@@ -188,15 +188,13 @@ fn add_image<
             action
                 .image
                 .height()
-                .div_ceil(u32::from(picker.font_size().1)),
+                .div_ceil(u32::from(picker.font_size().height)),
         ))
         .expect("height center calc failed");
         let image = picker
             .new_protocol(
                 action.image,
-                Rect {
-                    x: 0,
-                    y: 0,
+                Size {
                     width,
                     height,
                 },

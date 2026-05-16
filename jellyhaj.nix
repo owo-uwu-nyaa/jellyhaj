@@ -5,6 +5,8 @@
   pkg-config,
   mpv-unwrapped,
   sqlite,
+  chafa,
+  glib,
   versionCheckHook,
   runCommand,
   remarshal,
@@ -75,6 +77,8 @@ let
       buildInputs = [
         sqlite
         mpv-unwrapped
+        chafa
+        glib
       ];
       passthru = {
         inherit checkKeybinds checkEffects;

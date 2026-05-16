@@ -165,7 +165,7 @@ proc-macro2 = "1.0.94"
 quote = "1.0.40"
 ratatui = {features = ["unstable-widget-ref"], version = "0.30.0"}
 ratatui-core = "0.1.0"
-ratatui-image = {default-features = false, features = ["crossterm"], version = "10.0.0"}
+ratatui-image = {default-features = false, features = ["crossterm", "chafa-dyn"], version = "11.0.2"}
 rayon = "1.10.0"
 rustls-native-certs = "0.8.1"
 serde = {features = ["derive"], version = "1.0.164"}

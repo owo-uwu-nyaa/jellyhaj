@@ -79,10 +79,10 @@ fn calc_dimensions(config: &Config, font_size: FontSize) -> Size {
     let image_width = config.entry_image_width;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let image_height = {
-        let width = image_width * font_size.0;
+        let width = image_width * font_size.width;
         let width: f64 = width.into();
         let height = (width / 16.0) * 9.0;
-        let height = height / f64::from(font_size.1);
+        let height = height / f64::from(font_size.height);
         height.ceil() as u16
     };
     Size {

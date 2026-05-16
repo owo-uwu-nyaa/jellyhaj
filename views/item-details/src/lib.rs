@@ -35,7 +35,7 @@ pub fn render_fetch_episode(cx: TuiContext, parent: String) -> Erased {
 #[instrument(skip_all)]
 pub fn render_fetch_item_list(cx: TuiContext, parent: Box<MediaItem>) -> Erased {
     let jellyfin = cx.jellyfin.clone();
-    let title = format!("Loading {}", &parent.name);
+    let title = format!("Loading {}", parent.name);
     let fut = async move {
         let items = fetch_all_children(&jellyfin, &parent.id).await?;
         Ok(NextScreen::ItemListDetails(parent, items))
