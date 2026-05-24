@@ -29,6 +29,7 @@ fn log_stdout() -> Result<()> {
         .from_env()
         .context("parsing log config from RUST_LOG")?;
     let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi_sanitization(false)
         .event_format(format)
         .with_filter(filter);
     let error_layer = ErrorLayer::default();
@@ -51,11 +52,13 @@ fn log_file() -> Result<()> {
         .from_env()
         .context("parsing log config from RUST_LOG")?;
     let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi_sanitization(false)
         .with_writer(Mutex::new(
             File::create(&logfile).context("opening logfile")?,
         ))
         .event_format(format)
-        .with_filter(filter);
+        .with_filter(filter)
+        ;
     let error_layer = ErrorLayer::default();
     let registry = tracing_subscriber::registry()
         .with(fmt_layer)
