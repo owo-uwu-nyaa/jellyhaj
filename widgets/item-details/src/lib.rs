@@ -7,7 +7,7 @@ use jellyhaj_core::{
     context::{DB, JellyfinEventInterests, Spawner},
     state::{Navigation, NextScreen},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, ImageProtocolCache, Picker, Stats};
+use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetExt, Rect,
@@ -155,7 +155,7 @@ pub enum DisplayAction {
 impl ItemDetails {
     pub fn new(
         item: Box<MediaItem>,
-        cx: &(impl ContextRef<ImageProtocolCache> + ContextRef<Config> + ContextRef<Picker>),
+        cx: &(impl ContextRef<ImageCache> + ContextRef<Config> + ContextRef<Picker>),
     ) -> Self {
         let overview = item
             .overview
@@ -184,6 +184,7 @@ impl<
         + ContextRef<JellyfinClient>
         + ContextRef<JellyfinEventInterests>
         + ContextRef<DB>
+        + ContextRef<ImageCache>
         + 'static,
 > JellyhajWidget<R> for ItemDetails
 {
@@ -369,7 +370,7 @@ impl ItemListDetails {
         children: Vec<MediaItem>,
         item: Box<MediaItem>,
         cx: &(
-             impl ContextRef<ImageProtocolCache>
+             impl ContextRef<ImageCache>
              + ContextRef<Spawner>
              + ContextRef<Config>
              + ContextRef<Picker>
@@ -402,6 +403,7 @@ impl<
         + ContextRef<JellyfinClient>
         + ContextRef<JellyfinEventInterests>
         + ContextRef<DB>
+        + ContextRef<ImageCache>
         + 'static,
 > JellyhajWidget<R> for ItemListDetails
 {

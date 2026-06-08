@@ -13,7 +13,7 @@ use jellyhaj_core::{
     state::{Navigation, NextScreen},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
-use jellyhaj_image::cache::ImageProtocolCache;
+use jellyhaj_image::cache::ImageCache;
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -190,7 +190,7 @@ async fn run_app_inner(
                 jellyfin_events,
                 config,
                 cache,
-                image_cache: ImageProtocolCache::new(),
+                image_cache: ImageCache::new(),
                 mpv_handle: mpv_handle.clone(),
                 image_picker: Arc::new(image_picker),
                 stats: Arc::default(),

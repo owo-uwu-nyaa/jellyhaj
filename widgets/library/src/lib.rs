@@ -8,7 +8,7 @@ use jellyhaj_core::{
     render::KeybindAction,
     state::{Navigation, NextScreen, flatten_control_flow},
 };
-use jellyhaj_entry_widget::{Entry, EntryAction, ImageProtocolCache, Picker, Stats};
+use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_item_grid::{ItemGrid, ItemGridAction, new_item_grid};
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
@@ -73,7 +73,7 @@ impl LibraryWidget {
              + ContextRef<JellyfinClient>
              + ContextRef<JellyfinEventInterests>
              + ContextRef<DB>
-             + ContextRef<ImageProtocolCache>
+             + ContextRef<ImageCache>
              + 'static
          ),
     ) -> Self {
@@ -112,6 +112,7 @@ impl<
         + ContextRef<JellyfinClient>
         + ContextRef<JellyfinEventInterests>
         + ContextRef<DB>
+        + ContextRef<ImageCache>
         + 'static,
 > JellyhajWidget<R> for LibraryWidget
 {

@@ -1,12 +1,13 @@
 mod fetch;
 
+use image::DynamicImage;
 pub use image_cache as cache;
 pub use image_cache::ImageSize;
 use jellyhaj_core::context::DB;
-use std::{cmp::min, convert::Infallible, mem};
-use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
+use std::{cmp::min, convert::Infallible};
+use valuable::Valuable;
 
-use image_cache::{ImageProtocolCache, ImageProtocolKey, ImageProtocolKeyRef};
+use image_cache::{ImageCache, ImageKey, ImageProtocolKeyRef};
 
 use crate::fetch::get_image;
 use color_eyre::eyre::Context;
@@ -25,105 +26,49 @@ use tracing::info_span;
 
 pub use fetch::ParsedImage;
 
-struct ImageCacher {
-    image: Option<(Protocol, ImageSize)>,
-    cache: ImageProtocolCache,
-    image_type: ImageType,
-    item_id: String,
-    tag: String,
-}
-
-static IMAGE_CACHER_FIELDS: &[NamedField] = &[
-    NamedField::new("image"),
-    NamedField::new("image_type"),
-    NamedField::new("item_id"),
-    NamedField::new("tag"),
-];
-
-#[allow(clippy::ref_option_ref)]
-static IMAGE_NONE: &Option<&str> = &None;
-#[allow(clippy::ref_option_ref)]
-static IMAGE_SOME: &Option<&str> = &Some("image not inspectable");
-
-impl Valuable for ImageCacher {
-    fn as_value(&self) -> Value<'_> {
-        Value::Structable(self)
-    }
-
-    fn visit(&self, visit: &mut dyn valuable::Visit) {
-        visit.visit_named_fields(&NamedValues::new(
-            IMAGE_CACHER_FIELDS,
-            &[
-                if self.image.is_none() {
-                    IMAGE_NONE
-                } else {
-                    IMAGE_SOME
-                }
-                .as_value(),
-                self.image_type.as_value(),
-                self.item_id.as_value(),
-                self.tag.as_value(),
-            ],
-        ));
-    }
-}
-
-impl Structable for ImageCacher {
-    fn definition(&self) -> StructDef<'_> {
-        StructDef::new_static("ImageCacher", Fields::Named(IMAGE_CACHER_FIELDS))
-    }
-}
-
 #[derive(Valuable)]
 pub struct JellyfinImage {
     #[valuable(skip)]
     size: Size,
+    image_type: ImageType,
+    item_id: String,
+    tag: String,
     loading: bool,
-    image: ImageCacher,
+    image: Option<ImageProtocol>,
 }
 
-impl Drop for ImageCacher {
-    fn drop(&mut self) {
-        if let Some((protocol, size)) = self.image.take() {
-            let key = ImageProtocolKey {
-                image_type: self.image_type,
-                item_id: mem::take(&mut self.item_id),
-                tag: mem::take(&mut self.tag),
-                size,
-            };
-            self.cache.store(protocol, key);
-        }
-    }
+#[derive(Valuable)]
+struct ImageProtocol {
+    #[valuable(skip)]
+    protocol: Protocol,
+    size: ImageSize,
 }
 
 impl JellyfinImage {
-    pub fn new(
-        item_id: String,
-        tag: String,
-        image_type: ImageType,
-        cx: &impl ContextRef<ImageProtocolCache>,
-    ) -> Self {
+    #[must_use]
+    pub const fn new(item_id: String, tag: String, image_type: ImageType) -> Self {
         Self {
             size: Size::ZERO,
             loading: false,
-            image: ImageCacher {
-                image: None,
-                cache: cx.as_ref().clone(),
-                image_type,
-                item_id,
-                tag,
-            },
+            image: None,
+            image_type,
+            item_id,
+            tag,
         }
     }
 
     fn get_image<
-        R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB>,
+        R: ContextRef<Picker>
+            + ContextRef<Stats>
+            + ContextRef<JellyfinClient>
+            + ContextRef<DB>
+            + ContextRef<ImageCache>,
     >(
         &mut self,
         cx: WidgetContext<'_, ParsedImage, impl Wrapper<ParsedImage>, R>,
     ) -> Option<&Protocol> {
-        if self.image.image.is_some() {
-            self.image.image.as_ref().map(|(p, _)| p)
+        if self.image.is_some() {
+            self.image.as_ref().map(|p| &p.protocol)
         } else {
             let image_picker: &Picker = cx.refs.as_ref();
             let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().height);
@@ -132,27 +77,49 @@ impl JellyfinImage {
                 None
             } else {
                 let image_size = ImageSize { p_width, p_height };
-                let cached = self.image.cache.remove(&ImageProtocolKeyRef::new(
-                    self.image.image_type,
-                    &self.image.item_id,
-                    &self.image.tag,
+                let cached = ImageCache::get_ref(cx.refs).get(&ImageProtocolKeyRef::new(
+                    self.image_type,
+                    &self.item_id,
+                    &self.tag,
                     image_size,
                 ));
                 if let Some(image) = cached {
-                    Some(&self.image.image.insert((image, image_size)).0)
+                    let picker = Picker::get_ref(cx.refs);
+                    let (width, height) = self.calc_dimensions(&image, picker);
+                    let protocol = match picker
+                        .new_protocol(image, Size { width, height }, Resize::Fit(None))
+                        .context("generating protocol")
+                    {
+                        Ok(p) => p,
+                        Err(e) => {
+                            tracing::error!("error creating protocol: {e:?}");
+                            return None;
+                        }
+                    };
+                    Some(
+                        &self
+                            .image
+                            .insert(ImageProtocol {
+                                protocol,
+                                size: image_size,
+                            })
+                            .protocol,
+                    )
                 } else {
-                    let key = ImageProtocolKey {
-                        image_type: self.image.image_type,
-                        item_id: self.image.item_id.clone(),
-                        tag: self.image.tag.clone(),
+                    self.loading = true;
+                    let key = ImageKey {
+                        image_type: self.image_type,
+                        item_id: self.item_id.clone(),
+                        tag: self.tag.clone(),
                         size: image_size,
                     };
                     let db = DB::get_ref(cx.refs).clone();
                     let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
                     let size = self.size;
                     let stats = Stats::get_ref(cx.refs).clone();
+                    let cache = ImageCache::get_ref(cx.refs).clone();
                     cx.submitter.spawn_task_suppressed_error(
-                        async move { get_image(key, db, jellyfin, size, stats).await },
+                        async move { get_image(key, db, jellyfin, size, stats, cache).await },
                         info_span!("get_image"),
                         "get_image",
                     );
@@ -161,46 +128,31 @@ impl JellyfinImage {
             }
         }
     }
-}
 
-fn add_image<
-    R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB>,
->(
-    loading: &mut bool,
-    size: Size,
-    image_out: &mut Option<(Protocol, ImageSize)>,
-    cx: WidgetContext<'_, ParsedImage, impl Wrapper<ParsedImage>, R>,
-    action: ParsedImage,
-) -> Result<Option<Infallible>, color_eyre::eyre::Error> {
-    *loading = false;
-    if action.size == size {
-        let picker = Picker::get_ref(cx.refs);
+    fn calc_dimensions(&self, image: &DynamicImage, picker: &Picker) -> (u16, u16) {
         let width = u16::try_from(min(
-            u32::from(size.width),
-            action
-                .image
-                .width()
-                .div_ceil(u32::from(picker.font_size().width)),
+            u32::from(self.size.width),
+            image.width().div_ceil(u32::from(picker.font_size().width)),
         ))
         .expect("width center calc failed");
         let height = u16::try_from(min(
-            u32::from(size.height),
-            action
-                .image
+            u32::from(self.size.height),
+            image
                 .height()
                 .div_ceil(u32::from(picker.font_size().height)),
         ))
         .expect("height center calc failed");
-        let image = picker
-            .new_protocol(action.image, Size { width, height }, Resize::Fit(None))
-            .context("generating protocol")?;
-        *image_out = Some((image, action.image_size));
+        (width, height)
     }
-    Ok(None)
 }
 
 impl<
-    R: ContextRef<Picker> + ContextRef<Stats> + ContextRef<JellyfinClient> + ContextRef<DB> + 'static,
+    R: ContextRef<Picker>
+        + ContextRef<Stats>
+        + ContextRef<JellyfinClient>
+        + ContextRef<DB>
+        + ContextRef<ImageCache>
+        + 'static,
 > JellyhajWidget<R> for JellyfinImage
 {
     type Action = ParsedImage;
@@ -223,7 +175,7 @@ impl<
         let old_size = self.size;
         if new_size != old_size {
             self.size = new_size;
-            self.image.image = None;
+            self.image = None;
         }
         if let Some(image) = self.get_image(cx) {
             area.x += (area.width - new_size.width) / 2;
@@ -240,13 +192,19 @@ impl<
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        add_image(
-            &mut self.loading,
-            self.size,
-            &mut self.image.image,
-            cx,
-            action,
-        )
+        self.loading = false;
+        if action.size == self.size {
+            let picker = Picker::get_ref(cx.refs);
+            let (width, height) = self.calc_dimensions(&action.image, picker);
+            let protocol = picker
+                .new_protocol(action.image, Size { width, height }, Resize::Fit(None))
+                .context("generating protocol")?;
+            self.image = Some(ImageProtocol {
+                protocol,
+                size: action.image_size,
+            });
+        }
+        Ok(None)
     }
 
     fn click(

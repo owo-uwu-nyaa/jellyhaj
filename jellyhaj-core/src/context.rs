@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 pub use ::keybinds::KeybindEvents;
 pub use config::Config;
-pub use image_cache::ImageProtocolCache;
+pub use image_cache::ImageCache;
 pub use jellyfin::{Auth, JellyfinClient};
 pub use jellyhaj_event_listener::JellyfinEventInterests;
 pub use jellyhaj_widgets_core::ContextRef;
@@ -28,7 +28,7 @@ pub struct TuiContext {
     pub config: Arc<Config>,
     pub image_picker: ImagePicker,
     pub cache: DB,
-    pub image_cache: ImageProtocolCache,
+    pub image_cache: ImageCache,
     pub mpv_handle: PlayerHandle,
     pub stats: Stats,
     pub spawn: Spawner,
@@ -83,9 +83,9 @@ impl ContextRef<DBInner> for TuiContext {
         &self.cache
     }
 }
-impl ContextRef<ImageProtocolCache> for TuiContext {
+impl ContextRef<ImageCache> for TuiContext {
     #[inline]
-    fn as_ref(&self) -> &ImageProtocolCache {
+    fn as_ref(&self) -> &ImageCache {
         &self.image_cache
     }
 }

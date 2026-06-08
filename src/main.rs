@@ -57,8 +57,7 @@ fn log_file() -> Result<()> {
             File::create(&logfile).context("opening logfile")?,
         ))
         .event_format(format)
-        .with_filter(filter)
-        ;
+        .with_filter(filter);
     let error_layer = ErrorLayer::default();
     let registry = tracing_subscriber::registry()
         .with(fmt_layer)

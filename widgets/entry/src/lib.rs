@@ -14,7 +14,7 @@ use jellyhaj_core::{
     state::Navigation,
 };
 use jellyhaj_image::{JellyfinImage, ParsedImage};
-pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageProtocolCache};
+pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageCache};
 use jellyhaj_widgets_core::{
     Config, ContextRef, FontSize, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetExt,
     WidgetContext, Wrapper,
@@ -130,12 +130,12 @@ impl Entry {
     }
     pub fn new(
         data: impl Into<EntryData>,
-        cx: &(impl ContextRef<ImageProtocolCache> + ContextRef<Config> + ContextRef<Picker>),
+        cx: &(impl ContextRef<Config> + ContextRef<Picker>),
     ) -> Self {
         let size = calc_dimensions(cx.as_ref(), Picker::get_ref(cx).font_size());
         match data.into() {
-            EntryData::Item(item) => from_media_item(item, cx, size),
-            EntryData::View(user_view) => from_user_view(user_view, cx, size),
+            EntryData::Item(item) => from_media_item(item, size),
+            EntryData::View(user_view) => from_user_view(user_view, size),
         }
     }
 }
@@ -176,6 +176,7 @@ impl<
         + ContextRef<JellyfinClient>
         + ContextRef<JellyfinEventInterests>
         + ContextRef<DB>
+        + ContextRef<ImageCache>
         + 'static,
 > ItemWidget<R> for Entry
 {
@@ -299,7 +300,7 @@ impl<
     }
 }
 
-fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>, size: Size) -> Entry {
+fn from_media_item(item: MediaItem, size: Size) -> Entry {
     let (title, subtitle) = match &item.item_type {
         ItemType::Movie
         | ItemType::Unknown { item_type: _ }
@@ -322,7 +323,7 @@ fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>, si
     };
     let image = select_images(&item)
         .map(|(image_type, tag)| -> _ {
-            JellyfinImage::new(item.id.clone(), tag.to_string(), image_type, cx)
+            JellyfinImage::new(item.id.clone(), tag.to_string(), image_type)
         })
         .next();
     let watch_status = if let Some(user_data) = item.user_data.as_ref() {
@@ -347,14 +348,14 @@ fn from_media_item(item: MediaItem, cx: &impl ContextRef<ImageProtocolCache>, si
     }
 }
 
-fn from_user_view(item: UserView, cx: &impl ContextRef<ImageProtocolCache>, size: Size) -> Entry {
+fn from_user_view(item: UserView, size: Size) -> Entry {
     let title = item.name.clone();
     let image = item
         .image_tags
         .iter()
         .flat_map(|map| map.iter())
         .next()
-        .map(|(image_type, tag)| JellyfinImage::new(item.id.clone(), tag.clone(), *image_type, cx));
+        .map(|(image_type, tag)| JellyfinImage::new(item.id.clone(), tag.clone(), *image_type));
     Entry {
         image,
         title,

@@ -1,18 +1,19 @@
 use std::{borrow::Borrow, collections::HashMap, fmt::Debug, hash::Hash, sync::Arc};
 
+use image::DynamicImage;
 use jellyfin::items::ImageType;
 use parking_lot::Mutex;
-use ratatui_image::protocol::Protocol;
 use tracing::{instrument, trace};
+use valuable::Valuable;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Valuable)]
 pub struct ImageSize {
     pub p_width: u32,
     pub p_height: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct ImageProtocolKey {
+pub struct ImageKey {
     pub image_type: ImageType,
     pub item_id: String,
     pub tag: String,
@@ -47,7 +48,7 @@ impl<'s> ImageProtocolKeyRef<'s> {
 pub trait AsKeyRef {
     fn as_key_ref(&self) -> ImageProtocolKeyRef<'_>;
 }
-impl AsKeyRef for ImageProtocolKey {
+impl AsKeyRef for ImageKey {
     fn as_key_ref(&self) -> ImageProtocolKeyRef<'_> {
         ImageProtocolKeyRef {
             image_type: self.image_type,
@@ -79,27 +80,27 @@ impl Debug for dyn AsKeyRef + '_ {
         Debug::fmt(&self.as_key_ref(), f)
     }
 }
-impl<'s> Borrow<dyn AsKeyRef + 's> for ImageProtocolKey {
+impl<'s> Borrow<dyn AsKeyRef + 's> for ImageKey {
     fn borrow(&self) -> &(dyn AsKeyRef + 's) {
         self
     }
 }
 
 #[derive(Clone)]
-pub struct ImageProtocolCache {
-    protocols: Arc<Mutex<HashMap<ImageProtocolKey, Protocol>>>,
+pub struct ImageCache {
+    protocols: Arc<Mutex<HashMap<ImageKey, DynamicImage>>>,
 }
 
-impl ImageProtocolCache {
+impl ImageCache {
     #[instrument(level = "trace", skip(self))]
-    pub fn remove(&self, key: &dyn AsKeyRef) -> Option<Protocol> {
-        trace!("storing image protocol in cache");
-        self.protocols.lock().remove(key)
+    pub fn get(&self, key: &dyn AsKeyRef) -> Option<DynamicImage> {
+        trace!("retrieving image protocol from cache");
+        self.protocols.lock().get(key).cloned()
     }
-    #[instrument(level = "trace", skip(self, protocol))]
-    pub fn store(&self, protocol: Protocol, key: ImageProtocolKey) {
+    #[instrument(level = "trace", skip(self, image))]
+    pub fn store(&self, image: DynamicImage, key: ImageKey) {
         trace!("storing image protocol in cache");
-        self.protocols.lock().insert(key, protocol);
+        self.protocols.lock().insert(key, image);
     }
     #[must_use]
     pub fn new() -> Self {
@@ -109,7 +110,7 @@ impl ImageProtocolCache {
     }
 }
 
-impl Default for ImageProtocolCache {
+impl Default for ImageCache {
     fn default() -> Self {
         Self::new()
     }

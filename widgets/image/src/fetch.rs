@@ -6,13 +6,14 @@ use std::{
 use bytes::Bytes;
 use color_eyre::{Result, eyre::Context};
 use image::{DynamicImage, ImageReader};
+use image_cache::ImageCache;
 use jellyfin::{JellyfinClient, image::GetImageQuery};
 use ratatui::layout::Size;
 use sqlx::SqliteConnection;
 use stats_data::Stats;
 use tracing::instrument;
 
-use crate::{ImageSize, cache::ImageProtocolKey};
+use crate::{ImageSize, cache::ImageKey};
 
 #[derive(Debug)]
 pub struct ParsedImage {
@@ -23,11 +24,12 @@ pub struct ParsedImage {
 
 #[instrument(skip_all)]
 pub async fn get_image(
-    key: ImageProtocolKey,
+    key: ImageKey,
     db: Arc<tokio::sync::Mutex<SqliteConnection>>,
     jellyfin: JellyfinClient,
     size: Size,
     stats: Stats,
+    cache: ImageCache,
 ) -> Result<ParsedImage> {
     match {
         let image_type = key.image_type.name();
@@ -59,11 +61,15 @@ pub async fn get_image(
                 .with_context(|| format!("parsing image for item {}", key.item_id))
                 .context("from in memory cache");
             match image {
-                Ok(image) => Ok(ParsedImage {
-                    image,
-                    size,
-                    image_size: key.size,
-                }),
+                Ok(image) => {
+                    let image_size = key.size;
+                    cache.store(image.clone(), key);
+                    Ok(ParsedImage {
+                        image,
+                        size,
+                        image_size,
+                    })
+                }
                 Err(e) => {
                     tracing::error!("error parsing image - clearing image from cache");
                     let image_type = key.image_type.name();
@@ -95,6 +101,7 @@ pub async fn get_image(
                         .await
                         .with_context(|| format!("parsing image for item {}", key.item_id))
                         .context("from fetch")?;
+                    cache.store(image.clone(), key);
                     Ok(ParsedImage {
                         image,
                         size,
@@ -109,7 +116,7 @@ pub async fn get_image(
 
 #[instrument(skip_all)]
 async fn fetch_image(
-    key: &ImageProtocolKey,
+    key: &ImageKey,
     jellyfin: JellyfinClient,
     db: Arc<tokio::sync::Mutex<SqliteConnection>>,
 ) -> Result<Bytes> {
