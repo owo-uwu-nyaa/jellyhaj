@@ -44,6 +44,7 @@ pub enum NextScreen {
     UserView {
         view: Box<UserView>,
         items: Vec<MediaItem>,
+        seen: Option<u32>,
     },
     FetchPlay(LoadPlay),
     Play {

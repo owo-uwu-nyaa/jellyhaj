@@ -42,8 +42,8 @@ fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::LoadUserView(user_view) => {
             jellyhaj_library_view::render_fetch_user_view(cx, user_view)
         }
-        NextScreen::UserView { view, items } => {
-            jellyhaj_library_view::render_user_view(cx, view, items)
+        NextScreen::UserView { view, items, seen } => {
+            jellyhaj_library_view::render_user_view(cx, view, items, seen)
         }
         NextScreen::FetchPlay(load_play) => jellyhaj_player_view::render_fetch_play(cx, load_play),
         NextScreen::Play { items, index } => jellyhaj_player_view::render_play(cx, items, index),

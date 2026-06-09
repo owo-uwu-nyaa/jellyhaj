@@ -136,7 +136,7 @@ impl<
 }
 
 #[derive(Clone, Copy)]
-struct KeybindWrapper;
+pub struct KeybindWrapper;
 
 impl<T: Debug + Send + 'static> Wrapper<T> for KeybindWrapper {
     type F = KeybindAction<T>;

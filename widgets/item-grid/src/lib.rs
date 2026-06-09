@@ -53,6 +53,23 @@ impl<T> ItemGrid<T> {
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         self.items.get_mut(index)
     }
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.items.len()
+    }
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+}
+
+/**
+ *Ensure added items get initialized before beeing inserted
+ *  */
+impl<V> Extend<V> for ItemGrid<V> {
+    fn extend<T: IntoIterator<Item = V>>(&mut self, iter: T) {
+        self.items.extend(iter);
+    }
 }
 
 pub fn new_item_grid<R: 'static, T: ItemWidget<R>>(
@@ -95,8 +112,8 @@ pub enum ItemGridAction<T> {
 }
 
 #[derive(Clone, Copy)]
-struct GridWrapper {
-    index: usize,
+pub struct GridWrapper {
+    pub index: usize,
 }
 
 impl<T: Send + 'static> Wrapper<T> for GridWrapper {

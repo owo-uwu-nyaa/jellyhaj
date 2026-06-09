@@ -2303,6 +2303,7 @@ name = "jellyhaj-library-view"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "futures-util",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
@@ -2313,6 +2314,7 @@ dependencies = [
 name = "jellyhaj-library-widget"
 version = "0.1.0"
 dependencies = [
+ "color-eyre",
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-entry-widget",

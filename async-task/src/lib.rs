@@ -7,7 +7,8 @@ use std::{
 
 use color_eyre::Result;
 pub use futures_channel::mpsc::SendError;
-use futures_channel::mpsc::{Receiver, Sender, channel};
+pub use futures_channel::mpsc::Sender;
+use futures_channel::mpsc::{Receiver, channel};
 use futures_intrusive::sync::{ManualResetEvent, WaitForEventFuture};
 pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use pin_project_lite::pin_project;
@@ -127,11 +128,11 @@ where
 }
 
 pin_project! {
-    struct Cancelled<'c,F>{
+    pub struct Cancelled<'c,F>{
         #[pin]
-        f:F,
+        pub f:F,
         #[pin]
-        cancel: WaitForEventFuture<'c>,
+        pub cancel: WaitForEventFuture<'c>,
     }
 }
 

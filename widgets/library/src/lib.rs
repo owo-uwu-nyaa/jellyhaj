@@ -1,6 +1,11 @@
-use std::{fmt::Debug, ops::ControlFlow};
+use std::{fmt::Debug, ops::ControlFlow, pin::pin};
 
-use jellyfin::{JellyfinClient, items::MediaItem, user_views::UserView};
+use color_eyre::eyre::Context;
+use jellyfin::{
+    JellyfinClient, JellyfinVec,
+    items::{GetItemsQuery, MediaItem},
+    user_views::UserView,
+};
 use jellyhaj_core::{
     CommandMapper, Config,
     context::{DB, JellyfinEventInterests, Spawner},
@@ -9,10 +14,13 @@ use jellyhaj_core::{
     state::{Navigation, NextScreen, flatten_control_flow},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
-use jellyhaj_item_grid::{ItemGrid, ItemGridAction, new_item_grid};
-use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_item_grid::{GridWrapper, ItemGrid, ItemGridAction, new_item_grid};
+use jellyhaj_keybinds_widget::{KeybindWidget, KeybindWrapper};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, JellyhajWidget, Result, WidgetContext,
+    WidgetTreeVisitor, Wrapper,
+    async_task::{Cancellation, Cancelled, Sender, SinkExt, StreamExt},
+    spawn::tracing::{debug, info_span},
     valuable::Valuable,
 };
 
@@ -21,6 +29,7 @@ pub enum LibraryAction {
     Inner(ItemGridAction<EntryAction>),
     Reload,
     Remove,
+    Add(Vec<MediaItem>),
 }
 
 struct Mapper {
@@ -61,6 +70,59 @@ impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for Wrap {
     }
 }
 
+async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
+    jellyfin: JellyfinClient,
+    library_id: String,
+    wrapper: W,
+    mut sender: Sender<Result<W::F>>,
+    cancel: Cancellation,
+    seen: u32,
+) {
+    let inner = async move {
+        let mut stream = pin!(JellyfinVec::stream_from(
+            async |seen| {
+                let user_id = jellyfin.get_auth().user.id.as_str();
+                jellyfin
+                    .get_items(&GetItemsQuery {
+                        user_id: user_id.into(),
+                        start_index: seen.into(),
+                        limit: 100.into(),
+                        recursive: None,
+                        parent_id: library_id.as_str().into(),
+                        exclude_item_types: None,
+                        include_item_types: None,
+                        enable_images: true.into(),
+                        enable_image_types: "Thumb, Backdrop, Primary".into(),
+                        image_type_limit: 1.into(),
+                        enable_user_data: true.into(),
+                        fields: None,
+                        sort_by: "DateLastContentAdded".into(),
+                        sort_order: "Descending".into(),
+                    })
+                    .await
+                    .context("requesting items")?
+                    .deserialize()
+                    .context("deserializing items")
+            },
+            seen
+        ));
+        while let Some(v) = stream.next().await {
+            if sender
+                .feed(v.map(|v| wrapper.wrap(KeybindAction::Inner(LibraryAction::Add(v.items)))))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    };
+    Cancelled {
+        f: inner,
+        cancel: cancel.cancelled(),
+    }
+    .await;
+}
+
 impl LibraryWidget {
     pub fn new(
         view: Box<UserView>,
@@ -76,6 +138,7 @@ impl LibraryWidget {
              + ContextRef<ImageCache>
              + 'static
          ),
+        seen: Option<u32>,
     ) -> Self {
         let inner = new_item_grid(
             items.into_iter().map(|i| Entry::new(i, cx)).collect(),
@@ -93,6 +156,7 @@ impl LibraryWidget {
         Self {
             inner,
             user_view: *view,
+            seen,
         }
     }
 }
@@ -102,6 +166,7 @@ pub struct LibraryWidget {
     #[valuable(skip)]
     inner: KeybindWidget<UserViewCommand, ItemGrid<Entry>, Mapper>,
     user_view: UserView,
+    seen: Option<u32>,
 }
 
 impl<
@@ -160,6 +225,22 @@ impl<
             KeybindAction::Inner(LibraryAction::Remove) => {
                 return Ok(Some(Navigation::PopContext));
             }
+            KeybindAction::Inner(LibraryAction::Add(items)) => {
+                debug!("received {} additional items", items.len());
+                let start = self.inner.inner.len();
+                self.inner
+                    .inner
+                    .extend(items.into_iter().enumerate().map(|(i, item)| {
+                        let mut entry = Entry::new(item, cx.refs);
+                        entry.init(cx.wrap_with(Wrap).wrap_with(KeybindWrapper).wrap_with(
+                            GridWrapper {
+                                index: start.strict_add(i),
+                            },
+                        ));
+                        entry
+                    }));
+                return Ok(None);
+            }
             KeybindAction::Inner(LibraryAction::Inner(action)) => KeybindAction::Inner(action),
             KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
         };
@@ -193,6 +274,22 @@ impl<
                     .wrap_with(|_| KeybindAction::Inner(LibraryAction::Remove)),
             );
         });
+        if let Some(seen) = self.seen.take() {
+            let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
+            let id = self.user_view.id.clone();
+            cx.submitter.spawn(
+                fetch_library_content(
+                    jellyfin,
+                    id,
+                    cx.submitter.wrapper(),
+                    cx.submitter.sender().clone(),
+                    cx.submitter.cancel_token().clone(),
+                    seen,
+                ),
+                info_span!("fetch_library_add"),
+                "fetch_library_add",
+            );
+        }
     }
 
     fn render_fallible_inner(

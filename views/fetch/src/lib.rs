@@ -114,7 +114,7 @@ pub async fn fetch_item(jellyfin: &JellyfinClient, id: &str) -> Result<MediaItem
 #[instrument(skip(jellyfin))]
 pub async fn fetch_all_children(jellyfin: &JellyfinClient, id: &str) -> Result<Vec<MediaItem>> {
     let user_id = jellyfin.get_auth().user.id.as_str();
-    let items = JellyfinVec::collect(async |start| {
+    let items = JellyfinVec::collect(async |start: u32| {
         jellyfin
             .get_items(&GetItemsQuery {
                 user_id: user_id.into(),

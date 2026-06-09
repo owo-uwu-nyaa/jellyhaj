@@ -1,9 +1,14 @@
 #![allow(clippy::struct_excessive_bools)]
+use std::pin::Pin;
+use std::result::Result as StdResult;
+use std::task::{Context, Poll, ready};
 use std::{borrow::Cow, fmt::Debug, future::Future, ops::Deref, sync::Arc};
 
 use color_eyre::eyre::{OptionExt, eyre};
 use connect::Connection;
 pub use err::Result;
+use futures_core::Stream;
+use futures_util::StreamExt;
 use http::{Uri, header::AUTHORIZATION};
 use hyper::header::HeaderValue;
 use sealed::AuthSealed;
@@ -267,32 +272,128 @@ pub struct JellyfinVec<T> {
 }
 
 impl<T> JellyfinVec<T> {
-    pub async fn collect<I, F, E>(mut f: F) -> std::result::Result<Vec<T>, E>
+    fn next_seen(&self) -> Option<u32> {
+        self.start_index
+            .checked_add(u32::try_from(self.items.len()).ok()?)
+    }
+
+    pub const fn stream<I, F, E>(f: F) -> JellyfinVecStream<T, E, F, I>
     where
-        F: FnMut(u32) -> I,
+        F: Clone + FnMut(u32) -> I,
         I: Future<Output = std::result::Result<Self, E>>,
     {
-        let initial = f(0).await?;
-        let mut last_len = initial.items.len();
-        let mut res = initial.items;
-        let total = initial.total_record_count;
-        loop {
-            if let Some(total) = total
-                && total as usize <= res.len()
-            {
-                break;
+        JellyfinVecStream {
+            f,
+            seen: 0,
+            total: None,
+            current: None,
+        }
+    }
+
+    pub const fn stream_from<I, F, E>(f: F, seen: u32) -> JellyfinVecStream<T, E, F, I>
+    where
+        F: Clone + FnMut(u32) -> I,
+        I: Future<Output = std::result::Result<Self, E>>,
+    {
+        JellyfinVecStream {
+            f,
+            seen,
+            total: None,
+            current: None,
+        }
+    }
+
+    pub fn collect<I, F, E>(f: F) -> impl Future<Output = StdResult<Vec<T>, E>>
+    where
+        F: Clone + FnMut(u32) -> I,
+        I: Future<Output = std::result::Result<Self, E>>,
+    {
+        Self::stream(f).collect()
+    }
+}
+
+pin_project_lite::pin_project! {
+    #[must_use]
+    /// Stream of results from JellyfinVec yielding APIs
+    pub struct JellyfinVecStream<T, E, F, I>
+    where
+        F: FnMut(u32) -> I,
+        I: Future<Output = StdResult<JellyfinVec<T>, E>>,
+    {
+        f: F,
+        seen: u32,
+        total: Option<u32>,
+        #[pin]
+        current: Option<I>,
+    }
+}
+
+impl<T, E, F, I> JellyfinVecStream<T, E, F, I>
+where
+    F: FnMut(u32) -> I,
+    I: Future<Output = StdResult<JellyfinVec<T>, E>>,
+{
+    pub async fn collect(self) -> StdResult<Vec<T>, E> {
+        let mut this = std::pin::pin!(self);
+        let mut res = match this.as_mut().next().await {
+            None => return Ok(vec![]),
+            Some(Err(e)) => return Err(e),
+            Some(Ok(mut v)) => {
+                if let Some(total) = v.total_record_count {
+                    v.items.reserve_exact(
+                        usize::try_from(total)
+                            .unwrap_or(usize::MAX)
+                            .saturating_sub(v.items.len()),
+                    );
+                }
+                v.items
             }
-            if last_len == 0 {
-                break;
-            }
-            let Ok(res_len) = u32::try_from(res.len()) else {
-                tracing::error!("Collecting List from jellyfin overflowed 32 bit integer");
-                break;
-            };
-            let mut next = f(res_len).await?;
-            last_len = next.items.len();
-            res.append(&mut next.items);
+        };
+        while let Some(next) = this.as_mut().next().await {
+            res.append(&mut next?.items);
         }
         Ok(res)
+    }
+    #[must_use]
+    pub const fn seen(&self) -> u32 {
+        self.seen
+    }
+}
+
+impl<T, E, F, I> Stream for JellyfinVecStream<T, E, F, I>
+where
+    F: FnMut(u32) -> I,
+    I: Future<Output = StdResult<JellyfinVec<T>, E>>,
+{
+    type Item = StdResult<JellyfinVec<T>, E>;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+        let next = if this.current.is_some() {
+            this.current.as_mut().as_pin_mut().expect("just checked")
+        } else if let Some(total) = this.total
+            && total <= this.seen
+        {
+            return Poll::Ready(None);
+        } else {
+            this.current.set(Some((this.f)(*this.seen)));
+            this.current.as_mut().as_pin_mut().expect("just set")
+        };
+        let next = ready!(next.poll(cx));
+        this.current.set(None);
+        Poll::Ready(match next {
+            Ok(v) => {
+                if v.items.is_empty() {
+                    None
+                } else if let Some(seen) = v.next_seen() {
+                    *this.seen = seen;
+                    *this.total = v.total_record_count;
+                    Some(Ok(v))
+                } else {
+                    tracing::error!("Jellyfin vec size overflowed 32bit integer");
+                    None
+                }
+            }
+            Err(e) => Some(Err(e)),
+        })
     }
 }
