@@ -91,6 +91,7 @@ impl From<GlobalCommand> for Navigation {
             GlobalCommand::ShowLogs => NextScreen::Logs,
             GlobalCommand::ShowInspect => NextScreen::Inspect,
             GlobalCommand::QuickConnect => NextScreen::QuickConnect,
+            GlobalCommand::ShowHome => NextScreen::LoadHomeScreen,
         })
     }
 }
