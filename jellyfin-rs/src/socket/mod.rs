@@ -113,6 +113,7 @@ mod serde_tests {
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
+#[serde(rename_all = "PascalCase")]
 struct SocketQuery<'s> {
     api_key: &'s str,
     deviceid: &'s str,
