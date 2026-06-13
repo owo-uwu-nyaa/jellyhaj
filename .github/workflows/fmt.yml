@@ -1,4 +1,4 @@
-name: "Cargo"
+name: "cargo fmt"
 on:
   pull_request:
   push:
@@ -9,4 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+    - run: rustup component add --toolchain nightly rustfmt
     - run: cargo +nightly fmt --check
