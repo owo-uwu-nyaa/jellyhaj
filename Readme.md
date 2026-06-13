@@ -12,9 +12,12 @@ While I try to gradually implement more and more features from the web client th
 You can find some notes in the default config files in 'config'. Just copy it to '~/.config/jellyhaj' and modify it.
 
 # Building
-You can just build the project with cargo (requires libmpv, sqlite and clang). The resulting binary should just work (TM).
+You can just build the project with cargo (requires libmpv, sqlite, chafa and clang). The resulting binary should just work (TM).
+While I don't have intentionally introduced incompatibilities I only test manually on my own Linux device, therefore it might not work out of the box and needs fixes. Help welcome!
+Basic Tests also run in CI for x86_64 and aarch Linux as well as aarch macos
 
-Alternatively there is a nix flake that builds the binary and provides a basic [home manager profile](./hm-module.md).
+## NixOS
+Alternatively this repository is a nix flake that builds the binary and provides a basic [home manager module](./hm-module.md).
 There is a binary cache, to use it add the following to your configuration:
 ```nix
 nix.settings = {
@@ -25,7 +28,10 @@ nix.settings = {
 };
 ```
 
-While I don't have intentionally introduced incompatibilities I only test manually on my own Linux device, therefore it might not work out of the box and needs fixes. Help welcome!
+## Arch
+There are two aur packages:
+- [jellyhaj](https://aur.archlinux.org/packages/jellyhaj)
+- [jellyhaj-git](https://aur.archlinux.org/packages/jellyhaj-git)
 
 # Contributing
 
