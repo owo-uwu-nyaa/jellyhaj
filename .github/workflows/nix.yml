@@ -5,6 +5,7 @@ on:
 jobs:
   nixbuild:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest]
     runs-on: ${{ matrix.os }}
