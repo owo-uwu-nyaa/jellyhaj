@@ -23,10 +23,22 @@ use crate::node::{MpvNode, MpvNodeRef, MpvNodeValue};
 use crate::*;
 
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fs::File;
+use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
+
+static TEST_FILE_PATH: LazyLock<String> = LazyLock::new(|| {
+    std::fs::canonicalize("test-data/speech_12kbps_mb.wav")
+        .expect("canonicalizing test file")
+        .into_string()
+        .expect("converting path to utf8 str")
+});
+
+static TEST_FILE_PATHC: LazyLock<CString> =
+    LazyLock::new(|| CString::new(TEST_FILE_PATH.clone()).expect("converting path to cstr"));
+
 #[cfg_attr(miri, ignore)]
 #[test]
 fn initializer() {
@@ -46,7 +58,7 @@ fn initializer() {
 #[test]
 fn test_file_exists() {
     assert!(
-        File::open("test-data/speech_12kbps_mb.wav").is_ok(),
+        File::open(TEST_FILE_PATH.clone()).is_ok(),
         "Unable to open test file at test-data/speech_12kbps_mb.wav"
     )
 }
@@ -69,8 +81,7 @@ fn properties() {
         0.6,
         f64::round(subg * f64::powi(10.0, 4)) / f64::powi(10.0, 4)
     );
-    mpv.playlist_replace(c"test-data/speech_12kbps_mb.wav")
-        .unwrap();
+    mpv.playlist_replace(&TEST_FILE_PATHC).unwrap();
     thread::sleep(Duration::from_millis(250));
 
     let title: MpvStr = mpv.get_property("media-title").unwrap();
@@ -147,8 +158,7 @@ fn events() {
     assert_event_occurs!(mpv, 20., Err(Error::Raw(mpv_error::UnknownFormat)));
     assert!(mpv.wait_event(3.).is_none());
 
-    mpv.playlist_append_play(c"test-data/speech_12kbps_mb.wav")
-        .unwrap();
+    mpv.playlist_append_play(&TEST_FILE_PATHC).unwrap();
     assert_event_occurs!(
         mpv,
         10.,
@@ -177,7 +187,7 @@ fn events() {
 fn node_map() -> Result<()> {
     let mpv = Mpv::new()?;
 
-    mpv.playlist_append_play(c"test-data/speech_12kbps_mb.wav")?;
+    mpv.playlist_append_play(&TEST_FILE_PATHC)?;
 
     thread::sleep(Duration::from_millis(250));
     let audio_params: MpvNode = mpv.get_property("audio-params")?;
@@ -212,7 +222,7 @@ fn node_map() -> Result<()> {
 fn node_array() -> Result<()> {
     let mpv = Mpv::new()?;
 
-    mpv.playlist_append_play(c"test-data/speech_12kbps_mb.wav")?;
+    mpv.playlist_append_play(&TEST_FILE_PATHC)?;
 
     thread::sleep(Duration::from_millis(250));
     let playlist: MpvNode = mpv.get_property("playlist")?;
@@ -232,10 +242,11 @@ fn node_array() -> Result<()> {
 
     let filename = track.get(c"filename").unwrap().value()?;
 
-    assert!(matches!(
-        filename,
-        MpvNodeValue::String("test-data/speech_12kbps_mb.wav")
-    ));
+    let MpvNodeValue::String(path) = filename else {
+        panic!("filename is not a string node")
+    };
+    assert_eq!(path, TEST_FILE_PATH.as_str());
+    
 
     Ok(())
 }
