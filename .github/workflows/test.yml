@@ -16,7 +16,7 @@ jobs:
       if: ${{ startsWith(matrix.os, 'ubuntu-') }}
       run: |
         sudo apt-get update
-        sudo apt-get install mpv chafa
+        sudo apt-get install libmpv-dev libchafa-dev
     - name: Install dependencies (macOS)
       if: ${{ matrix.os == 'macos-latest' }}
       run: |
