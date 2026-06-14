@@ -98,6 +98,7 @@
           hmModules = {
             default = import ./hm-module.nix;
           };
+          nixosModules.jellyhaj-test-server = import ./jellyhaj-test-server.nix;
         }
       )
     );
