@@ -32,6 +32,7 @@ in
             port = cfg.port;
           in
           { ... }: {
+            environment.enableAllTerminfo = true;
             system.stateVersion = "26.11";
             services.jellyfin = {
               enable = true;
