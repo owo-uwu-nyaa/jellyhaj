@@ -25,7 +25,7 @@ in
     (mkIf cfg.enable {
       containers.jellyhaj-test-server = {
         ephemeral = true;
-        privateUsers = true;
+        privateUsers = "pick";
         restartIfChanged = true;
         config =
           let
