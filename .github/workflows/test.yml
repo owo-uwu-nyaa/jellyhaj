@@ -28,5 +28,6 @@ jobs:
         add-rust-environment-hash-key: false
         cache-on-failure: true
         cache-all-crates: true
+        cache-workspace-crates: true
         key: ${{ matrix.os }}
     - run: cargo +stable test --workspace -- --test-threads 1
