@@ -24,6 +24,9 @@ in
     { jellyhaj-test-server.enable = mkDefault true; }
     (mkIf cfg.enable {
       containers.jellyhaj-test-server = {
+        ephemeral = true;
+        privateUsers = true;
+        restartIfChanged = true;
         config =
           let
             port = cfg.port;
