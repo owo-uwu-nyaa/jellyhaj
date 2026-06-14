@@ -32,6 +32,7 @@ use std::time::Duration;
 static TEST_FILE_PATH: LazyLock<String> = LazyLock::new(|| {
     std::fs::canonicalize("test-data/speech_12kbps_mb.wav")
         .expect("canonicalizing test file")
+        .into_os_string()
         .into_string()
         .expect("converting path to utf8 str")
 });
@@ -246,7 +247,6 @@ fn node_array() -> Result<()> {
         panic!("filename is not a string node")
     };
     assert_eq!(path, TEST_FILE_PATH.as_str());
-    
 
     Ok(())
 }
