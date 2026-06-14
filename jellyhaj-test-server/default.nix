@@ -44,14 +44,20 @@ in
             forceEncodingConfig = true;
           };
           systemd = {
-            tmpfiles.rules = [ "L+ /var/lib/jellyfin/config/network.xml - - - - ${files}/network.xml" ];
-            services.setup-jellyfin = {
-              after = [ "jellyfin.service" ];
-              wantedBy = ["multi-user.target"];
-              path = [pkgs.bash pkgs.curl];
-              serviceConfig = {
-                Type="simple";
-                ExecStart = "${files}/setup-jellyfin";
+            tmpfiles.rules = [ "C /var/lib/jellyfin/config/network.xml - - - 300w ${files}/network.xml" ];
+            services = {
+              jellyfin.postStart = "${pkgs.coreutils}/bin/sleep 15";
+              setup-jellyfin = {
+                after = [ "jellyfin.service" ];
+                wantedBy = [ "multi-user.target" ];
+                path = [
+                  pkgs.bash
+                  pkgs.curl
+                ];
+                serviceConfig = {
+                  Type = "simple";
+                  ExecStart = "${files}/setup-jellyfin";
+                };
               };
             };
           };
