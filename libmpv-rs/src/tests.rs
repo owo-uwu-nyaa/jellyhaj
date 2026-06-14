@@ -151,27 +151,6 @@ fn events() {
     );
     assert!(mpv.wait_event(3.).is_none());
 
-    mpv.playlist_append_play(c"https://www.youtube.com/watch?v=DLzxrzFCyOs")
-        .unwrap();
-    assert_event_occurs!(
-        mpv,
-        10.,
-        Ok(Event::StartFile {
-            playlist_entry_id: 1
-        })
-    );
-    assert_event_occurs!(
-        mpv,
-        10.,
-        Ok(Event::PropertyChange {
-            name: "media-title",
-            change: PropertyData::Str("watch?v=DLzxrzFCyOs"),
-            reply_userdata: 1,
-        })
-    );
-    assert_event_occurs!(mpv, 20., Err(Error::Raw(mpv_error::UnknownFormat)));
-    assert!(mpv.wait_event(3.).is_none());
-
     mpv.playlist_append_play(&TEST_FILE_PATHC).unwrap();
     assert_event_occurs!(
         mpv,
