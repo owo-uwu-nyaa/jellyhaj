@@ -1,7 +1,14 @@
 { config, lib, ... }:
 let
   cfg = config.jellyhaj-test-server;
-  inherit (lib) mkEnableOption mkOption types mkMerge mkIf mkDefault;
+  inherit (lib)
+    mkEnableOption
+    mkOption
+    types
+    mkMerge
+    mkIf
+    mkDefault
+    ;
 in
 {
   options.jellyhaj-test-server = {
@@ -14,17 +21,22 @@ in
     };
   };
   config = mkMerge [
-    {jellyhaj-test-server.enable = mkDefault true;}
+    { jellyhaj-test-server.enable = mkDefault true; }
     (mkIf cfg.enable {
       containers.jellyhaj-test-server = {
-        config = let port = cfg.port; in {...} : {
-          services.jellyfin = {
-            enable = true;
-            forceEncodingConfig = true;
+        config =
+          let
+            port = cfg.port;
+          in
+          { ... }: {
+            system.stateVersion = "26.11";
+            services.jellyfin = {
+              enable = true;
+              forceEncodingConfig = true;
+            };
           };
-        };
       };
-      
+
     })
   ];
 }
