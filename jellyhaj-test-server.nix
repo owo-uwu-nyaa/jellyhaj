@@ -14,7 +14,7 @@ in
     };
   };
   config = mkMerge [
-    {jellyhaj-test-server = mkDefault true;}
+    {jellyhaj-test-server.enable = mkDefault true;}
     (mkIf cfg.enable {
       containers.jellyhaj-test-server = {
         config = let port = cfg.port; in {...} : {
