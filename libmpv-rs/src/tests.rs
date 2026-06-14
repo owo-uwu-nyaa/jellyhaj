@@ -40,6 +40,14 @@ static TEST_FILE_PATH: LazyLock<String> = LazyLock::new(|| {
 static TEST_FILE_PATHC: LazyLock<CString> =
     LazyLock::new(|| CString::new(TEST_FILE_PATH.clone()).expect("converting path to cstr"));
 
+fn get_mpv() -> Mpv {
+    Mpv::with_initializer(|init| -> Result<()> {
+        init.set_option(c"vo", c"null")?;
+        init.set_option(c"ao", c"null")
+    })
+    .expect("initialization failed")
+}
+
 #[cfg_attr(miri, ignore)]
 #[test]
 fn initializer() {
@@ -66,7 +74,7 @@ fn test_file_exists() {
 #[cfg_attr(miri, ignore)]
 #[test]
 fn properties() {
-    let mpv = Mpv::new().unwrap();
+    let mpv = get_mpv();
     mpv.set_property(c"volume", 0).unwrap();
     mpv.set_property(c"vo", c"null").unwrap();
     mpv.set_property(c"ytdl-format", c"best[width<240]")
@@ -107,7 +115,12 @@ macro_rules! assert_event_occurs {
 #[cfg_attr(miri, ignore)]
 #[test]
 fn events() {
-    let mut mpv = Mpv::with_initializer(|mpv| mpv.set_option(c"ytdl", false)).unwrap();
+    let mut mpv = Mpv::with_initializer(|init| {
+        init.set_option(c"ytdl", false)?;
+        init.set_option(c"vo", c"null")?;
+        init.set_option(c"ao", c"null")
+    })
+    .unwrap();
     mpv.disable_deprecated_events().unwrap();
 
     mpv.observe_property("volume", Format::Int64, 0).unwrap();
@@ -186,7 +199,7 @@ fn events() {
 #[cfg_attr(miri, ignore)]
 #[test]
 fn node_map() -> Result<()> {
-    let mpv = Mpv::new()?;
+    let mpv = get_mpv();
 
     mpv.playlist_append_play(&TEST_FILE_PATHC)?;
 
