@@ -44,7 +44,10 @@ in
             forceEncodingConfig = true;
           };
           systemd = {
-            tmpfiles.rules = [ "C /var/lib/jellyfin/config/network.xml - - - 300w ${files}/network.xml" ];
+            tmpfiles.rules = [
+              "C /var/lib/jellyfin/config/network.xml - - - 300w ${files}/network.xml"
+              "z /var/lib/jellyfin/config/network.xml 0660 jellyfin jellyfin"
+            ];
             services = {
               jellyfin.postStart = "${pkgs.coreutils}/bin/sleep 15";
               setup-jellyfin = {
