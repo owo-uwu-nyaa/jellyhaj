@@ -5,7 +5,8 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetExt, JellyhajWidget, WidgetContext, WidgetTreeVisitor, Wrapper,
+    ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
+    WidgetTreeVisitor, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit},
 };
 use ratatui::{
@@ -113,19 +114,21 @@ impl<T: Send + 'static> Wrapper<T> for ListWrapper {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
-    type Action = ItemListAction<<T as ItemWidget<R>>::IAction>;
+impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemList<T> {
+    type Action = ItemListAction<T::Action>;
 
-    type ActionResult = <T as ItemWidget<R>>::IActionResult;
+    type ActionResult = T::ActionResult;
 
     const NAME: &str = "item-list";
 
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
         for item in &self.items {
-            visitor.visit_item(item);
+            visitor.visit(item);
         }
     }
+}
 
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         for (index, item) in self.items.iter_mut().enumerate() {
             item.init(cx.wrap_with(ListWrapper { index }));

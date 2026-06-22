@@ -2,7 +2,7 @@ use std::{cmp::min, convert::Infallible};
 
 use ansi_to_tui::IntoText;
 use color_eyre::eyre::Context;
-use jellyhaj_widgets_core::{JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper};
 use ratatui::{
     layout::Margin,
     widgets::{
@@ -40,7 +40,7 @@ pub enum ErrorAction {
     Right,
 }
 
-impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
+impl JellyhajWidgetBase for ErrorWidget {
     type Action = ErrorAction;
 
     type ActionResult = Infallible;
@@ -48,7 +48,9 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
     const NAME: &str = "error";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
     fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {

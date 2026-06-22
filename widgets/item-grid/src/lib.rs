@@ -5,7 +5,7 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetExt, JellyhajWidget, WidgetContext, Wrapper,
+    ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -124,18 +124,20 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
-    type Action = ItemGridAction<<T as ItemWidget<R>>::IAction>;
-    type ActionResult = <T as ItemWidget<R>>::IActionResult;
+impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemGrid<T> {
+    type Action = ItemGridAction<T::Action>;
+    type ActionResult = T::ActionResult;
 
     const NAME: &str = "item-grid";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         for item in &self.items {
-            visitor.visit_item(item);
+            visitor.visit(item);
         }
     }
+}
 
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         for (index, item) in self.items.iter_mut().enumerate() {
             item.init(cx.wrap_with(GridWrapper { index }));

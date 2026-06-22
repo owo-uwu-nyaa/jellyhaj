@@ -95,7 +95,7 @@ members = [
   "player-mpris",
   "serde-json-ratatui",
   "spawn",
-  "stats-data",
+  "stats-data", "tabs-test",
   "views/error",
   "views/fetch",
   "views/home-screen",
@@ -129,7 +129,7 @@ members = [
   "widgets/player",
   "widgets/refresh-item",
   "widgets/stats"
-]
+, "widgets/tabs", "widgets/tabs-macro"]
 
 [workspace.dependencies]
 arcshift = "0.4.2"

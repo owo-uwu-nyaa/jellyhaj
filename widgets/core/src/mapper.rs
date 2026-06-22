@@ -4,7 +4,7 @@ use color_eyre::eyre::Result;
 use jellyhaj_async_task::Wrapper;
 use valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value, Visit};
 
-use crate::{JellyhajWidget, WidgetContext};
+use crate::{JellyhajWidget, WidgetContext, jellyhaj::JellyhajWidgetBase};
 
 pub trait Named: 'static {
     const NAME: &str;
@@ -47,7 +47,7 @@ impl<N: Named, W, M> Structable for MapperWidget<N, W, M> {
     }
 }
 
-impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult>> JellyhajWidget<R>
+impl<N: Named, W: JellyhajWidgetBase, M: ResultMapper<W::ActionResult>> JellyhajWidgetBase
     for MapperWidget<N, W, M>
 {
     type Action = W::Action;
@@ -57,9 +57,13 @@ impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult
     const NAME: &str = N::NAME;
 
     fn visit_children(&self, visitor: &mut impl crate::WidgetTreeVisitor) {
-        visitor.visit::<R, W>(&self.inner);
+        visitor.visit::<W>(&self.inner);
     }
+}
 
+impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult>> JellyhajWidget<R>
+    for MapperWidget<N, W, M>
+{
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
     }

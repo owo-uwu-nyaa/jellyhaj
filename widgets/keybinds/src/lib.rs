@@ -6,7 +6,7 @@ use std::{fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::{CommandMapper, Config, render::KeybindAction, state::Navigation};
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, WidgetContext, Wrapper,
+    ContextRef, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use keybinds::{BindingMap, Command};
@@ -62,12 +62,8 @@ impl<T: Command, W, M> KeybindWidget<T, W, M> {
     }
 }
 
-impl<
-    R: ContextRef<Config> + 'static,
-    T: Command,
-    W: JellyhajWidget<R>,
-    M: CommandMapper<T, A = W::Action>,
-> JellyhajWidget<R> for KeybindWidget<T, W, M>
+impl<T: Command, W: JellyhajWidgetBase, M: CommandMapper<T, A = W::Action>> JellyhajWidgetBase
+    for KeybindWidget<T, W, M>
 {
     type Action = KeybindAction<W::Action>;
 
@@ -78,7 +74,15 @@ impl<
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         visitor.visit(&self.inner);
     }
+}
 
+impl<
+    R: ContextRef<Config> + 'static,
+    T: Command,
+    W: JellyhajWidget<R>,
+    M: CommandMapper<T, A = W::Action>,
+> JellyhajWidget<R> for KeybindWidget<T, W, M>
+{
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         self.inner.init(cx.wrap_with(KeybindWrapper));
     }

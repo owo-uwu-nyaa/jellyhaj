@@ -45,7 +45,7 @@ impl ActionCreator for AC {
 
 pub struct RefreshItemResultMapper;
 
-impl<R: 'static> FormResultMapper<R, RefreshItem> for RefreshItemResultMapper {
+impl FormResultMapper<RefreshItem> for RefreshItemResultMapper {
     type Res = Navigation;
 
     fn map(
@@ -55,7 +55,7 @@ impl<R: 'static> FormResultMapper<R, RefreshItem> for RefreshItemResultMapper {
             '_,
             <RefreshItem as FormDataTypes>::Action,
             impl Wrapper<<RefreshItem as FormDataTypes>::Action>,
-            R,
+            (),
         >,
     ) -> Result<Option<Self::Res>> {
         let FormResult::Submit = form_result;

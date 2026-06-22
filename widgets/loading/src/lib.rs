@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::min, convert::Infallible, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, Rect, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, Rect, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
@@ -59,14 +59,17 @@ const TICK_INTERVAL: Duration = Duration::from_millis(200);
 #[derive(Debug)]
 pub struct AdvanceLoadingScreen;
 
-impl<R: 'static> JellyhajWidget<R> for Loading {
+impl JellyhajWidgetBase for Loading {
     type Action = AdvanceLoadingScreen;
+
     type ActionResult = Infallible;
 
     const NAME: &str = "loading";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: 'static> JellyhajWidget<R> for Loading {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         let timer = unfold(interval(TICK_INTERVAL), move |mut interval| async move {
             interval.tick().await;

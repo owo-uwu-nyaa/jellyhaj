@@ -14,13 +14,13 @@ use jellyhaj_form_widget::{
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_widgets_core::JellyhajWidget;
 use jellyhaj_widgets_core::flatten::FlattenWidget;
 use jellyhaj_widgets_core::spawn::tracing::{info, info_span};
 use jellyhaj_widgets_core::valuable::Valuable;
 use jellyhaj_widgets_core::{
     ContextRef, KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper,
 };
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase};
 use ratatui::layout::Constraint;
 use ratatui::prelude::{Buffer, Position, Rect, Size};
 use ratatui::widgets::{Block, Padding, Widget};
@@ -39,7 +39,7 @@ impl From<Infallible> for ButtonAction {
 
 pub struct LoginResultMapper;
 
-impl<R: 'static> FormResultMapper<R, LoginData> for LoginResultMapper {
+impl FormResultMapper<LoginData> for LoginResultMapper {
     type Res = LoginType;
 
     fn map(
@@ -49,7 +49,7 @@ impl<R: 'static> FormResultMapper<R, LoginData> for LoginResultMapper {
             '_,
             <LoginData as jellyhaj_form_widget::form::FormDataTypes>::Action,
             impl Wrapper<<LoginData as jellyhaj_form_widget::form::FormDataTypes>::Action>,
-            R,
+            (),
         >,
     ) -> Result<Option<Self::Res>> {
         Ok(Some(match form_result {
@@ -127,17 +127,19 @@ impl LoginType {
     }
 }
 
-impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
-    type Action = <InnerWidget as JellyhajWidget<R>>::Action;
+impl JellyhajWidgetBase for LoginWidget {
+    type Action = <InnerWidget as JellyhajWidgetBase>::Action;
 
     type ActionResult = ControlFlow<Navigation, LoginType>;
 
     const NAME: &str = "login";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<R, InnerWidget>(&self.inner);
+        visitor.visit(&self.inner);
     }
+}
 
+impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         self.inner.init(cx);
     }
@@ -254,7 +256,7 @@ pub struct Quit;
 const TICK_INTERVAL: Duration = Duration::from_millis(200);
 const CANCEL_STR: &str = "Cancel";
 
-impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
+impl JellyhajWidgetBase for QuickConnectWidget {
     type Action = QuickConectAction;
 
     type ActionResult = Quit;
@@ -262,7 +264,9 @@ impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
     const NAME: &str = "quick-connect";
 
     fn visit_children(&self, _: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         let interval = tokio::time::interval(TICK_INTERVAL);
         cx.submitter.spawn_stream(

@@ -6,7 +6,8 @@ use jellyhaj_core::{
 };
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, Result, WidgetContext, Wrapper, valuable::Valuable,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper,
+    valuable::Valuable,
 };
 use tracing::info_span;
 
@@ -34,8 +35,8 @@ impl<F: Future<Output = Result<Navigation>> + Send + 'static> FetchWidget<F> {
     }
 }
 
-impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + Send + 'static>
-    JellyhajWidget<R> for FetchWidget<F>
+impl<F: Future<Output = Result<Navigation>> + Send + 'static> JellyhajWidgetBase
+    for FetchWidget<F>
 {
     type Action = FetchAction;
 
@@ -44,9 +45,13 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + S
     const NAME: &str = "fetch";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<R, Loading>(&self.inner);
+        visitor.visit(&self.inner);
     }
+}
 
+impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + Send + 'static>
+    JellyhajWidget<R> for FetchWidget<F>
+{
     fn min_width(&self) -> Option<u16> {
         JellyhajWidget::<R>::min_width(&self.inner)
     }

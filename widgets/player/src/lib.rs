@@ -4,7 +4,7 @@ use color_eyre::eyre::Context;
 use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{JellyhajWidget, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper};
 use player_core::{
     Command, Events, PlayerHandle,
     state::{EventReceiver, SharedPlayerState},
@@ -50,7 +50,7 @@ pub enum PlayerAction {
 #[derive(Debug)]
 pub struct PlayerQuit;
 
-impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
+impl JellyhajWidgetBase for PlayerWidget {
     type Action = PlayerAction;
 
     type ActionResult = Navigation;
@@ -58,7 +58,9 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
     const NAME: &str = "player";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         let res = self.handle.get_state();
         cx.submitter.spawn_task(

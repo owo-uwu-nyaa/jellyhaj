@@ -12,7 +12,7 @@ use jellyhaj_entry_widget::{Entry, EntryAction, EntryData, ImageCache, Picker, S
 use jellyhaj_item_screen::{ItemScreen, ItemScreenAction, new_item_list, new_item_screen};
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, Result, WidgetContext, Wrapper,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper,
 };
 use valuable::Valuable;
 
@@ -131,6 +131,18 @@ pub struct HomeScreen {
     inner: KeybindWidget<HomeScreenCommand, ItemScreen<Entry>, Mapper>,
 }
 
+impl JellyhajWidgetBase for HomeScreen {
+    type Action = KeybindAction<HomeScreenAction>;
+
+    type ActionResult = Navigation;
+
+    const NAME: &str = "home-screen";
+
+    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        visitor.visit(&self.inner);
+    }
+}
+
 impl<
     R: ContextRef<Spawner>
         + ContextRef<Config>
@@ -143,16 +155,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for HomeScreen
 {
-    type Action = KeybindAction<HomeScreenAction>;
-
-    type ActionResult = Navigation;
-
-    const NAME: &str = "home-screen";
-
-    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit::<R, _>(&self.inner);
-    }
-
     fn min_width(&self) -> Option<u16> {
         JellyhajWidget::<R>::min_width(&self.inner)
     }

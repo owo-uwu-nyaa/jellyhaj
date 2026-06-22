@@ -32,7 +32,7 @@ impl From<Infallible> for Action {
 
 struct Mapper;
 
-impl<R: 'static> FormResultMapper<R, QuickConnect> for Mapper {
+impl FormResultMapper<QuickConnect> for Mapper {
     type Res = Navigation;
 
     fn map(
@@ -44,7 +44,7 @@ impl<R: 'static> FormResultMapper<R, QuickConnect> for Mapper {
             impl jellyhaj_widgets_core::Wrapper<
                 <QuickConnect as jellyhaj_form_widget::form::FormDataTypes>::Action,
             >,
-            R,
+            (),
         >,
     ) -> jellyhaj_widgets_core::Result<Option<Self::Res>> {
         let Action::Login = form_result;

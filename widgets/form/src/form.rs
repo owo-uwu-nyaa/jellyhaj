@@ -7,8 +7,8 @@ use std::{
 
 use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, KeyModifiers, MouseEventKind, Position, Rect, Size, WidgetContext,
-    Wrapper,
+    Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect, Size,
+    WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
@@ -17,23 +17,23 @@ use tui_scrollview::{ScrollView, ScrollViewState};
 use crate::{FormAction, FormItem};
 use color_eyre::Result;
 
-pub trait FormResultMapper<R: 'static, S: FormDataTypes> {
+pub trait FormResultMapper<S: FormDataTypes> {
     type Res: Debug;
     fn map(
         state: &S,
         form_result: S::AR,
-        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, R>,
+        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, ()>,
     ) -> Result<Option<Self::Res>>;
 }
 
 pub struct IdFormResultMapper;
-impl<R: 'static, S: FormDataTypes> FormResultMapper<R, S> for IdFormResultMapper {
+impl<S: FormDataTypes> FormResultMapper<S> for IdFormResultMapper {
     type Res = S::AR;
 
     fn map(
         _state: &S,
         form_result: S::AR,
-        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, R>,
+        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, ()>,
     ) -> Result<Option<Self::Res>> {
         Ok(Some(form_result))
     }
@@ -143,10 +143,9 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> Structable
 
 impl<
     const TOTAL_SIZE: usize,
-    R: 'static,
-    Mapper: FormResultMapper<R, Data>,
+    Mapper: FormResultMapper<Data>,
     Data: FormData<{ TOTAL_SIZE }, Mapper = Mapper>,
-> JellyhajWidget<R> for Form<{ TOTAL_SIZE }, Data>
+> JellyhajWidgetBase for Form<{ TOTAL_SIZE }, Data>
 {
     type Action = FormAction<Data::Action>;
 
@@ -155,7 +154,15 @@ impl<
     const NAME: &str = "form";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<
+    const TOTAL_SIZE: usize,
+    R: 'static,
+    Mapper: FormResultMapper<Data>,
+    Data: FormData<{ TOTAL_SIZE }, Mapper = Mapper>,
+> JellyhajWidget<R> for Form<{ TOTAL_SIZE }, Data>
+{
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
@@ -259,7 +266,7 @@ impl<
             None => None,
             Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
             Some(ControlFlow::Continue(v)) => {
-                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner))?
+                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner).with_cx(&()))?
                     .map(ControlFlow::Continue)
             }
         })
@@ -326,7 +333,7 @@ impl<
             None => None,
             Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
             Some(ControlFlow::Continue(v)) => {
-                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner))?
+                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner).with_cx(&()))?
                     .map(ControlFlow::Continue)
             }
         })

@@ -1,7 +1,9 @@
 use std::{cmp::max, convert::Infallible, sync::atomic::Ordering::Relaxed, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{ContextRef, GetFromContext, JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+};
 use ratatui::{
     layout::Constraint,
     symbols::merge::MergeStrategy,
@@ -90,7 +92,7 @@ impl StatsWidget {
 #[derive(Debug)]
 pub struct StatsUpdate;
 
-impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
+impl JellyhajWidgetBase for StatsWidget {
     type Action = StatsUpdate;
 
     type ActionResult = Infallible;
@@ -98,7 +100,9 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
     const NAME: &str = "stats";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         cx.submitter.spawn_stream(
             unfold(interval(Duration::from_secs(5)), |mut i| async move {

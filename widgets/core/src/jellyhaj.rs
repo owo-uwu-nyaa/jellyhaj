@@ -10,7 +10,7 @@ use std::any::type_name;
 use std::fmt::Debug;
 use tracing::warn;
 
-use crate::{ItemWidget, WidgetContext};
+use crate::WidgetContext;
 use valuable::Valuable;
 
 pub trait TreeVisitor {
@@ -23,32 +23,27 @@ pub trait TreeVisitor {
 }
 
 pub trait WidgetTreeVisitor: Sized {
-    fn visit<R: 'static, S: JellyhajWidget<R>>(&mut self, state: &S);
-    fn visit_item<R: 'static, S: ItemWidget<R>>(&mut self, state: &S);
+    fn visit<S: JellyhajWidgetBase>(&mut self, state: &S);
 }
 
 impl WidgetTreeVisitor for &mut dyn TreeVisitor {
-    fn visit<R: 'static, S: JellyhajWidget<R>>(&mut self, state: &S) {
-        self.enter(S::NAME, state, &|mut this| {
-            state.visit_children(&mut this);
-        });
-    }
-
-    fn visit_item<R: 'static, S: ItemWidget<R>>(&mut self, state: &S) {
+    fn visit<S: JellyhajWidgetBase>(&mut self, state: &S) {
         self.enter(S::NAME, state, &|mut this| {
             state.visit_children(&mut this);
         });
     }
 }
 
-pub trait JellyhajWidget<R: 'static>: Valuable + Send + Sized + 'static {
+pub trait JellyhajWidgetBase: Valuable + Send + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
 
     const NAME: &str;
 
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
+}
 
+pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
 
     fn min_width(&self) -> Option<u16>;

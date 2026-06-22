@@ -2492,6 +2492,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-tabs-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyhaj-core",
+ "jellyhaj-tabs-widget-macro",
+ "jellyhaj-widgets-core",
+]
+
+[[package]]
+name = "jellyhaj-tabs-widget-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "jellyhaj-widgets-core"
 version = "0.1.0"
 dependencies = [
@@ -4413,6 +4432,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "tabs-test"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-core",
+ "jellyhaj-image",
+ "jellyhaj-tabs-widget",
+ "jellyhaj-widgets-core",
 ]
 
 [[package]]

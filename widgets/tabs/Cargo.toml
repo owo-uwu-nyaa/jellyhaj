@@ -1,0 +1,13 @@
+[package]
+name = "jellyhaj-tabs-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color-eyre.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
+jellyhaj-tabs-widget-macro = { version = "0.1.0", path = "../tabs-macro" }
+jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+
+[lints]
+workspace = true

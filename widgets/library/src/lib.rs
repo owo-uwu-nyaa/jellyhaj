@@ -17,8 +17,8 @@ use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_item_grid::{GridWrapper, ItemGrid, ItemGridAction, new_item_grid};
 use jellyhaj_keybinds_widget::{KeybindWidget, KeybindWrapper};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, ItemWidget, JellyhajWidget, Result, WidgetContext,
-    WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetBase, Result,
+    WidgetContext, WidgetTreeVisitor, Wrapper,
     async_task::{Cancellation, Cancelled, Sender, SinkExt, StreamExt},
     spawn::tracing::{debug, info_span},
     valuable::Valuable,
@@ -169,6 +169,18 @@ pub struct LibraryWidget {
     seen: Option<u32>,
 }
 
+impl JellyhajWidgetBase for LibraryWidget {
+    type Action = KeybindAction<LibraryAction>;
+
+    type ActionResult = Navigation;
+
+    const NAME: &str = "library";
+
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit(&self.inner);
+    }
+}
+
 impl<
     R: ContextRef<Spawner>
         + ContextRef<Config>
@@ -181,16 +193,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for LibraryWidget
 {
-    type Action = KeybindAction<LibraryAction>;
-
-    type ActionResult = Navigation;
-
-    const NAME: &str = "library";
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
-        visitor.visit::<R, _>(&self.inner);
-    }
-
     fn min_width(&self) -> Option<u16> {
         JellyhajWidget::<R>::min_width(&self.inner)
     }

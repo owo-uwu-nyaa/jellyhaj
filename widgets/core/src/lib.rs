@@ -7,7 +7,9 @@ pub mod outer;
 pub use color_eyre::Result;
 pub use config::Config;
 pub use item::{ItemWidget, ItemWidgetExt};
-pub use jellyhaj::{JellyhajWidget, JellyhajWidgetExt, TreeVisitor, WidgetTreeVisitor};
+pub use jellyhaj::{
+    JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, TreeVisitor, WidgetTreeVisitor,
+};
 pub use jellyhaj_async_task as async_task;
 pub use jellyhaj_async_task::Wrapper;
 use jellyhaj_async_task::{TaskSubmitterRef, Wrapped};
@@ -70,6 +72,15 @@ impl<'p, A, W: Wrapper<A>, R> WidgetContext<'p, A, W, R> {
         WidgetContext {
             submitter: self.submitter.wrap_with(wrapper),
             refs: self.refs,
+        }
+    }
+    pub const fn with_cx<'pn, RN: 'static>(self, r: &'pn RN) -> WidgetContext<'pn, A, W, RN>
+    where
+        'p: 'pn,
+    {
+        WidgetContext {
+            refs: r,
+            submitter: self.submitter,
         }
     }
 }

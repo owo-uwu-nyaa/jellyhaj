@@ -12,7 +12,9 @@ use image_cache::{ImageCache, ImageKey, ImageProtocolKeyRef};
 use crate::fetch::get_image;
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
-use jellyhaj_widgets_core::{ContextRef, GetFromContext, JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+};
 use ratatui::{
     layout::{Rect, Size},
     widgets::Widget,
@@ -146,6 +148,16 @@ impl JellyfinImage {
     }
 }
 
+impl JellyhajWidgetBase for JellyfinImage {
+    type Action = ParsedImage;
+
+    type ActionResult = Infallible;
+
+    const NAME: &str = "image";
+
+    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
+
 impl<
     R: ContextRef<Picker>
         + ContextRef<Stats>
@@ -155,14 +167,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for JellyfinImage
 {
-    type Action = ParsedImage;
-
-    type ActionResult = Infallible;
-
-    const NAME: &str = "image";
-
-    fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
     fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn render_fallible_inner(

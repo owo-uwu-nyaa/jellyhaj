@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{KeyModifiers, MouseEventKind},
@@ -7,19 +5,11 @@ use ratatui::{
 };
 use tracing::instrument;
 
-use crate::{WidgetContext, WidgetTreeVisitor, Wrapper};
+use crate::{JellyhajWidgetBase, WidgetContext, Wrapper};
 use color_eyre::Result;
-use valuable::Valuable;
 
-pub trait ItemWidget<R: 'static>: Valuable + Send + Sized + 'static {
-    type IAction: Debug + Send + 'static;
-    type IActionResult: Debug;
-
-    const NAME: &str;
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
-
-    fn init(&mut self, cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>);
+pub trait ItemWidget<R: 'static>: JellyhajWidgetBase {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
 
     fn dimensions(&self) -> Size;
     fn dimensions_static(par: &R) -> Size;
@@ -32,24 +22,24 @@ pub trait ItemWidget<R: 'static>: Valuable + Send + Sized + 'static {
 
     fn item_apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
-        action: Self::IAction,
-    ) -> Result<Option<Self::IActionResult>>;
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>>;
 
     fn item_click(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         position: Position,
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
-    ) -> Result<Option<Self::IActionResult>>;
+    ) -> Result<Option<Self::ActionResult>>;
 
     fn render_item_inner(
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()>;
 }
 
@@ -58,7 +48,7 @@ pub trait ItemWidgetExt<R: 'static>: ItemWidget<R> {
         &mut self,
         area: Rect,
         buf: &mut Buffer,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         #[instrument(name = "check_item_size")]
         fn inner(dim: Size, area: Rect) {

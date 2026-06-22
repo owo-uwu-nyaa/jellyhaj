@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
 use jellyhaj_widgets_core::{
-    JellyhajWidget, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
+    JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -52,7 +52,7 @@ impl LogWidget {
     }
 }
 
-impl<R: 'static> JellyhajWidget<R> for LogWidget {
+impl JellyhajWidgetBase for LogWidget {
     const NAME: &str = "log-view";
 
     type Action = TuiWidgetEvent;
@@ -60,7 +60,9 @@ impl<R: 'static> JellyhajWidget<R> for LogWidget {
     type ActionResult = Infallible;
 
     fn visit_children(&self, _visitor: &mut impl WidgetTreeVisitor) {}
+}
 
+impl<R: 'static> JellyhajWidget<R> for LogWidget {
     fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {

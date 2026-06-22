@@ -16,8 +16,8 @@ use jellyhaj_core::{
 use jellyhaj_image::{JellyfinImage, ParsedImage};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageCache};
 use jellyhaj_widgets_core::{
-    Config, ContextRef, FontSize, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetExt,
-    WidgetContext, Wrapper,
+    Config, ContextRef, FontSize, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetBase,
+    JellyhajWidgetExt, WidgetContext, Wrapper,
 };
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
@@ -168,6 +168,18 @@ impl Wrapper<ParsedImage> for EntryWrapper {
     }
 }
 
+impl JellyhajWidgetBase for Entry {
+    const NAME: &str = "entry";
+    type Action = EntryAction;
+    type ActionResult = Navigation;
+
+    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
+        if let Some(image) = self.image.as_ref() {
+            visitor.visit(image);
+        }
+    }
+}
+
 impl<
     R: ContextRef<Spawner>
         + ContextRef<Config>
@@ -180,17 +192,7 @@ impl<
         + 'static,
 > ItemWidget<R> for Entry
 {
-    const NAME: &str = "entry";
-    type IAction = EntryAction;
-    type IActionResult = Navigation;
-
-    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        if let Some(image) = self.image.as_ref() {
-            visitor.visit::<R, JellyfinImage>(image);
-        }
-    }
-
-    fn init(&mut self, cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>) {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         if let EntryData::Item(item) = &self.inner {
             JellyfinEventInterests::get_ref(cx.refs).with(|interests| {
                 interests.register_changed_userdata(
@@ -214,9 +216,9 @@ impl<
     }
     fn item_apply_action(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
-        action: Self::IAction,
-    ) -> Result<Option<Self::IActionResult>> {
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
         Ok(match action {
             EntryAction::Inner(action) => {
                 if let Some(image) = self.image.as_mut() {
@@ -233,12 +235,12 @@ impl<
     }
     fn item_click(
         &mut self,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: ratatui::prelude::Position,
         _: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
-    ) -> Result<Option<Self::IActionResult>> {
+    ) -> Result<Option<Self::ActionResult>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
             Ok(self.inner.apply_command(EntryCommand::Activate, cx.refs))
         } else {
@@ -251,7 +253,7 @@ impl<
         &mut self,
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::IAction, impl Wrapper<Self::IAction>, R>,
+        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         let mut outer = Block::bordered()
             .border_type(if self.active {

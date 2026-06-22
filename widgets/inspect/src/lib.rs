@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use jellyhaj_core::render::{StateStack, StateValue};
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, MouseEventKind, TreeVisitor,
+    ContextRef, JellyhajWidget, JellyhajWidgetBase, MouseEventKind, TreeVisitor,
     ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::StatefulWidget},
     spawn::tracing::{self, info_span, instrument},
 };
@@ -384,7 +384,7 @@ pub enum InspectAction {
     Down,
 }
 
-impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
+impl JellyhajWidgetBase for InspectWidget {
     type Action = InspectAction;
 
     type ActionResult = Infallible;
@@ -392,7 +392,9 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
     const NAME: &str = "inspect";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+}
 
+impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
     fn init(
         &mut self,
         cx: jellyhaj_widgets_core::WidgetContext<

@@ -1,6 +1,5 @@
 use std::{cmp::min, convert::Infallible};
 
-use color_eyre::eyre::Context;
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
     Config,
@@ -10,16 +9,15 @@ use jellyhaj_core::{
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetExt, Rect,
-    WidgetContext, WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase,
+    JellyhajWidgetExt, Rect, WidgetContext, WidgetTreeVisitor, Wrapper,
 };
 use ratatui::{
-    layout::{HorizontalAlignment, Margin},
+    layout::Margin,
     symbols::merge::MergeStrategy,
-    text::Line,
     widgets::{
-        Block, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
-        Widget,
+        Block, Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
+        WidgetRef,
     },
 };
 use valuable::Valuable;
@@ -31,25 +29,27 @@ pub enum OverviewAction {
 }
 
 #[derive(Debug, Valuable)]
-pub struct Overview {
-    pub text: String,
-    pub title: String,
+pub struct Overview<T: AsRef<str> + Valuable> {
+    text: String,
+    title: T,
     #[valuable(skip)]
-    pub scroll: usize,
+    scroll: usize,
+    computed: Option<(u16, Vec<String>)>,
 }
 
-impl Overview {
+impl<T: AsRef<str> + Valuable> Overview<T> {
     #[must_use]
-    pub const fn new(text: String, title: String) -> Self {
+    pub const fn new(text: String, title: T) -> Self {
         Self {
             text,
             title,
             scroll: 0,
+            computed: None,
         }
     }
 }
 
-impl<R: 'static> JellyhajWidget<R> for Overview {
+impl<T: AsRef<str> + Valuable + Send + 'static> JellyhajWidgetBase for Overview<T> {
     type Action = OverviewAction;
 
     type ActionResult = Infallible;
@@ -57,7 +57,9 @@ impl<R: 'static> JellyhajWidget<R> for Overview {
     const NAME: &str = "overview";
 
     fn visit_children(&self, _visitor: &mut impl WidgetTreeVisitor) {}
+}
 
+impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> for Overview<T> {
     fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
@@ -110,33 +112,41 @@ impl<R: 'static> JellyhajWidget<R> for Overview {
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
-            .title("Overview")
-            .title_alignment(HorizontalAlignment::Center)
+            .title(self.title.as_ref())
             .padding(Padding::uniform(1));
         let main = outer.inner(area);
-        let lines: Vec<_> = self
-            .text
-            .lines()
-            .flat_map(|line| textwrap::wrap(line, main.width as usize))
-            .map(Line::from)
-            .collect();
-        let len = lines.len();
-        self.scroll = min(self.scroll, lines.len() - 1);
-        Paragraph::new(lines)
-            .scroll((
-                self.scroll
-                    .try_into()
-                    .context("current scroll overflowed")?,
-                0,
-            ))
-            .render(main, buf);
+
+        let lines: &[_] = if let Some((width, lines)) = self.computed.as_ref()
+            && *width == main.width
+        {
+            lines
+        } else {
+            let lines = textwrap::wrap(&self.text, main.width as usize)
+                .into_iter()
+                .map(std::borrow::Cow::into_owned)
+                .collect();
+            &self.computed.insert((main.width, lines)).1
+        };
+        self.scroll = min(self.scroll, lines.len() - (main.height as usize));
+        for (i, y) in (main.y..(main.y + main.height)).into_iter().enumerate() {
+            let i = i + self.scroll;
+            lines[i].render_ref(
+                Rect {
+                    x: main.x,
+                    y,
+                    width: main.width,
+                    height: 1,
+                },
+                buf,
+            );
+        }
         Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
             area.inner(Margin {
                 horizontal: 0,
                 vertical: 2,
             }),
             buf,
-            &mut ScrollbarState::new(len).position(self.scroll),
+            &mut ScrollbarState::new(lines.len()).position(self.scroll),
         );
         outer.render(area, buf);
         Ok(())
@@ -157,10 +167,7 @@ impl ItemDetails {
         item: Box<MediaItem>,
         cx: &(impl ContextRef<ImageCache> + ContextRef<Config> + ContextRef<Picker>),
     ) -> Self {
-        let overview = item
-            .overview
-            .as_ref()
-            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
+        let overview = item.overview.as_ref().map(|o| Overview::new(o.clone(), ""));
         Self {
             entry: Entry::new(*item, cx),
             overview,
@@ -173,7 +180,22 @@ pub struct ItemDetails {
     #[valuable(skip)]
     entry: Entry,
     #[valuable(skip)]
-    overview: Option<Overview>,
+    overview: Option<Overview<&'static str>>,
+}
+
+impl JellyhajWidgetBase for ItemDetails {
+    type Action = DisplayAction;
+
+    type ActionResult = Navigation;
+
+    const NAME: &str = "item-details";
+
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit(&self.entry);
+        if let Some(o) = &self.overview {
+            visitor.visit(o);
+        }
+    }
 }
 
 impl<
@@ -188,19 +210,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for ItemDetails
 {
-    type Action = DisplayAction;
-
-    type ActionResult = Navigation;
-
-    const NAME: &str = "item-details";
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
-        visitor.visit_item::<R, _>(&self.entry);
-        if let Some(o) = &self.overview {
-            visitor.visit::<R, _>(o);
-        }
-    }
-
     fn min_width(&self) -> Option<u16> {
         Some(ItemWidget::<R>::dimensions(&self.entry).width + 4)
     }
@@ -362,7 +371,7 @@ pub struct ItemListDetails {
     children: ItemList<Entry>,
     item: MediaItem,
     #[valuable(skip)]
-    overview: Option<Overview>,
+    overview: Option<Overview<&'static str>>,
 }
 
 impl ItemListDetails {
@@ -381,16 +390,28 @@ impl ItemListDetails {
              + 'static
          ),
     ) -> Self {
-        let overview = item
-            .overview
-            .as_ref()
-            .map(|o| Overview::new(o.clone(), "Overview".to_string()));
+        let overview = item.overview.as_ref().map(|o| Overview::new(o.clone(), ""));
         let title = item.name.clone();
         let children = new_item_list(children.into_iter().map(|i| Entry::new(i, cx)), title, cx);
         Self {
             children,
             item: *item,
             overview,
+        }
+    }
+}
+
+impl JellyhajWidgetBase for ItemListDetails {
+    const NAME: &str = "item-list-details";
+
+    type Action = DisplayListAction;
+
+    type ActionResult = Navigation;
+
+    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
+        visitor.visit(&self.children);
+        if let Some(overview) = &self.overview {
+            visitor.visit(overview);
         }
     }
 }
@@ -407,19 +428,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for ItemListDetails
 {
-    const NAME: &str = "item-list-details";
-
-    type Action = DisplayListAction;
-
-    type ActionResult = Navigation;
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
-        visitor.visit::<R, _>(&self.children);
-        if let Some(overview) = &self.overview {
-            visitor.visit::<R, _>(overview);
-        }
-    }
-
     fn min_width(&self) -> Option<u16> {
         Some(9)
     }

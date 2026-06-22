@@ -7,7 +7,8 @@ use std::{
 
 pub use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetExt, Result, WidgetContext, Wrapper,
+    ItemWidget, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result, WidgetContext,
+    Wrapper,
     spawn::tracing::instrument,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
@@ -130,9 +131,9 @@ impl<T: Send + 'static> Wrapper<ItemListAction<T>> for ScreenWrapper {
     }
 }
 
-impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
-    type Action = ItemScreenAction<<T as ItemWidget<R>>::IAction>;
-    type ActionResult = <T as ItemWidget<R>>::IActionResult;
+impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemScreen<T> {
+    type Action = ItemScreenAction<T::Action>;
+    type ActionResult = T::ActionResult;
 
     const NAME: &str = "item-screen";
 
@@ -141,7 +142,9 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
             visitor.visit(list);
         }
     }
+}
 
+impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         for (index, list) in self.lists.iter_mut().enumerate() {
             list.init(cx.wrap_with(ScreenWrapper { index }));
@@ -157,13 +160,13 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
             this: &mut ItemScreen<T>,
             cx: WidgetContext<
                 '_,
-                ItemScreenAction<T::IAction>,
-                impl Wrapper<ItemScreenAction<T::IAction>>,
+                ItemScreenAction<T::Action>,
+                impl Wrapper<ItemScreenAction<T::Action>>,
                 R,
             >,
             index: usize,
-            action: ItemListAction<<T as ItemWidget<R>>::IAction>,
-        ) -> Result<Option<<T as ItemWidget<R>>::IActionResult>> {
+            action: ItemListAction<T::Action>,
+        ) -> Result<Option<T::ActionResult>> {
             this.lists
                 .get_mut(index)
                 .and_then(|r| {
