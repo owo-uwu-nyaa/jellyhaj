@@ -76,6 +76,10 @@ impl Parse for Args {
             } else if name == "cx_constr" {
                 input.parse::<Token![=]>()?;
                 cx_constr = Some(input.parse_terminated(TypeParamBound::parse, Token![+])?);
+            }else{
+                return Err(input.error(
+                    "expected optional next parameter (either `common_action` or `cx_constr`)",
+                ));
             }
         }
         let mut cx_constr = cx_constr.unwrap_or_default();

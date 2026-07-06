@@ -1,8 +1,15 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    ptr::NonNull,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicPtr, Ordering::SeqCst},
+    },
+};
 
 use color_eyre::{
-    Result,
-    eyre::{Context, OptionExt},
+    Result, Section, SectionExt,
+    eyre::{Context, eyre},
 };
 use config::{Config, init_config};
 use jellyhaj_core::{
@@ -203,18 +210,47 @@ async fn run_app_inner(
     Ok(())
 }
 
+pub struct AtomicStr {
+    inner: AtomicPtr<String>,
+}
+impl Default for AtomicStr {
+    fn default() -> Self {
+        Self {
+            inner: AtomicPtr::new(std::ptr::null_mut()),
+        }
+    }
+}
+#[allow(clippy::box_collection)]
+unsafe fn str_box_from_raw(val: *mut String) -> Option<Box<String>> {
+    NonNull::new(val).map(|v| unsafe { Box::from_raw(v.as_ptr()) })
+}
+impl AtomicStr {
+    pub fn set(&self, val: String) {
+        let new_val = Box::into_raw(Box::new(val));
+        let prev_val = self.inner.swap(new_val, SeqCst);
+        let _ = unsafe { str_box_from_raw(prev_val) };
+    }
+    pub fn take(&self) -> Option<String> {
+        unsafe { str_box_from_raw(self.inner.swap(std::ptr::null_mut(), SeqCst)) }.map(|v| *v)
+    }
+}
+
 #[instrument(skip_all, level = "debug")]
 #[tokio::main(flavor = "current_thread")]
 pub async fn run_app(
     term: DefaultTerminal,
     cancel: CancellationToken,
+    paniced: Arc<AtomicStr>,
     config_file: Option<PathBuf>,
     use_builtin_config: bool,
 ) -> Result<()> {
     let signal_cancel = cancel.clone();
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let interrupted_flag = interrupted.clone();
     tokio::spawn(async move {
         let _ = tokio::signal::ctrl_c().await;
         info!("interrupt received");
+        interrupted_flag.store(true, SeqCst);
         //produce coredump
         #[cfg(unix)]
         {
@@ -234,12 +270,21 @@ pub async fn run_app(
     let image_picker =
         Picker::from_query_stdio().context("getting information for image display")?;
     let events = KeybindEvents::new()?;
-    spawn::run_with_spawner(
+    let res = spawn::run_with_spawner(
         |spawner| run_app_inner(term, events, spawner, config, cache.clone(), image_picker),
         cancel,
         error_span!("jellyhaj"),
         "jellyhaj_main",
     )
-    .await
-    .ok_or_eyre("app cancelled")?
+    .await;
+
+    res.ok_or_else(move || {
+        if let Some(panic_message) = paniced.take() {
+            eyre!("Application paniced").section(panic_message.header("Panic message"))
+        } else if interrupted.load(SeqCst) {
+            eyre!("Application interrupted by signal")
+        } else {
+            eyre!("Application cancelled for unknown reason")
+        }
+    })?
 }

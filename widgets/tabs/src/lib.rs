@@ -1,5 +1,5 @@
 use std::{
-    cmp::{max, min},
+    cmp::max,
     fmt::Debug,
 };
 
@@ -153,10 +153,14 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         action: Self::Action,
     ) -> Result<Option<Self::ActionResult>> {
         if T::is_next(&action) {
-            self.current = min(self.current + 1, T::TABS.len());
+            self.current = (self.current + 1) % T::TABS.len();
             Ok(None)
         } else if T::is_prev(&action) {
-            self.current = self.current.saturating_sub(1);
+            self.current = if self.current == 0 {
+                T::TABS.len().saturating_sub(1)
+            } else {
+                self.current.saturating_sub(1)
+            };
             Ok(None)
         } else {
             self.inner.apply_action(cx, action, self.current)

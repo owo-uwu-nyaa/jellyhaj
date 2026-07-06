@@ -3,13 +3,13 @@ use std::{
     io::{Write, stdout},
     path::PathBuf,
     process::abort,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, OptionExt, Result};
 use crossterm::{ExecutableCommand, terminal::SetTitle};
-use jellyhaj::run_app;
+use jellyhaj::{AtomicStr, run_app};
 #[cfg(unix)]
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal};
 use rayon::ThreadPoolBuilder;
@@ -159,18 +159,26 @@ fn main() -> Result<()> {
             let cancel = CancellationToken::new();
             let handler_cancel = cancel.clone();
             std::io::stdout().execute(SetTitle("jellyhaj"))?;
+            let panic_message = Arc::new(AtomicStr::default());
+            let panic_message_storage = panic_message.clone();
             std::panic::set_hook(Box::new(move |panic| {
                 handler_cancel.cancel();
                 let report = panic_hook.panic_report(panic);
                 error!("{}", report);
-                eprintln!("{report}");
+                panic_message_storage.set(report.to_string());
             }));
             ThreadPoolBuilder::new()
                 .thread_name(|n| format!("tui-worker-{n}"))
                 .build_global()
                 .context("building global thread pool")?;
             jellyhaj_core::term::run_with(|term| {
-                run_app(term, cancel, args.config, args.use_builtin_config)
+                run_app(
+                    term,
+                    cancel,
+                    panic_message,
+                    args.config,
+                    args.use_builtin_config,
+                )
             })
         }
     }

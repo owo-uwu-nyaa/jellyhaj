@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::Authed;
 use crate::request::{NoQuery, RequestBuilderExt};
 use crate::user::MediaSource;
-use crate::{JellyfinClient, JellyfinVec, Result, connect::JsonResponse};
+use crate::Authed;
+use crate::{connect::JsonResponse, JellyfinClient, JellyfinVec, Result};
 use color_eyre::eyre::Context;
 use http::Uri;
 use serde::Deserialize;
@@ -41,7 +41,7 @@ struct GetVideoQuery<'s> {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
-struct SubtitleQuery<'s> {
+struct DownloadQuery<'s> {
     api_key: &'s str,
 }
 
@@ -336,6 +336,24 @@ impl<Auth: Authed> JellyfinClient<Auth> {
         Ok(())
     }
 
+    pub fn get_download_uri(&self, item_id: &str) -> Result<Uri> {
+        Uri::builder()
+            .scheme(if self.config.tls { "https" } else { "http" })
+            .authority(self.config.authority.clone())
+            .path_and_query(self.build_uri(
+                |prefix: &mut String| {
+                    prefix.push_str("/Items/");
+                    prefix.push_str(item_id);
+                    prefix.push_str("/Download");
+                },
+                DownloadQuery {
+                    api_key: self.get_auth().token(),
+                },
+            )?)
+            .build()
+            .context("assembling video uri")
+    }
+
     pub fn get_video_uri(&self, item_id: &str, play_session_id: &str) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.config.tls { "https" } else { "http" })
@@ -379,7 +397,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
                     prefix.push_str("/0/Stream.");
                     prefix.push_str(format);
                 },
-                SubtitleQuery {
+                DownloadQuery {
                     api_key: self.get_auth().token(),
                 },
             )?)

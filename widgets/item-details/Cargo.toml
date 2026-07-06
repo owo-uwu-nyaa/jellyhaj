@@ -8,6 +8,8 @@ color-eyre.workspace = true
 ratatui.workspace = true
 textwrap.workspace = true
 valuable.workspace = true
+jellyhaj-image = { version = "0.1.0", path = "../image" }
+jellyhaj-tabs-widget = { version = "0.1.0", path = "../tabs" }
 
 [package]
 edition = "2024"
