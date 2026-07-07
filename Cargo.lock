@@ -4446,16 +4446,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tabs-test"
-version = "0.1.0"
-dependencies = [
- "jellyhaj-core",
- "jellyhaj-image",
- "jellyhaj-tabs-widget",
- "jellyhaj-widgets-core",
-]
-
-[[package]]
 name = "tachyonfx"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

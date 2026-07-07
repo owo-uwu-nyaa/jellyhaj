@@ -25,6 +25,7 @@ jellyhaj-loading-widget = {path = "widgets/loading", version = "0.1.0"}
 jellyhaj-log-view = {path = "views/log", version = "0.1.0"}
 jellyhaj-login-view = {path = "views/login", version = "0.1.0"}
 jellyhaj-player-view = {path = "views/player", version = "0.1.0"}
+jellyhaj-quick-connect-view = {path = "views/quick-connect", version = "0.1.0"}
 jellyhaj-refresh-item-view = {path = "views/refresh-item", version = "0.1.0"}
 jellyhaj-stats-view = {path = "views/stats", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "widgets/core", version = "0.1.0"}
@@ -52,10 +53,6 @@ clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
-jellyhaj-quick-connect-view = { version = "0.1.0", path = "views/quick-connect" }
-
-[target.'cfg(unix)'.dependencies]
-nix = {workspace=true, features = ["signal", "process"]}
 
 [features]
 attach = ["dep:libc"]
@@ -63,6 +60,9 @@ console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tr
 default = ["mimalloc"]
 mimalloc = ["dep:mimalloc"]
 mpris = ["dep:player-mpris"]
+
+[lints]
+workspace = true
 
 [package]
 description = "kind of fancy jellyfin tui based on ratatui and libmpv"
@@ -72,7 +72,10 @@ version = "0.2.2"
 
 [profile.release]
 debug = "full"
-split-debuginfo="packed"
+split-debuginfo = "packed"
+
+[target.'cfg(unix)'.dependencies]
+nix = {features = ["process", "signal"], workspace = true}
 
 [workspace]
 members = [
@@ -93,7 +96,7 @@ members = [
   "player-mpris",
   "serde-json-ratatui",
   "spawn",
-  "stats-data", "tabs-test",
+  "stats-data",
   "views/error",
   "views/fetch",
   "views/home-screen",
@@ -102,7 +105,8 @@ members = [
   "views/library",
   "views/log",
   "views/login",
-  "views/player", "views/quick-connect",
+  "views/player",
+  "views/quick-connect",
   "views/refresh-item",
   "views/stats",
   "widgets/core",
@@ -126,12 +130,14 @@ members = [
   "widgets/login",
   "widgets/player",
   "widgets/refresh-item",
-  "widgets/stats"
-, "widgets/tabs", "widgets/tabs-macro"]
+  "widgets/stats",
+  "widgets/tabs",
+  "widgets/tabs-macro"
+]
 
 [workspace.dependencies]
-arcshift = "0.4.2"
 ansi-to-tui = "8.0.0"
+arcshift = "0.4.2"
 aws-lc-rs = {default-features = false, version = "1.13.3"}
 base64 = "0.22.1"
 bindgen = "0.69"
@@ -163,7 +169,7 @@ proc-macro2 = "1.0.94"
 quote = "1.0.40"
 ratatui = {features = ["unstable-widget-ref"], version = "0.30.0"}
 ratatui-core = "0.1.0"
-ratatui-image = {default-features = false, features = ["crossterm", "chafa-dyn"], version = "11.0.2"}
+ratatui-image = {default-features = false, features = ["chafa-dyn", "crossterm"], version = "11.0.2"}
 rayon = "1.10.0"
 rustls-native-certs = "0.8.1"
 serde = {features = ["derive"], version = "1.0.164"}
@@ -188,17 +194,14 @@ whoami = {default-features = false, version = "2.0.2"}
 zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
 
 [workspace.lints.clippy]
-nursery = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-missing_errors_doc = "allow"
-significant_drop_tightening = "allow"
-option_if_let_else = "allow"
 collection_is_never_read = "allow"
-too_many_lines = "allow"
+missing_errors_doc = "allow"
 missing_panics_doc = "allow"
+nursery = {level = "warn", priority = -1}
+option_if_let_else = "allow"
+pedantic = {level = "warn", priority = -1}
+significant_drop_tightening = "allow"
+too_many_lines = "allow"
 
 [workspace.lints.rust]
 unexpected_cfgs = {check-cfg = ['cfg(tokio_unstable)'], level = "warn"}
-
-[lints]
-workspace = true
