@@ -8,7 +8,9 @@ use crate::{
 use jellyhaj_core::{
     context::{
         Config, DB, ImageCache, JellyfinClient, JellyfinEventInterests, Picker, Spawner, Stats,
-    }, keybinds::EntryCommand, state::Navigation,
+    },
+    keybinds::EntryCommand,
+    state::Navigation,
 };
 use jellyhaj_widgets_core::ContextRef;
 

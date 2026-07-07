@@ -1,6 +1,6 @@
 pub mod children;
-pub mod overview;
 pub mod item_list_details;
+pub mod overview;
 
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{

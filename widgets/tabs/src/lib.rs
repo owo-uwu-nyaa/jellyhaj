@@ -1,7 +1,4 @@
-use std::{
-    cmp::max,
-    fmt::Debug,
-};
+use std::{cmp::max, fmt::Debug};
 
 use color_eyre::Result;
 use jellyhaj_widgets_core::{
@@ -253,11 +250,7 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
             } else {
                 '╷'
             });
-            buf[Position {
-                x,
-                y: area.y +1,
-            }]
-            .set_char(if last {
+            buf[Position { x, y: area.y + 1 }].set_char(if last {
                 if is_current { '┛' } else { '┘' }
             } else if is_current {
                 '┹'

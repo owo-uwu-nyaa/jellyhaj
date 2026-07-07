@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use crate::Authed;
 use crate::request::{NoQuery, RequestBuilderExt};
 use crate::user::MediaSource;
-use crate::Authed;
-use crate::{connect::JsonResponse, JellyfinClient, JellyfinVec, Result};
+use crate::{JellyfinClient, JellyfinVec, Result, connect::JsonResponse};
 use color_eyre::eyre::Context;
 use http::Uri;
 use serde::Deserialize;

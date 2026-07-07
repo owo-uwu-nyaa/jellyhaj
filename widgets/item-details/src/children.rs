@@ -2,7 +2,10 @@ use std::cmp::min;
 
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
-    Config, context::{DB, JellyfinEventInterests, Spawner}, keybinds::EntryCommand, state::{Navigation, NextScreen},
+    Config,
+    context::{DB, JellyfinEventInterests, Spawner},
+    keybinds::EntryCommand,
+    state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache};
 use jellyhaj_image::{Picker, Stats};
