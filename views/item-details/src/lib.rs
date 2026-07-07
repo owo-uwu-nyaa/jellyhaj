@@ -12,10 +12,11 @@ use jellyhaj_core::{
 use jellyhaj_entry_widget::EntryAction;
 use jellyhaj_fetch_view::{fetch_all_children, fetch_child_of_type, fetch_item, make_fetch};
 use jellyhaj_item_details_widget::{
-    DisplayAction, DisplayListAction, ItemDetails, ItemListDetails,
+    DisplayAction, ItemDetails,
+    item_list_details::{ItemListDetailsAction, ItemListDetailsCommom},
 };
-use jellyhaj_item_list::ItemListAction;
 use jellyhaj_keybinds_widget::KeybindWidget;
+use jellyhaj_tabs_widget::TabbedWidgets;
 use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 use tokio::try_join;
 use tracing::instrument;
@@ -102,7 +103,7 @@ struct ListMapper {
 }
 
 impl CommandMapper<ItemListDetailsCommand> for ListMapper {
-    type A = DisplayListAction;
+    type A = jellyhaj_item_details_widget::item_list_details::ItemListDetailsAction;
 
     fn map(&self, command: ItemListDetailsCommand) -> ControlFlow<Navigation, Self::A> {
         match command {
@@ -110,15 +111,23 @@ impl CommandMapper<ItemListDetailsCommand> for ListMapper {
             ItemListDetailsCommand::Reload => ControlFlow::Break(Navigation::Replace(
                 NextScreen::FetchItemListDetailsRef(self.id.clone()),
             )),
-            ItemListDetailsCommand::Up => ControlFlow::Continue(DisplayListAction::Up),
-            ItemListDetailsCommand::Down => ControlFlow::Continue(DisplayListAction::Down),
-            ItemListDetailsCommand::Left => ControlFlow::Continue(DisplayListAction::Left),
-            ItemListDetailsCommand::Right => ControlFlow::Continue(DisplayListAction::Right),
-            ItemListDetailsCommand::Entry(entry_command) => {
-                ControlFlow::Continue(DisplayListAction::Inner(ItemListAction::CurrentInner(
-                    EntryAction::Command(entry_command),
-                )))
+            ItemListDetailsCommand::Up => {
+                ControlFlow::Continue(ItemListDetailsAction::Universal(ItemListDetailsCommom::Up))
             }
+            ItemListDetailsCommand::Down => ControlFlow::Continue(
+                ItemListDetailsAction::Universal(ItemListDetailsCommom::Down),
+            ),
+            ItemListDetailsCommand::ScrollUp => ControlFlow::Continue(
+                ItemListDetailsAction::Universal(ItemListDetailsCommom::ScrollUp),
+            ),
+            ItemListDetailsCommand::ScrollDown => ControlFlow::Continue(
+                ItemListDetailsAction::Universal(ItemListDetailsCommom::ScrollDown),
+            ),
+            ItemListDetailsCommand::NextTab => ControlFlow::Continue(ItemListDetailsAction::Next),
+            ItemListDetailsCommand::PrevTab => ControlFlow::Continue(ItemListDetailsAction::Prev),
+            ItemListDetailsCommand::Entry(entry_command) => ControlFlow::Continue(
+                ItemListDetailsAction::Universal(ItemListDetailsCommom::Entry(entry_command)),
+            ),
             ItemListDetailsCommand::RefreshParentItem => {
                 ControlFlow::Break(Navigation::Push(NextScreen::RefreshItem(self.id.clone())))
             }
@@ -140,9 +149,12 @@ pub fn render_item_list_details(
     children: Vec<MediaItem>,
 ) -> Erased {
     let id = parent.id.clone();
-    let state = ItemListDetails::new(children, parent, &cx);
+    let list_details = jellyhaj_item_details_widget::item_list_details::ItemListDetails::new(
+        parent, children, &cx,
+    );
+    let tabbed = TabbedWidgets::new(list_details);
     let state = KeybindWidget::new(
-        state,
+        tabbed,
         cx.config.keybinds.item_list_details.clone(),
         ListMapper { id },
     );

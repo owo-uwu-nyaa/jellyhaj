@@ -18,6 +18,12 @@ pub struct TabbedWidgets<T> {
     current: usize,
 }
 
+impl<T> TabbedWidgets<T> {
+    pub const fn new(inner: T) -> Self {
+        Self { inner, current: 0 }
+    }
+}
+
 pub trait Tabbed: Send + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
@@ -206,7 +212,7 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
-        buf[area.as_position()].set_char(if self.current == 0 { '╻' } else { '╵' });
+        buf[area.as_position()].set_char(if self.current == 0 { '╻' } else { '╷' });
         buf[Position {
             x: area.x,
             y: area.y + 1,
@@ -245,11 +251,11 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
             buf[Position { x, y: area.y }].set_char(if is_current || is_next {
                 '╻'
             } else {
-                '╵'
+                '╷'
             });
             buf[Position {
-                x: x + 1,
-                y: area.y,
+                x,
+                y: area.y +1,
             }]
             .set_char(if last {
                 if is_current { '┛' } else { '┘' }

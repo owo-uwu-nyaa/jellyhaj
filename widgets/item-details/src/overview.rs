@@ -119,8 +119,13 @@ impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> fo
                 .collect();
             &self.computed.insert((main.width, lines)).1
         };
-        self.scroll = min(self.scroll, lines.len().saturating_sub(main.height as usize));
-        for (i, y) in (main.y..(main.y + main.height)).into_iter().take(lines.len()).enumerate() {
+        let scroll_len = lines.len().saturating_sub(main.height as usize);
+        self.scroll = min(self.scroll, scroll_len);
+        for (i, y) in (main.y..(main.y + main.height))
+            .into_iter()
+            .take(lines.len())
+            .enumerate()
+        {
             let i = i + self.scroll;
             lines[i].render_ref(
                 Rect {
@@ -132,14 +137,16 @@ impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> fo
                 buf,
             );
         }
-        Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
-            area.inner(Margin {
-                horizontal: 0,
-                vertical: 2,
-            }),
-            buf,
-            &mut ScrollbarState::new(lines.len()).position(self.scroll),
-        );
+        if scroll_len > 0 {
+            Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
+                area.inner(Margin {
+                    horizontal: 0,
+                    vertical: 2,
+                }),
+                buf,
+                &mut ScrollbarState::new(scroll_len).position(self.scroll),
+            );
+        }
         outer.render(area, buf);
         Ok(())
     }

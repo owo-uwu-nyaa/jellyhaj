@@ -10,6 +10,7 @@ jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
 tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 tracing.workspace = true
+jellyhaj-tabs-widget = { version = "0.1.0", path = "../../widgets/tabs" }
 
 [package]
 edition = "2024"

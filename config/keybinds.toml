@@ -83,13 +83,14 @@ template = ["ud", "q", "e", "g"]
 r = "reload"
 
 [item_list_details]
-template = ["m", "e", "g"]
+template = ["ud", "q", "e", "g"]
+"C-up" = "scroll-up"
+"C-down" = "scroll-down"
+tab = "next-tab"
+left = "prev-tab"
+right = "next-tab"
 r = "reload"
 "C-r" = "refresh-parent-item"
-
-
-
-
 
 [template.q]
 q = "quit"

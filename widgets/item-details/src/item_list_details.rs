@@ -1,4 +1,4 @@
-use jellyhaj_entry_widget::EntryAction;
+use jellyfin::items::MediaItem;
 use jellyhaj_tabs_widget::TabContainer;
 
 use crate::{
@@ -8,8 +8,7 @@ use crate::{
 use jellyhaj_core::{
     context::{
         Config, DB, ImageCache, JellyfinClient, JellyfinEventInterests, Picker, Spawner, Stats,
-    },
-    state::Navigation,
+    }, keybinds::EntryCommand, state::Navigation,
 };
 use jellyhaj_widgets_core::ContextRef;
 
@@ -19,7 +18,7 @@ pub enum ItemListDetailsCommom {
     Down,
     ScrollUp,
     ScrollDown,
-    Entry(EntryAction),
+    Entry(EntryCommand),
 }
 
 impl From<ItemListDetailsCommom> for Option<ChildAction> {
@@ -64,4 +63,16 @@ pub struct ItemListDetails {
     pub children: ItemChilds,
     #[tab = "Overview"]
     pub overview: Overview<String>,
+}
+
+impl ItemListDetails {
+    pub fn new(
+        parent: Box<MediaItem>,
+        children: impl IntoIterator<Item = MediaItem>,
+        cx: &(impl ContextRef<Config> + ContextRef<Picker>),
+    ) -> Self {
+        let children = ItemChilds::new(parent.id, children, cx);
+        let overview = Overview::new(parent.overview.unwrap_or_default(), String::new());
+        Self { children, overview }
+    }
 }

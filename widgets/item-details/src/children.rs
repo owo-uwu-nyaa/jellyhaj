@@ -1,10 +1,8 @@
 use std::cmp::min;
 
-use jellyfin::JellyfinClient;
+use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
-    Config,
-    context::{DB, JellyfinEventInterests, Spawner},
-    state::{Navigation, NextScreen},
+    Config, context::{DB, JellyfinEventInterests, Spawner}, keybinds::EntryCommand, state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache};
 use jellyhaj_image::{Picker, Stats};
@@ -24,17 +22,39 @@ use crate::overview::{Overview, OverviewAction};
 #[derive(Valuable)]
 pub struct Child {
     #[valuable(skip)]
-    pub entry: Entry,
+    entry: Entry,
     #[valuable(skip)]
-    pub overview: Option<Overview<&'static str>>,
+    overview: Option<Overview<&'static str>>,
 }
 
 #[derive(Valuable)]
 pub struct ItemChilds {
-    pub id: String,
-    pub current: usize,
-    pub offset: usize,
-    pub items: Vec<Child>,
+    parent_id: String,
+    current: usize,
+    offset: usize,
+    items: Vec<Child>,
+}
+
+impl ItemChilds {
+    pub fn new(
+        parent_id: String,
+        children: impl IntoIterator<Item = MediaItem>,
+        cx: &(impl ContextRef<Config> + ContextRef<Picker>),
+    ) -> Self {
+        Self {
+            parent_id,
+            current: 0,
+            offset: 0,
+            items: children
+                .into_iter()
+                .map(|item| {
+                    let overview = item.overview.as_ref().map(|o| Overview::new(o.clone(), ""));
+                    let entry = Entry::new(item, cx);
+                    Child { entry, overview }
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -43,7 +63,7 @@ pub enum ChildAction {
     Down,
     ScrollUp,
     ScrollDown,
-    CurrentEntry(EntryAction),
+    CurrentEntry(EntryCommand),
     Entry {
         index: usize,
         action: EntryAction,
@@ -86,7 +106,7 @@ impl<
 > JellyhajWidget<R> for ItemChilds
 {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        let parent = &self.id;
+        let parent = &self.parent_id;
         JellyfinEventInterests::get_ref(cx.refs).with(|events| {
             events.register_folder_modified(
                 parent.clone(),
@@ -134,11 +154,11 @@ impl<
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             ChildAction::Up => {
-                self.current = min(self.current + 1, self.items.len().saturating_sub(1));
+                self.current = self.current.saturating_sub(1);
                 Ok(None)
             }
             ChildAction::Down => {
-                self.current = self.current.saturating_sub(1);
+                self.current = min(self.current + 1, self.items.len().saturating_sub(1));
                 Ok(None)
             }
             ChildAction::ScrollUp => {
@@ -190,7 +210,7 @@ impl<
                 if let Some(child) = self.items.get_mut(index) {
                     child.entry.item_apply_action(
                         cx.wrap_with(move |action| ChildAction::Entry { index, action }),
-                        action,
+                        EntryAction::Command(action),
                     )
                 } else {
                     Ok(None)
@@ -207,7 +227,7 @@ impl<
                 Ok(None)
             }
             ChildAction::Reload => Ok(Some(Navigation::Replace(
-                NextScreen::FetchItemListDetailsRef(self.id.clone()),
+                NextScreen::FetchItemListDetailsRef(self.parent_id.clone()),
             ))),
             ChildAction::Remove => Ok(Some(Navigation::PopContext)),
         }

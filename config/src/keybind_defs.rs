@@ -164,8 +164,10 @@ pub enum ItemListDetailsCommand {
     Reload,
     Up,
     Down,
-    Left,
-    Right,
+    ScrollUp,
+    ScrollDown,
+    NextTab,
+    PrevTab,
     #[command(flatten)]
     Entry(EntryCommand),
     RefreshParentItem,
