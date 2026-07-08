@@ -2,6 +2,9 @@
 
 set -e
 set -u
+# wait until the server has actiuallly started
+# jellyfin can't notify systemd it is actually ready
+sleep 10
 echo sending general configuration
 curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/Configuration' -H 'accept: */*' -H 'Content-Type: application/json' \
     -H 'authorization: MediaBrowser Client="curl",Device="curl",DeviceId="42",Version="1"' \
@@ -14,7 +17,7 @@ curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/Configuration' 
 echo sending user information
 curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/User' -H 'accept: */*' -H 'Content-Type: application/json' \
     -H 'authorization: MediaBrowser Client="curl",Device="curl",DeviceId="42",Version="1"' \
-  -d '{
+    -d '{
   "Name": "jellyfin",
   "Password": "jellyfin"
 }'
@@ -26,3 +29,5 @@ echo completing setup
 curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/Complete' -H 'accept: */*' \
     -H 'authorization: MediaBrowser Client="curl",Device="curl",DeviceId="42",Version="1"' \
     -d ''
+
+touch var/lib/jellyfin/.setup-complete

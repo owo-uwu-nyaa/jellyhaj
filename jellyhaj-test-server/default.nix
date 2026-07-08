@@ -44,22 +44,37 @@ in
             forceEncodingConfig = true;
           };
           systemd = {
-            tmpfiles.rules = [
-              "C /var/lib/jellyfin/config/network.xml - - - 300w ${files}/network.xml"
-              "z /var/lib/jellyfin/config/network.xml 0660 jellyfin jellyfin"
-            ];
             services = {
-              jellyfin.postStart = "${pkgs.coreutils}/bin/sleep 15";
-              setup-jellyfin = {
+              setup-jellyfin-pre = {
+                before = [ "jellyfin.service" ];
+                wantedBy = [ "jellyfin.service" ];
+                serviceConfig = {
+                  Type = "oneshot";
+                };
+                script = ''
+                  cp ${files}/network.xml /var/lib/jellyfin/config/network.xml
+                  chmod 0660 /var/lib/jellyfin/config/network.xml 
+                  chown jellyfin:jellyfin /var/lib/jellyfin/config/network.xml 
+                '';
+                path = [ pkgs.coreutils ];
+                enableStrictShellChecks = true;
+                unitConfig = {
+                  ConditionPathExists = "!var/lib/jellyfin/.setup-complete";
+                };
+              };
+              setup-jellyfin-post = {
                 after = [ "jellyfin.service" ];
-                wantedBy = [ "multi-user.target" ];
+                wantedBy = [ "jellyfin.service" ];
                 path = [
                   pkgs.bash
                   pkgs.curl
                 ];
                 serviceConfig = {
-                  Type = "simple";
+                  Type = "oneshot";
                   ExecStart = "${files}/setup-jellyfin";
+                };
+                unitConfig = {
+                  ConditionPathExists = "!var/lib/jellyfin/.setup-complete";
                 };
               };
             };
