@@ -14,6 +14,8 @@ curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/Configuration' 
     "ServerName": "jellyhaj-test-server",
     "UICulture": "en-US"
 }'
+echo sending network settings
+
 echo sending user information
 curl --fail-with-body -X 'POST' 'http://localhost:@port@/Startup/User' -H 'accept: */*' -H 'Content-Type: application/json' \
     -H 'authorization: MediaBrowser Client="curl",Device="curl",DeviceId="42",Version="1"' \

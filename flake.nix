@@ -44,6 +44,7 @@
           packages = {
             default = jellyhaj;
             inherit jellyhaj;
+            test-server = pkgs.callPackage ./jellyhaj-test-server { };
           };
           checks = { inherit jellyhaj; };
           apps = {
@@ -98,7 +99,6 @@
           hmModules = {
             default = import ./hm-module.nix;
           };
-          nixosModules.jellyhaj-test-server = import ./jellyhaj-test-server;
         }
       )
     );

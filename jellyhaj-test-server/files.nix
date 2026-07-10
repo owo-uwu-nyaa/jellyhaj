@@ -1,7 +1,38 @@
-{ pkgs, port }:
-pkgs.runCommand "jellyhaj-test-server-files" {} ''
+{
+  runCommand,
+  lib,
+  jellyfin,
+  nushell,
+}:
+let
+  set = lib.fileset.unions [
+    ./group
+    ./passwd
+    ./run.nu
+    ./network.xml
+    ./nsswitch.conf
+  ];
+  src = lib.fileset.toSource {
+    root = ./.;
+    fileset = set;
+  };
+in
+runCommand "jellyhaj-test-server-files" { } ''
   mkdir $out
-  substitute ${./network.xml} $out/network.xml --replace-fail "@port@" ${toString port}
-  substitute ${./setup-jellyfin.sh} $out/setup-jellyfin --replace-fail "@port@" ${toString port}
-  chmod +x $out/setup-jellyfin
+  mkdir $out/etc
+  mkdir $out/var
+  mkdir $out/var/empty
+  mkdir $out/bin
+  mkdir $out/template
+
+  cd $out/etc
+  ln -s ${src}/group
+  ln -s ${src}/passwd
+  ln -s ${src}/nsswitch.conf
+  cd $out/template
+  ln -s ${src}/network.xml
+  cd $out/bin
+  ln -s ${src}/run.nu
+  ln -s ${lib.getExe jellyfin}
+  ln -s ${lib.getExe nushell}
 ''
