@@ -34,6 +34,7 @@ def send_lang_config [] {
 
 def send_user_config [] {
   print "[setup] setting user"
+  http get $"http://localhost:($port)/Startup/User" | check_status
   let user_config = {
     Name: "jellyfin",
     Password: "jellyfin"
@@ -44,7 +45,7 @@ def send_user_config [] {
 def send_network_config [] {
   print "[setup] setting network"
   let network_config = {
-    EnableRemoteAccess: false
+    EnableRemoteAccess: true
   }
   http post -t application/json -H $headers $"http://localhost:($port)/Startup/RemoteAccess" $network_config | check_status
 }
