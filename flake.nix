@@ -39,14 +39,21 @@
             inherit system overlays;
           };
           jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
+          test-server =
+            if lib.systems.inspect.predicates.isLinux system then
+              {
+                test-server = pkgs.callPackage ./jellyhaj-test-server { };
+              }
+            else
+              { };
         in
         {
           formatter = pkgs.nixfmt-tree;
           packages = {
             default = jellyhaj;
             inherit jellyhaj;
-            test-server = pkgs.callPackage ./jellyhaj-test-server { };
-          };
+          }
+          // test-server;
           checks = { inherit jellyhaj; };
           apps = {
             default = {
