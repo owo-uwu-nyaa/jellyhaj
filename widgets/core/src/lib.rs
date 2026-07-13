@@ -6,7 +6,7 @@ pub mod outer;
 
 pub use color_eyre::Result;
 pub use config::Config;
-pub use item::{ItemWidget, ItemWidgetExt};
+pub use item::{ItemWidget, ItemWidgetBase, ItemWidgetExt};
 pub use jellyhaj::{
     JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, TreeVisitor, WidgetTreeVisitor,
 };

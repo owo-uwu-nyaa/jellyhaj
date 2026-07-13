@@ -60,30 +60,17 @@ impl JellyhajWidgetBase for LogWidget {
     type ActionResult = Infallible;
 
     fn visit_children(&self, _visitor: &mut impl WidgetTreeVisitor) {}
-}
-
-impl<R: 'static> JellyhajWidget<R> for LogWidget {
-    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(15)
     }
-
     fn min_height(&self) -> Option<u16> {
         Some(15)
     }
+}
 
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
-    }
+impl<R: 'static> JellyhajWidget<R> for LogWidget {
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn apply_action(
         &mut self,

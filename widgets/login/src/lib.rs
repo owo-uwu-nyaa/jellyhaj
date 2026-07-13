@@ -137,31 +137,31 @@ impl JellyhajWidgetBase for LoginWidget {
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         visitor.visit(&self.inner);
     }
+
+    fn min_width(&self) -> Option<u16> {
+        self.inner.min_width()
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        self.inner.min_height()
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.inner.accepts_text_input()
+    }
+
+    fn accept_char(&mut self, text: char) {
+        self.inner.accept_char(text);
+    }
+
+    fn accept_text(&mut self, text: String) {
+        self.inner.accept_text(text);
+    }
 }
 
 impl<R: ContextRef<Config> + 'static> JellyhajWidget<R> for LoginWidget {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         self.inner.init(cx);
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        JellyhajWidget::<R>::min_width(&self.inner)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        JellyhajWidget::<R>::min_height(&self.inner)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        JellyhajWidget::<R>::accepts_text_input(&self.inner)
-    }
-
-    fn accept_char(&mut self, text: char) {
-        JellyhajWidget::<R>::accept_char(&mut self.inner, text);
-    }
-
-    fn accept_text(&mut self, text: String) {
-        JellyhajWidget::<R>::accept_text(&mut self.inner, text);
     }
 
     fn apply_action(
@@ -264,6 +264,13 @@ impl JellyhajWidgetBase for QuickConnectWidget {
     const NAME: &str = "quick-connect";
 
     fn visit_children(&self, _: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        Some(33)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(9)
+    }
 }
 
 impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
@@ -278,22 +285,6 @@ impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
             "quick-connect-clock",
         );
     }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(33)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(9)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _text: char) {}
-
-    fn accept_text(&mut self, _text: String) {}
 
     fn apply_action(
         &mut self,

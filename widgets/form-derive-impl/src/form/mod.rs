@@ -48,8 +48,8 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         Span::mixed_site(),
     );
     let exports: Path = parse_quote!(::jellyhaj_form_widget::macro_impl::exports);
-    let form_item_info_tr: Type =
-        parse_quote!(::jellyhaj_form_widget::FormItemInfo<#action_result>);
+    let form_item_base_tr: Type =
+        parse_quote!(::jellyhaj_form_widget::FormItemBase<#action_result>);
     let form_data_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormData);
     let form_data_types_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormDataTypes);
     let with_selection_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelection);
@@ -77,7 +77,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let selection_items = fields.iter().map(|item| {
         let name = &item.enum_id;
         let ty = &item.ty;
-        quote! {#name(<#ty as #form_item_info_tr>::SelectionInner)}
+        quote! {#name(<#ty as #form_item_base_tr>::SelectionInner)}
     });
 
     let selection_variant_defs = fields.iter().map(|item| {
@@ -99,7 +99,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let action_items = fields.iter().map(|item| {
         let name = &item.enum_id;
         let ty = &item.ty;
-        quote! {#name(<#ty as #form_item_info_tr>::Action)}
+        quote! {#name(<#ty as #form_item_base_tr>::Action)}
     });
     let with_selection_pats = fields.iter().enumerate().map(|(i, item)| {
         let name = &item.name;
@@ -258,7 +258,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
         impl #form_data_tr<#total_size> for #data_ty{
             const TITLE: &#exports::str = #name;
 
-            fn with_selection<R: 'static, T, W: #with_selection_tr<R, Self::AR, T>>(
+            fn with_selection<T, W: #with_selection_tr<Self::AR, T>>(
                 this: &Self::Selector,
                 state: &Self,
                 with: W,
@@ -268,7 +268,7 @@ pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
                 }
             }
 
-            fn with_selection_mut<R: 'static, T, W: #with_selection_mut_tr<R, Self::AR, T>>(
+            fn with_selection_mut<T, W: #with_selection_mut_tr<Self::AR, T>>(
                 this: &mut Self::Selector,
                 state: &mut Self,
                 with: W,

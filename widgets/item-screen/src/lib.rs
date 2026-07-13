@@ -2,13 +2,13 @@ use std::{
     borrow::Cow,
     cmp::min,
     fmt::Debug,
-    ops::{Deref, DerefMut, Index, IndexMut},
+    ops::{Deref, DerefMut},
 };
 
 pub use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ItemWidget, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result, WidgetContext,
-    Wrapper,
+    ItemWidget, ItemWidgetBase, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result,
+    WidgetContext, Wrapper,
     spawn::tracing::instrument,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
@@ -34,7 +34,7 @@ pub fn new_item_screen<R: 'static, W: ItemWidget<R>>(
     }
 }
 
-pub struct ItemScreen<T> {
+pub struct ItemScreen<T: ItemWidgetBase> {
     lists: Vec<ItemList<T>>,
     current: usize,
     title: Cow<'static, str>,
@@ -42,7 +42,7 @@ pub struct ItemScreen<T> {
     offset: usize,
 }
 
-impl<T> Deref for ItemScreen<T> {
+impl<T: ItemWidgetBase> Deref for ItemScreen<T> {
     type Target = [ItemList<T>];
 
     fn deref(&self) -> &Self::Target {
@@ -50,7 +50,7 @@ impl<T> Deref for ItemScreen<T> {
     }
 }
 
-impl<T> DerefMut for ItemScreen<T> {
+impl<T: ItemWidgetBase> DerefMut for ItemScreen<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.lists
     }
@@ -58,7 +58,7 @@ impl<T> DerefMut for ItemScreen<T> {
 
 static ITEM_SCREEN_FIELDS: &[NamedField] = &[NamedField::new("current"), NamedField::new("title")];
 
-impl<T> Valuable for ItemScreen<T> {
+impl<T: ItemWidgetBase> Valuable for ItemScreen<T> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -71,33 +71,19 @@ impl<T> Valuable for ItemScreen<T> {
     }
 }
 
-impl<T> Structable for ItemScreen<T> {
+impl<T: ItemWidgetBase> Structable for ItemScreen<T> {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("ItemScreen", Fields::Named(ITEM_SCREEN_FIELDS))
     }
 }
 
-impl<T> ItemScreen<T> {
+impl<T: ItemWidgetBase> ItemScreen<T> {
     #[must_use]
     pub fn get(&self, index: usize) -> Option<&ItemList<T>> {
         self.lists.get(index)
     }
     pub fn get_mut(&mut self, index: usize) -> Option<&mut ItemList<T>> {
         self.lists.get_mut(index)
-    }
-}
-
-impl<T> Index<usize> for ItemScreen<T> {
-    type Output = ItemList<T>;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.lists[index]
-    }
-}
-
-impl<T> IndexMut<usize> for ItemScreen<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.lists[index]
     }
 }
 
@@ -131,7 +117,7 @@ impl<T: Send + 'static> Wrapper<ItemListAction<T>> for ScreenWrapper {
     }
 }
 
-impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemScreen<T> {
+impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemScreen<T> {
     type Action = ItemScreenAction<T::Action>;
     type ActionResult = T::ActionResult;
 
@@ -140,6 +126,32 @@ impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemScreen<T> {
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         for list in &self.lists {
             visitor.visit(list);
+        }
+    }
+
+    fn min_width(&self) -> Option<u16> {
+        Some(self.item_size.width + 8)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(self.item_size.height + 8)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.get(self.current)
+            .is_some_and(JellyhajWidgetBase::accepts_text_input)
+    }
+    fn accept_char(&mut self, text: char) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_char(text);
+        }
+    }
+    fn accept_text(&mut self, text: String) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_text(text);
         }
     }
 }
@@ -293,34 +305,5 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         }
         outer.render(area, buf);
         Ok(())
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(self.item_size.width + 8)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(self.item_size.height + 8)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        self.get(self.current)
-            .is_some_and(JellyhajWidget::accepts_text_input)
-    }
-
-    fn accept_char(&mut self, text: char) {
-        if let Some(i) = self.get_mut(self.current)
-            && i.accepts_text_input()
-        {
-            i.accept_char(text);
-        }
-    }
-
-    fn accept_text(&mut self, text: String) {
-        if let Some(i) = self.get_mut(self.current)
-            && i.accepts_text_input()
-        {
-            i.accept_text(text);
-        }
     }
 }

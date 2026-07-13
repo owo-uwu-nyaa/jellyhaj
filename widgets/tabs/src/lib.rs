@@ -31,6 +31,13 @@ pub trait Tabbed: Send + 'static {
     fn is_prev(action: &Self::Action) -> bool;
 
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
+
+    fn min_width(&self, current: usize) -> Option<u16>;
+    fn min_height(&self, current: usize) -> Option<u16>;
+
+    fn accepts_text_input(&self, current: usize) -> bool;
+    fn accept_char(&mut self, text: char, current: usize);
+    fn accept_text(&mut self, text: String, current: usize);
 }
 
 impl<T: Tabbed> Valuable for TabbedWidgets<T> {
@@ -55,13 +62,6 @@ impl<T: Tabbed> Structable for TabbedWidgets<T> {
 
 pub trait TabContainer<R: 'static>: Tabbed {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
-
-    fn min_width(&self, current: usize) -> Option<u16>;
-    fn min_height(&self, current: usize) -> Option<u16>;
-
-    fn accepts_text_input(&self, current: usize) -> bool;
-    fn accept_char(&mut self, text: char, current: usize);
-    fn accept_text(&mut self, text: String, current: usize);
 
     fn apply_action(
         &mut self,
@@ -114,12 +114,6 @@ impl<T: Tabbed> JellyhajWidgetBase for TabbedWidgets<T> {
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
         self.inner.visit_children(visitor);
     }
-}
-
-impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        self.inner.init(cx);
-    }
 
     fn min_width(&self) -> Option<u16> {
         let min = calc_min::<T>();
@@ -129,7 +123,6 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
             Some(min)
         }
     }
-
     fn min_height(&self) -> Option<u16> {
         if let Some(min) = self.inner.min_height(self.current) {
             Some(min + 2)
@@ -141,13 +134,17 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
     fn accepts_text_input(&self) -> bool {
         self.inner.accepts_text_input(self.current)
     }
-
     fn accept_char(&mut self, text: char) {
         self.inner.accept_char(text, self.current);
     }
-
     fn accept_text(&mut self, text: String) {
         self.inner.accept_text(text, self.current);
+    }
+}
+
+impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        self.inner.init(cx);
     }
 
     fn apply_action(

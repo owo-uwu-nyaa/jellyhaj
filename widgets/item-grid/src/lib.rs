@@ -1,11 +1,12 @@
 use std::{
     cmp::min,
     fmt::Debug,
-    ops::{Index, IndexMut},
+    ops::{Deref, DerefMut},
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
+    Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -13,7 +14,7 @@ use ratatui::{
     widgets::{Block, Padding, Scrollbar, ScrollbarState, StatefulWidget, Widget},
 };
 
-pub struct ItemGrid<T> {
+pub struct ItemGrid<T: ItemWidgetBase> {
     items: Vec<T>,
     current: usize,
     width: u16,
@@ -24,7 +25,7 @@ pub struct ItemGrid<T> {
 
 static ITEM_GRID_FIELDS: &[NamedField] = &[NamedField::new("current"), NamedField::new("title")];
 
-impl<T> Valuable for ItemGrid<T> {
+impl<T: ItemWidgetBase> Valuable for ItemGrid<T> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -37,13 +38,13 @@ impl<T> Valuable for ItemGrid<T> {
     }
 }
 
-impl<T> Structable for ItemGrid<T> {
+impl<T: ItemWidgetBase> Structable for ItemGrid<T> {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("ItemGrid", Fields::Named(ITEM_GRID_FIELDS))
     }
 }
 
-impl<T> ItemGrid<T> {
+impl<T: ItemWidgetBase> ItemGrid<T> {
     /*
      */
     #[must_use]
@@ -66,7 +67,7 @@ impl<T> ItemGrid<T> {
 /**
  *Ensure added items get initialized before beeing inserted
  *  */
-impl<V> Extend<V> for ItemGrid<V> {
+impl<V: ItemWidgetBase> Extend<V> for ItemGrid<V> {
     fn extend<T: IntoIterator<Item = V>>(&mut self, iter: T) {
         self.items.extend(iter);
     }
@@ -87,17 +88,17 @@ pub fn new_item_grid<R: 'static, T: ItemWidget<R>>(
     }
 }
 
-impl<T> Index<usize> for ItemGrid<T> {
-    type Output = T;
+impl<T: ItemWidgetBase> Deref for ItemGrid<T> {
+    type Target = [T];
 
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.items[index]
+    fn deref(&self) -> &Self::Target {
+        &self.items
     }
 }
 
-impl<T> IndexMut<usize> for ItemGrid<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.items[index]
+impl<T: ItemWidgetBase> DerefMut for ItemGrid<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
     }
 }
 
@@ -124,7 +125,7 @@ impl<T: Send + 'static> Wrapper<T> for GridWrapper {
     }
 }
 
-impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemGrid<T> {
+impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemGrid<T> {
     type Action = ItemGridAction<T::Action>;
     type ActionResult = T::ActionResult;
 
@@ -133,6 +134,34 @@ impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemGrid<T> {
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         for item in &self.items {
             visitor.visit(item);
+        }
+    }
+    fn min_width(&self) -> Option<u16> {
+        Some(self.item_size.width + 4)
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        Some(self.item_size.width + 4)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.get(self.current)
+            .is_some_and(ItemWidgetBase::accepts_text_input)
+    }
+
+    fn accept_char(&mut self, text: char) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_char(text);
+        }
+    }
+
+    fn accept_text(&mut self, text: String) {
+        if let Some(i) = self.get_mut(self.current)
+            && i.accepts_text_input()
+        {
+            i.accept_text(text);
         }
     }
 }
@@ -290,33 +319,5 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
             );
         }
         Ok(())
-    }
-    fn min_width(&self) -> Option<u16> {
-        Some(self.item_size.width + 4)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(self.item_size.width + 4)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        self.get(self.current)
-            .is_some_and(ItemWidget::item_accepts_text_input)
-    }
-
-    fn accept_char(&mut self, text: char) {
-        if let Some(i) = self.get_mut(self.current)
-            && i.item_accepts_text_input()
-        {
-            i.item_accept_char(text);
-        }
-    }
-
-    fn accept_text(&mut self, text: String) {
-        if let Some(i) = self.get_mut(self.current)
-            && i.item_accepts_text_input()
-        {
-            i.item_accept_text(text);
-        }
     }
 }

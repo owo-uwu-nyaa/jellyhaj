@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, BorderType, Widget},
 };
 
-use crate::{FormAction, FormItem, FormItemInfo};
+use crate::{FormAction, FormItem, FormItemBase};
 
 pub trait ActionCreator: Debug {
     type T;
@@ -73,7 +73,7 @@ const fn center(full: u16, requested: u16) -> Centered {
     }
 }
 
-impl<C: ActionCreator, AR: From<C::T>> FormItemInfo<AR> for Button<C> {
+impl<C: ActionCreator, AR: From<C::T>> FormItemBase<AR> for Button<C> {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
@@ -83,25 +83,22 @@ impl<C: ActionCreator, AR: From<C::T>> FormItemInfo<AR> for Button<C> {
     type Ret = C::T;
 
     type Action = Infallible;
-}
-
-impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C> {
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
-        false
-    }
-
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        unimplemented!()
-    }
-
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        unimplemented!()
-    }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
 
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        Rect::ZERO
+    }
+}
+
+impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C> {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -121,15 +118,6 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C>
         action: Self::Action,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
-    }
-
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> ratatui::prelude::Rect {
-        Rect::ZERO
     }
 
     fn apply_click_active(

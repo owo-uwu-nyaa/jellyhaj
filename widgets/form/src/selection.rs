@@ -14,7 +14,7 @@ use ratatui::{
 };
 use valuable::Valuable;
 
-use crate::{FormAction, FormItem, FormItemInfo, offset::calc_offset};
+use crate::{FormAction, FormItem, FormItemBase, offset::calc_offset};
 
 pub trait Selection: Clone + Copy + PartialEq + Eq + Debug + Valuable + 'static {
     fn descr(self) -> &'static str;
@@ -41,7 +41,7 @@ fn selection_prev<S: Selection>(cur: S) -> S {
     S::ALL[index]
 }
 
-impl<S: Selection, AR: From<Infallible>> FormItemInfo<AR> for S {
+impl<S: Selection, AR: From<Infallible>> FormItemBase<AR> for S {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 4;
@@ -51,24 +51,40 @@ impl<S: Selection, AR: From<Infallible>> FormItemInfo<AR> for S {
     type Ret = Infallible;
 
     type Action = Infallible;
-}
-impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
-        false
-    }
-
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        unimplemented!()
-    }
-
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        unimplemented!()
-    }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         sel.is_some()
     }
 
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        if sel.is_some() {
+            let mut full_area: Rect = ((0, 0).into(), full_area).into();
+            let offset = area.y - full_area.y + 2;
+            full_area.y += offset;
+            full_area.height -= offset;
+            full_area.width = min(S::MAX_LEN + 2, area.width);
+            let needed_height = S::ALL_LEN + 2;
+            if needed_height >= full_area.height {
+                full_area.height = needed_height;
+            }
+            full_area
+        } else {
+            Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            }
+        }
+    }
+}
+
+impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -190,33 +206,6 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
             }
         }
         Ok(())
-    }
-
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> ratatui::prelude::Rect {
-        if sel.is_some() {
-            let mut full_area: Rect = ((0, 0).into(), full_area).into();
-            let offset = area.y - full_area.y + 2;
-            full_area.y += offset;
-            full_area.height -= offset;
-            full_area.width = min(S::MAX_LEN + 2, area.width);
-            let needed_height = S::ALL_LEN + 2;
-            if needed_height >= full_area.height {
-                full_area.height = needed_height;
-            }
-            full_area
-        } else {
-            Rect {
-                x: 0,
-                y: 0,
-                width: 0,
-                height: 0,
-            }
-        }
     }
 
     fn apply_click_active(

@@ -12,7 +12,7 @@ use jellyhaj_widgets_core::{
 use keybinds::{BindingMap, Command};
 use tracing::instrument;
 
-pub struct KeybindWidget<T: Command, W, M> {
+pub struct KeybindWidget<T: Command, W: JellyhajWidgetBase, M> {
     pub inner: W,
     top_map: BindingMap<T>,
     current_map: Option<BindingMap<T>>,
@@ -28,7 +28,7 @@ static KEYBIND_WIDGET_FIELDS: &[NamedField] = &[
 
 const MAX_KEYBIND_WIDGET_HEIGHT: u16 = 7;
 
-impl<T: Command, W, M> Valuable for KeybindWidget<T, W, M> {
+impl<T: Command, W: JellyhajWidgetBase, M> Valuable for KeybindWidget<T, W, M> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -44,13 +44,13 @@ impl<T: Command, W, M> Valuable for KeybindWidget<T, W, M> {
         ));
     }
 }
-impl<T: Command, W, M> Structable for KeybindWidget<T, W, M> {
+impl<T: Command, W: JellyhajWidgetBase, M> Structable for KeybindWidget<T, W, M> {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("KeybindWidget", Fields::Named(KEYBIND_WIDGET_FIELDS))
     }
 }
 
-impl<T: Command, W, M> KeybindWidget<T, W, M> {
+impl<T: Command, W: JellyhajWidgetBase, M> KeybindWidget<T, W, M> {
     pub const fn new(inner: W, top: BindingMap<T>, mapper: M) -> Self {
         Self {
             inner,
@@ -74,6 +74,23 @@ impl<T: Command, W: JellyhajWidgetBase, M: CommandMapper<T, A = W::Action>> Jell
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         visitor.visit(&self.inner);
     }
+
+    fn min_width(&self) -> Option<u16> {
+        Some(24)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(7)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.inner.accepts_text_input()
+    }
+    fn accept_char(&mut self, text: char) {
+        self.inner.accept_char(text);
+    }
+    fn accept_text(&mut self, text: String) {
+        self.inner.accept_text(text);
+    }
 }
 
 impl<
@@ -85,26 +102,6 @@ impl<
 {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
         self.inner.init(cx.wrap_with(KeybindWrapper));
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(24)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(7)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        self.inner.accepts_text_input()
-    }
-
-    fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
-    }
-
-    fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
     }
 
     #[instrument(skip_all, name = "action_keybinds")]

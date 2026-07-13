@@ -16,7 +16,7 @@ use jellyhaj_core::{
 use jellyhaj_image::{JellyfinImage, ParsedImage};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageCache};
 use jellyhaj_widgets_core::{
-    Config, ContextRef, FontSize, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetBase,
+    Config, ContextRef, FontSize, GetFromContext, ItemWidget, ItemWidgetBase, JellyhajWidget,
     JellyhajWidgetExt, WidgetContext, Wrapper,
 };
 use ratatui::{
@@ -168,7 +168,7 @@ impl Wrapper<ParsedImage> for EntryWrapper {
     }
 }
 
-impl JellyhajWidgetBase for Entry {
+impl ItemWidgetBase for Entry {
     const NAME: &str = "entry";
     type Action = EntryAction;
     type ActionResult = Navigation;
@@ -177,6 +177,14 @@ impl JellyhajWidgetBase for Entry {
         if let Some(image) = self.image.as_ref() {
             visitor.visit(image);
         }
+    }
+
+    fn dimensions(&self) -> Size {
+        self.size
+    }
+
+    fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 }
 
@@ -211,9 +219,7 @@ impl<
     fn dimensions_static(cx: &R) -> Size {
         calc_dimensions(cx.as_ref(), Picker::get_ref(cx).font_size())
     }
-    fn dimensions(&self) -> Size {
-        self.size
-    }
+
     fn item_apply_action(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -284,21 +290,6 @@ impl<
                 );
         }
         Ok(())
-    }
-    fn set_active(&mut self, active: bool) {
-        self.active = active;
-    }
-
-    fn item_accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn item_accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn item_accept_text(&mut self, _: String) {
-        unimplemented!()
     }
 }
 

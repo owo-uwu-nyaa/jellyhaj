@@ -10,7 +10,7 @@ use ratatui::{
 };
 use valuable::Valuable;
 
-use crate::{FormAction, FormItem, FormItemInfo};
+use crate::{FormAction, FormItem, FormItemBase};
 use ansi_to_tui::IntoText;
 
 #[derive(Debug, Valuable)]
@@ -55,7 +55,7 @@ impl From<Position> for Pos {
     }
 }
 
-impl<AR: From<Infallible>> FormItemInfo<AR> for LabelBlock {
+impl<AR: From<Infallible>> FormItemBase<AR> for LabelBlock {
     const HEIGHT: u16 = 10;
 
     const HEIGHT_BUF: u16 = 0;
@@ -65,25 +65,26 @@ impl<AR: From<Infallible>> FormItemInfo<AR> for LabelBlock {
     type Ret = Infallible;
 
     type Action = Infallible;
-}
-
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
-        false
-    }
-
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        unimplemented!()
-    }
-
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        unimplemented!()
-    }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         sel.is_some()
     }
 
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> Rect {
+        if sel.is_some() {
+            full_area.into()
+        } else {
+            Rect::ZERO
+        }
+    }
+}
+
+impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -116,19 +117,6 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
         action: Self::Action,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
-    }
-
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> Rect {
-        if sel.is_some() {
-            full_area.into()
-        } else {
-            Rect::ZERO
-        }
     }
 
     fn apply_click_active(

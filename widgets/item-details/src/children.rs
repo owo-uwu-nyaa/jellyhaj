@@ -10,8 +10,9 @@ use jellyhaj_core::{
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache};
 use jellyhaj_image::{Picker, Stats};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase,
-    JellyhajWidgetExt, KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
+    JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers, MouseEventKind, Result, WidgetContext,
+    Wrapper,
 };
 use ratatui::{
     prelude::{Buffer, Position, Rect, Size},
@@ -94,6 +95,17 @@ impl JellyhajWidgetBase for ItemChilds {
             }
         }
     }
+
+    fn min_width(&self) -> Option<u16> {
+        self.items
+            .first()
+            .map(|first| first.entry.dimensions().width + 4 + 5 + 4)
+    }
+    fn min_height(&self) -> Option<u16> {
+        self.items
+            .first()
+            .map(|first| first.entry.dimensions().width + 4 + 4)
+    }
 }
 
 impl<
@@ -138,16 +150,6 @@ impl<
                 overview.init(cx.wrap_with(move |action| ChildAction::Overview { index, action }));
             }
         }
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-    fn accept_char(&mut self, _text: char) {
-        unimplemented!()
-    }
-    fn accept_text(&mut self, _text: String) {
-        unimplemented!()
     }
 
     fn apply_action(
@@ -236,17 +238,6 @@ impl<
         }
     }
 
-    fn min_width(&self) -> Option<u16> {
-        self.items
-            .first()
-            .map(|first| ItemWidget::<R>::dimensions(&first.entry).width + 4 + 5 + 4)
-    }
-    fn min_height(&self) -> Option<u16> {
-        self.items
-            .first()
-            .map(|first| ItemWidget::<R>::dimensions(&first.entry).width + 4 + 4)
-    }
-
     fn render_fallible_inner(
         &mut self,
         area: Rect,
@@ -254,11 +245,7 @@ impl<
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
         let outer = Block::bordered().padding(Padding::uniform(1));
-        if let Some(dim) = self
-            .items
-            .first()
-            .map(|c| ItemWidget::<R>::dimensions(&c.entry))
-        {
+        if let Some(dim) = self.items.first().map(|c| c.entry.dimensions()) {
             let height = dim.height + 4;
             let main = outer.inner(area);
             let visible = u16::try_from(min(
@@ -287,7 +274,7 @@ impl<
                 .skip(self.offset)
                 .zip((0..visible as u16).map(|i| main.y + i * (height.strict_sub(1))))
             {
-                ItemWidget::<R>::set_active(&mut child.entry, i == self.current);
+                child.entry.set_active(i == self.current);
                 let area = Rect {
                     x: main.x,
                     y,
@@ -322,6 +309,7 @@ impl<
                 outer.render(area, buf);
             }
         }
+        outer.render(area, buf);
         Ok(())
     }
     fn click(
@@ -332,10 +320,7 @@ impl<
         kind: MouseEventKind,
         modifier: KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
-        if let Some(dim) = self
-            .items
-            .first()
-            .map(|c| ItemWidget::<R>::dimensions(&c.entry))
+        if let Some(dim) = self.items.first().map(|c| c.entry.dimensions())
             && position.x > 1
             && position.y > 1
             && position.x + 2 < size.width

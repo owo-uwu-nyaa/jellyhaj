@@ -5,12 +5,12 @@ use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::Widget;
 use valuable::Valuable;
 
-use crate::{FormItem, FormItemInfo};
+use crate::{FormItem, FormItemBase};
 
 #[derive(Debug, Default, Valuable)]
 pub struct Label;
 
-impl<AR: From<Infallible>> FormItemInfo<AR> for Label {
+impl<AR: From<Infallible>> FormItemBase<AR> for Label {
     const HEIGHT: u16 = 1;
 
     const HEIGHT_BUF: u16 = 0;
@@ -20,25 +20,21 @@ impl<AR: From<Infallible>> FormItemInfo<AR> for Label {
     type Ret = Infallible;
 
     type Action = Infallible;
-}
-
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for Label {
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
-        false
-    }
-
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        unimplemented!()
-    }
-
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        unimplemented!()
-    }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        Rect::ZERO
+    }
+}
 
+impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for Label {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -54,15 +50,6 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for Label {
         action: Self::Action,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
-    }
-
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> ratatui::prelude::Rect {
-        Rect::ZERO
     }
 
     fn apply_click_active(

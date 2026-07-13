@@ -47,31 +47,31 @@ impl<F: Future<Output = Result<Navigation>> + Send + 'static> JellyhajWidgetBase
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         visitor.visit(&self.inner);
     }
+
+    fn min_width(&self) -> Option<u16> {
+        self.inner.min_width()
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        self.inner.min_height()
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.inner.accepts_text_input()
+    }
+
+    fn accept_char(&mut self, text: char) {
+        self.inner.accept_char(text);
+    }
+
+    fn accept_text(&mut self, text: String) {
+        self.inner.accept_text(text);
+    }
 }
 
 impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + Send + 'static>
     JellyhajWidget<R> for FetchWidget<F>
 {
-    fn min_width(&self) -> Option<u16> {
-        JellyhajWidget::<R>::min_width(&self.inner)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        JellyhajWidget::<R>::min_height(&self.inner)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        JellyhajWidget::<R>::accepts_text_input(&self.inner)
-    }
-
-    fn accept_char(&mut self, text: char) {
-        JellyhajWidget::<R>::accept_char(&mut self.inner, text);
-    }
-
-    fn accept_text(&mut self, text: String) {
-        JellyhajWidget::<R>::accept_text(&mut self.inner, text);
-    }
-
     fn apply_action(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,

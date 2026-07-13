@@ -15,13 +15,13 @@ pub trait ResultMapper<I> {
     fn map(res: I) -> Result<Option<Self::R>>;
 }
 
-pub struct MapperWidget<N: Named, W: 'static, M: 'static> {
+pub struct MapperWidget<N: Named, W: JellyhajWidgetBase, M: 'static> {
     pub inner: W,
     named: PhantomData<fn(N) -> ()>,
     mapper: PhantomData<fn(M) -> ()>,
 }
 
-impl<N: Named, W, M> MapperWidget<N, W, M> {
+impl<N: Named, W: JellyhajWidgetBase, M> MapperWidget<N, W, M> {
     pub fn new(inner: W) -> Self {
         Self {
             inner,
@@ -31,7 +31,7 @@ impl<N: Named, W, M> MapperWidget<N, W, M> {
     }
 }
 
-impl<N: Named, W, M> Valuable for MapperWidget<N, W, M> {
+impl<N: Named, W: JellyhajWidgetBase, M> Valuable for MapperWidget<N, W, M> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -41,7 +41,7 @@ impl<N: Named, W, M> Valuable for MapperWidget<N, W, M> {
     }
 }
 
-impl<N: Named, W, M> Structable for MapperWidget<N, W, M> {
+impl<N: Named, W: JellyhajWidgetBase, M> Structable for MapperWidget<N, W, M> {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("MapperState", Fields::Named(&[]))
     }
@@ -59,33 +59,30 @@ impl<N: Named, W: JellyhajWidgetBase, M: ResultMapper<W::ActionResult>> Jellyhaj
     fn visit_children(&self, visitor: &mut impl crate::WidgetTreeVisitor) {
         visitor.visit::<W>(&self.inner);
     }
-}
 
-impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult>> JellyhajWidget<R>
-    for MapperWidget<N, W, M>
-{
     fn min_width(&self) -> Option<u16> {
         self.inner.min_width()
     }
-
     fn min_height(&self) -> Option<u16> {
         self.inner.min_height()
-    }
-
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        self.inner.init(cx);
     }
 
     fn accepts_text_input(&self) -> bool {
         self.inner.accepts_text_input()
     }
-
     fn accept_char(&mut self, text: char) {
         self.inner.accept_char(text);
     }
-
     fn accept_text(&mut self, text: String) {
         self.inner.accept_text(text);
+    }
+}
+
+impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult>> JellyhajWidget<R>
+    for MapperWidget<N, W, M>
+{
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        self.inner.init(cx);
     }
 
     fn apply_action(

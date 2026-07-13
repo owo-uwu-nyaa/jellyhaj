@@ -9,10 +9,9 @@ use jellyhaj_core::{
     state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
-use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase,
-    JellyhajWidgetExt, Rect, WidgetContext, WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
+    JellyhajWidgetBase, JellyhajWidgetExt, WidgetContext, WidgetTreeVisitor, Wrapper,
 };
 use ratatui::{
     symbols::merge::MergeStrategy,
@@ -65,6 +64,14 @@ impl JellyhajWidgetBase for ItemDetails {
             visitor.visit(o);
         }
     }
+
+    fn min_width(&self) -> Option<u16> {
+        Some(self.entry.dimensions().width + 4)
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        Some(self.entry.dimensions().height + 8)
+    }
 }
 
 impl<
@@ -79,26 +86,6 @@ impl<
         + 'static,
 > JellyhajWidget<R> for ItemDetails
 {
-    fn min_width(&self) -> Option<u16> {
-        Some(ItemWidget::<R>::dimensions(&self.entry).width + 4)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(ItemWidget::<R>::dimensions(&self.entry).height + 8)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
-    }
-
     fn apply_action(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -178,11 +165,11 @@ impl<
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> jellyhaj_widgets_core::Result<()> {
-        let entry_off = (area.width - ItemWidget::<R>::dimensions(&self.entry).width) / 2;
+        let entry_off = (area.width - self.entry.dimensions().width) / 2;
         self.entry.render_item(
             (
                 (area.x + entry_off, area.y + 2).into(),
-                ItemWidget::<R>::dimensions(&self.entry),
+                self.entry.dimensions(),
             )
                 .into(),
             buf,
@@ -191,16 +178,8 @@ impl<
         if let Some(overview) = self.overview.as_mut() {
             overview.render_fallible(
                 (
-                    (
-                        area.x,
-                        area.y + 4 + ItemWidget::<R>::dimensions(&self.entry).height,
-                    )
-                        .into(),
-                    (
-                        area.width,
-                        area.height - 4 - ItemWidget::<R>::dimensions(&self.entry).height,
-                    )
-                        .into(),
+                    (area.x, area.y + 4 + self.entry.dimensions().height).into(),
+                    (area.width, area.height - 4 - self.entry.dimensions().height).into(),
                 )
                     .into(),
                 buf,
@@ -216,234 +195,6 @@ impl<
                     .name
                     .as_str(),
             )
-            .merge_borders(MergeStrategy::Fuzzy)
-            .render(area, buf);
-
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum DisplayListAction {
-    Inner(ItemListAction<EntryAction>),
-    Up,
-    Down,
-    Left,
-    Right,
-    Reload,
-    Remove,
-}
-
-#[derive(Valuable)]
-pub struct ItemListDetails {
-    #[valuable(skip)]
-    children: ItemList<Entry>,
-    item: MediaItem,
-    #[valuable(skip)]
-    overview: Option<Overview<&'static str>>,
-}
-
-impl ItemListDetails {
-    pub fn new(
-        children: Vec<MediaItem>,
-        item: Box<MediaItem>,
-        cx: &(
-             impl ContextRef<ImageCache>
-             + ContextRef<Spawner>
-             + ContextRef<Config>
-             + ContextRef<Picker>
-             + ContextRef<Stats>
-             + ContextRef<JellyfinClient>
-             + ContextRef<JellyfinEventInterests>
-             + ContextRef<DB>
-             + 'static
-         ),
-    ) -> Self {
-        let overview = item.overview.as_ref().map(|o| Overview::new(o.clone(), ""));
-        let title = item.name.clone();
-        let children = new_item_list(children.into_iter().map(|i| Entry::new(i, cx)), title, cx);
-        Self {
-            children,
-            item: *item,
-            overview,
-        }
-    }
-}
-
-impl JellyhajWidgetBase for ItemListDetails {
-    const NAME: &str = "item-list-details";
-
-    type Action = DisplayListAction;
-
-    type ActionResult = Navigation;
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
-        visitor.visit(&self.children);
-        if let Some(overview) = &self.overview {
-            visitor.visit(overview);
-        }
-    }
-}
-
-impl<
-    R: ContextRef<Spawner>
-        + ContextRef<Config>
-        + ContextRef<Picker>
-        + ContextRef<Stats>
-        + ContextRef<JellyfinClient>
-        + ContextRef<JellyfinEventInterests>
-        + ContextRef<DB>
-        + ContextRef<ImageCache>
-        + 'static,
-> JellyhajWidget<R> for ItemListDetails
-{
-    fn min_width(&self) -> Option<u16> {
-        Some(9)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(12 + self.children.height())
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
-    }
-
-    fn apply_action(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        match action {
-            DisplayListAction::Inner(action) => self
-                .children
-                .apply_action(cx.wrap_with(DisplayListAction::Inner), action),
-            DisplayListAction::Up => {
-                if let Some(o) = self.overview.as_mut() {
-                    JellyhajWidget::apply_action(
-                        o,
-                        cx.wrap_with(|_| unimplemented!()),
-                        OverviewAction::Up,
-                    )?;
-                }
-                Ok(None)
-            }
-            DisplayListAction::Down => {
-                if let Some(o) = self.overview.as_mut() {
-                    JellyhajWidget::apply_action(
-                        o,
-                        cx.wrap_with(|_| unimplemented!()),
-                        OverviewAction::Down,
-                    )?;
-                }
-                Ok(None)
-            }
-            DisplayListAction::Left => self
-                .children
-                .apply_action(cx.wrap_with(DisplayListAction::Inner), ItemListAction::Left),
-            DisplayListAction::Right => self.children.apply_action(
-                cx.wrap_with(DisplayListAction::Inner),
-                ItemListAction::Right,
-            ),
-            DisplayListAction::Reload => Ok(Some(Navigation::Replace(
-                NextScreen::FetchItemListDetailsRef(self.item.id.clone()),
-            ))),
-            DisplayListAction::Remove => Ok(Some(Navigation::PopContext)),
-        }
-    }
-
-    fn click(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        mut pos: ratatui::prelude::Position,
-        size: ratatui::prelude::Size,
-        kind: jellyhaj_widgets_core::MouseEventKind,
-        modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        let area = Rect::from((
-            (2, 2).into(),
-            (size.width - 4, self.children.height()).into(),
-        ));
-        if area.contains(pos) {
-            pos.x -= 2;
-            pos.y -= 2;
-            self.children.click(
-                cx.wrap_with(DisplayListAction::Inner),
-                pos,
-                (size.width - 4, self.children.height()).into(),
-                kind,
-                modifier,
-            )
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        let parent = &self.item.id;
-        JellyfinEventInterests::get_ref(cx.refs).with(|events| {
-            events.register_folder_modified(
-                parent.clone(),
-                cx.submitter.wrap_with(|_| DisplayListAction::Reload),
-            );
-            events.register_item_updated(
-                parent.clone(),
-                cx.submitter.wrap_with(|_| DisplayListAction::Reload),
-            );
-            events.register_item_removed(
-                parent.clone(),
-                cx.submitter.wrap_with(|_| DisplayListAction::Remove),
-            );
-            for child in self.children.iter().filter_map(|e| e.data().item()) {
-                events.register_item_updated(
-                    child.id.clone(),
-                    cx.submitter.wrap_with(|_| DisplayListAction::Reload),
-                );
-            }
-        });
-        self.children.init(cx.wrap_with(DisplayListAction::Inner));
-        if let Some(overview) = &mut self.overview {
-            overview.init(cx.wrap_with(|_| unreachable!()));
-        }
-    }
-
-    fn render_fallible_inner(
-        &mut self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> jellyhaj_widgets_core::Result<()> {
-        self.children.active = true;
-        self.children.render_fallible(
-            (
-                (area.x + 2, area.y + 2).into(),
-                (area.width - 4, self.children.height()).into(),
-            )
-                .into(),
-            buf,
-            cx.wrap_with(DisplayListAction::Inner),
-        )?;
-        if let Some(overview) = self.overview.as_mut() {
-            overview.render_fallible(
-                (
-                    (area.x, area.y + 4 + self.children.height()).into(),
-                    (area.width, area.height - 4 - self.children.height()).into(),
-                )
-                    .into(),
-                buf,
-                cx.wrap_with(|_| unreachable!()),
-            )?;
-        }
-        Block::bordered()
-            .title(self.item.name.as_str())
             .merge_borders(MergeStrategy::Fuzzy)
             .render(area, buf);
 

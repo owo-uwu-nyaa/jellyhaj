@@ -5,7 +5,7 @@ use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::Valuable;
 
-use crate::{FormAction, FormItem, FormItemInfo};
+use crate::{FormAction, FormItem, FormItemBase};
 
 #[derive(Debug, Valuable, Default)]
 pub struct TextField {
@@ -43,7 +43,7 @@ mod s {
     }
 }
 
-impl<AR: From<Infallible>> FormItemInfo<AR> for TextField {
+impl<AR: From<Infallible>> FormItemBase<AR> for TextField {
     const HEIGHT: u16 = 3;
 
     const HEIGHT_BUF: u16 = 0;
@@ -53,17 +53,13 @@ impl<AR: From<Infallible>> FormItemInfo<AR> for TextField {
     type Ret = Infallible;
 
     type Action = Infallible;
-}
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
-
     fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
         self.text.push(text);
     }
-
     fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
         self.text.push_str(&text);
     }
@@ -71,7 +67,17 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        Rect::ZERO
+    }
+}
 
+impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -90,15 +96,6 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
         action: Self::Action,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
-    }
-
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> ratatui::prelude::Rect {
-        Rect::ZERO
     }
 
     fn apply_click_active(

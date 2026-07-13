@@ -48,15 +48,10 @@ impl JellyhajWidgetBase for ErrorWidget {
     const NAME: &str = "error";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-}
-
-impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
-    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
     }
-
     fn min_height(&self) -> Option<u16> {
         Some(5)
     }
@@ -64,14 +59,16 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
     fn accepts_text_input(&self) -> bool {
         false
     }
-
     fn accept_char(&mut self, _: char) {
         unimplemented!()
     }
-
     fn accept_text(&mut self, _: String) {
         unimplemented!()
     }
+}
+
+impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn apply_action(
         &mut self,

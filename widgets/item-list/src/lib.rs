@@ -5,7 +5,7 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
+    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
     WidgetTreeVisitor, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit},
 };
@@ -19,7 +19,7 @@ use ratatui::{
 use tracing::instrument;
 
 #[derive(Debug)]
-pub struct ItemList<T> {
+pub struct ItemList<T: ItemWidgetBase> {
     items: Vec<T>,
     current: usize,
     title: String,
@@ -49,7 +49,7 @@ static ITEM_LIST_FIELDS: &[NamedField] = &[
     NamedField::new("active"),
 ];
 
-impl<T> Valuable for ItemList<T> {
+impl<T: ItemWidgetBase> Valuable for ItemList<T> {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -66,20 +66,20 @@ impl<T> Valuable for ItemList<T> {
     }
 }
 
-impl<T> Structable for ItemList<T> {
+impl<T: ItemWidgetBase> Structable for ItemList<T> {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static("ItemList", Fields::Named(ITEM_LIST_FIELDS))
     }
 }
 
-impl<T> ItemList<T> {
+impl<T: ItemWidgetBase> ItemList<T> {
     #[must_use]
     pub const fn height(&self) -> u16 {
         self.item_size.height + 4
     }
 }
 
-impl<T> Deref for ItemList<T> {
+impl<T: ItemWidgetBase> Deref for ItemList<T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -87,7 +87,7 @@ impl<T> Deref for ItemList<T> {
     }
 }
 
-impl<T> DerefMut for ItemList<T> {
+impl<T: ItemWidgetBase> DerefMut for ItemList<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.items
     }
@@ -114,7 +114,7 @@ impl<T: Send + 'static> Wrapper<T> for ListWrapper {
     }
 }
 
-impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemList<T> {
+impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemList<T> {
     type Action = ItemListAction<T::Action>;
 
     type ActionResult = T::ActionResult;
@@ -124,6 +124,37 @@ impl<T: JellyhajWidgetBase> JellyhajWidgetBase for ItemList<T> {
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
         for item in &self.items {
             visitor.visit(item);
+        }
+    }
+
+    fn min_width(&self) -> Option<u16> {
+        Some(self.item_size.width + 4)
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        Some(self.item_size.height + 4)
+    }
+
+    fn accepts_text_input(&self) -> bool {
+        self.get(self.current)
+            .is_some_and(ItemWidgetBase::accepts_text_input)
+    }
+
+    fn accept_char(&mut self, text: char) {
+        let cur = self.current;
+        if let Some(i) = self.get_mut(cur)
+            && i.accepts_text_input()
+        {
+            i.accept_char(text);
+        }
+    }
+
+    fn accept_text(&mut self, text: String) {
+        let cur = self.current;
+        if let Some(i) = self.get_mut(cur)
+            && i.accepts_text_input()
+        {
+            i.accept_text(text);
         }
     }
 }
@@ -264,36 +295,5 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
         }
         outer.render(area, buf);
         Ok(())
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(self.item_size.width + 4)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(self.item_size.height + 4)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        self.get(self.current)
-            .is_some_and(jellyhaj_widgets_core::ItemWidget::item_accepts_text_input)
-    }
-
-    fn accept_char(&mut self, text: char) {
-        let cur = self.current;
-        if let Some(i) = self.get_mut(cur)
-            && i.item_accepts_text_input()
-        {
-            i.item_accept_char(text);
-        }
-    }
-
-    fn accept_text(&mut self, text: String) {
-        let cur = self.current;
-        if let Some(i) = self.get_mut(cur)
-            && i.item_accepts_text_input()
-        {
-            i.item_accept_text(text);
-        }
     }
 }

@@ -58,6 +58,13 @@ impl JellyhajWidgetBase for PlayerWidget {
     const NAME: &str = "player";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        Some(5)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(5)
+    }
 }
 
 impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
@@ -72,26 +79,6 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
             info_span!("get_event_receiver"),
             "get_event_receiver",
         );
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(5)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(5)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
     }
 
     #[instrument(name = "apply_action_player", skip_all)]

@@ -67,6 +67,13 @@ impl JellyhajWidgetBase for Loading {
     const NAME: &str = "loading";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        Some(5)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(5)
+    }
 }
 
 impl<R: 'static> JellyhajWidget<R> for Loading {
@@ -77,13 +84,6 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         });
         cx.submitter
             .spawn_stream(timer, info_span!("update-loading"), "update-loading");
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(5)
-    }
-    fn min_height(&self) -> Option<u16> {
-        Some(5)
     }
 
     fn apply_action(
@@ -177,17 +177,5 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         }
         outer.render(area, buf);
         Ok(())
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
     }
 }

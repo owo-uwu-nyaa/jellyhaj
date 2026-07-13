@@ -392,6 +392,13 @@ impl JellyhajWidgetBase for InspectWidget {
     const NAME: &str = "inspect";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        Some(5)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(3)
+    }
 }
 
 impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
@@ -409,22 +416,6 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             .wrap_with(InspectAction::Content)
             .spawn_task_infallible(f, info_span!("collect-inspect"), "collect-inspect");
     }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(5)
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        Some(3)
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {}
-
-    fn accept_text(&mut self, _: String) {}
 
     fn apply_action(
         &mut self,

@@ -41,17 +41,23 @@ pub trait JellyhajWidgetBase: Valuable + Send + Sized + 'static {
     const NAME: &str;
 
     fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor);
-}
-
-pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
 
     fn min_width(&self) -> Option<u16>;
     fn min_height(&self) -> Option<u16>;
 
-    fn accepts_text_input(&self) -> bool;
-    fn accept_char(&mut self, text: char);
-    fn accept_text(&mut self, text: String);
+    fn accepts_text_input(&self) -> bool {
+        false
+    }
+    fn accept_char(&mut self, _text: char) {
+        unimplemented!()
+    }
+    fn accept_text(&mut self, _text: String) {
+        unimplemented!()
+    }
+}
+
+pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>);
 
     fn apply_action(
         &mut self,

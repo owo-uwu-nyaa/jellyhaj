@@ -38,20 +38,29 @@ pub enum FormAction<A: Debug + Send + 'static> {
     Inner(A),
 }
 
-pub trait FormItemInfo<AR>: Valuable {
+pub trait FormItemBase<AR>: Valuable {
     const HEIGHT: u16;
     const HEIGHT_BUF: u16;
     type SelectionInner: Default + Debug + Valuable;
     type Ret: Into<AR>;
     type Action: Debug + Send + 'static;
-}
 
-pub trait FormItem<R: 'static, AR>: FormItemInfo<AR> {
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool;
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char);
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String);
+    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
+        false
+    }
+    fn apply_char(&mut self, _sel: &mut Self::SelectionInner, _text: char) {
+        unimplemented!()
+    }
+    fn apply_text(&mut self, _sel: &mut Self::SelectionInner, _text: String) {
+        unimplemented!()
+    }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool;
+
+    fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
+}
+
+pub trait FormItem<R: 'static, AR>: FormItemBase<AR> {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -64,8 +73,6 @@ pub trait FormItem<R: 'static, AR>: FormItemInfo<AR> {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
-
-    fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 
     #[allow(clippy::too_many_arguments)]
     fn apply_click_active(

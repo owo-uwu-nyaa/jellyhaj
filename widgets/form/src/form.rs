@@ -14,7 +14,7 @@ use jellyhaj_widgets_core::{
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use tui_scrollview::{ScrollView, ScrollViewState};
 
-use crate::{FormAction, FormItem};
+use crate::{FormAction, FormItem, FormItemBase};
 use color_eyre::Result;
 
 pub trait FormResultMapper<S: FormDataTypes> {
@@ -47,12 +47,12 @@ pub trait FormDataTypes: Sized + Send + Unpin + Valuable + 'static {
 }
 
 pub trait FormData<const TOTAL_SIZE: usize>: FormDataTypes {
-    fn with_selection<R: 'static, T, W: WithSelection<R, Self::AR, T>>(
+    fn with_selection<T, W: WithSelection<Self::AR, T>>(
         this: &Self::Selector,
         state: &Self,
         with: W,
     ) -> T;
-    fn with_selection_mut<R: 'static, T, W: WithSelectionMut<R, Self::AR, T>>(
+    fn with_selection_mut<T, W: WithSelectionMut<Self::AR, T>>(
         this: &mut Self::Selector,
         state: &mut Self,
         with: W,
@@ -154,16 +154,6 @@ impl<
     const NAME: &str = "form";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-}
-
-impl<
-    const TOTAL_SIZE: usize,
-    R: 'static,
-    Mapper: FormResultMapper<Data>,
-    Data: FormData<{ TOTAL_SIZE }, Mapper = Mapper>,
-> JellyhajWidget<R> for Form<{ TOTAL_SIZE }, Data>
-{
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(10)
@@ -174,16 +164,26 @@ impl<
     }
 
     fn accepts_text_input(&self) -> bool {
-        Data::with_selection::<R, _, _>(&self.sel, &self.data, AcceptsTextInput)
+        Data::with_selection(&self.sel, &self.data, AcceptsTextInput)
     }
 
     fn accept_char(&mut self, text: char) {
-        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyChar(text));
+        Data::with_selection_mut(&mut self.sel, &mut self.data, ApplyChar(text));
     }
 
     fn accept_text(&mut self, text: String) {
-        Data::with_selection_mut::<R, _, _>(&mut self.sel, &mut self.data, ApplyText(text));
+        Data::with_selection_mut(&mut self.sel, &mut self.data, ApplyText(text));
     }
+}
+
+impl<
+    const TOTAL_SIZE: usize,
+    R: 'static,
+    Mapper: FormResultMapper<Data>,
+    Data: FormData<{ TOTAL_SIZE }, Mapper = Mapper>,
+> JellyhajWidget<R> for Form<{ TOTAL_SIZE }, Data>
+{
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn apply_action(
         &mut self,
@@ -208,7 +208,7 @@ impl<
                     );
                 }
             };
-            if Data::with_selection::<R, _, _>(&self.sel, &self.data, AcceptsMovementAction) {
+            if Data::with_selection(&self.sel, &self.data, AcceptsMovementAction) {
                 self.dispatch_active_action(cx, action)
             } else {
                 match action {
@@ -433,8 +433,8 @@ impl<const TOTAL_SIZE: usize, Data: FormData<{ TOTAL_SIZE }>> Form<TOTAL_SIZE, D
     }
 }
 
-pub trait WithSelection<R: 'static, AR, T> {
-    fn with<const INDEX: usize, I: FormItem<R, AR>>(
+pub trait WithSelection<AR, T> {
+    fn with<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
         state: &I,
@@ -442,8 +442,8 @@ pub trait WithSelection<R: 'static, AR, T> {
     ) -> T;
 }
 
-pub trait WithSelectionMut<R: 'static, AR, T> {
-    fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
+pub trait WithSelectionMut<AR, T> {
+    fn with_mut<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
         state: &mut I,
@@ -498,8 +498,8 @@ pub trait WithActionMut<R: 'static, AR, T> {
 
 struct AcceptsTextInput;
 
-impl<R: 'static, AR> WithSelection<R, AR, bool> for AcceptsTextInput {
-    fn with<const INDEX: usize, I: FormItem<R, AR>>(
+impl<AR> WithSelection<AR, bool> for AcceptsTextInput {
+    fn with<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
         state: &I,
@@ -511,8 +511,8 @@ impl<R: 'static, AR> WithSelection<R, AR, bool> for AcceptsTextInput {
 
 struct ApplyChar(char);
 
-impl<R: 'static, AR> WithSelectionMut<R, AR, ()> for ApplyChar {
-    fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
+impl<AR> WithSelectionMut<AR, ()> for ApplyChar {
+    fn with_mut<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
         state: &mut I,
@@ -524,8 +524,8 @@ impl<R: 'static, AR> WithSelectionMut<R, AR, ()> for ApplyChar {
 
 struct ApplyText(String);
 
-impl<R: 'static, AR> WithSelectionMut<R, AR, ()> for ApplyText {
-    fn with_mut<const INDEX: usize, I: FormItem<R, AR>>(
+impl<AR> WithSelectionMut<AR, ()> for ApplyText {
+    fn with_mut<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
         state: &mut I,
@@ -574,8 +574,8 @@ impl<R: 'static, AR> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, 
 
 struct AcceptsMovementAction;
 
-impl<R: 'static, AR> WithSelection<R, AR, bool> for AcceptsMovementAction {
-    fn with<const INDEX: usize, I: FormItem<R, AR>>(
+impl<AR> WithSelection<AR, bool> for AcceptsMovementAction {
+    fn with<const INDEX: usize, I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
         state: &I,

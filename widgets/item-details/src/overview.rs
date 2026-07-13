@@ -48,30 +48,17 @@ impl<T: AsRef<str> + Valuable + Send + 'static> JellyhajWidgetBase for Overview<
     const NAME: &str = "overview";
 
     fn visit_children(&self, _visitor: &mut impl WidgetTreeVisitor) {}
-}
-
-impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> for Overview<T> {
-    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn min_width(&self) -> Option<u16> {
         Some(5)
     }
-
     fn min_height(&self) -> Option<u16> {
         Some(5)
     }
+}
 
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
-    }
+impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> for Overview<T> {
+    fn init(&mut self, _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
     fn apply_action(
         &mut self,

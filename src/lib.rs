@@ -258,9 +258,8 @@ pub async fn run_app(
                 if matches!(res, nix::unistd::ForkResult::Child) {
                     let _ = nix::sys::signal::raise(nix::sys::signal::SIGTRAP);
                     std::process::abort()
-                } else {
-                    info!("produced coredump");
                 }
+                info!("produced coredump");
             }
         }
         signal_cancel.cancel();

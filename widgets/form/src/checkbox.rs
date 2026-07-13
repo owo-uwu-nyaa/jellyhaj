@@ -4,14 +4,27 @@ use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result, WidgetContext, Wrapper};
 use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
-use crate::{FormAction, FormItem, FormItemInfo};
+use crate::{FormAction, FormItem, FormItemBase};
 
-impl<AR: From<Infallible>> FormItemInfo<AR> for bool {
+impl<AR: From<Infallible>> FormItemBase<AR> for bool {
     const HEIGHT: u16 = 1;
     const HEIGHT_BUF: u16 = 0;
     type SelectionInner = ();
     type Ret = Infallible;
     type Action = Infallible;
+
+    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
+        false
+    }
+
+    fn popup_area(
+        &self,
+        sel: &Self::SelectionInner,
+        area: ratatui::prelude::Rect,
+        full_area: ratatui::prelude::Size,
+    ) -> ratatui::prelude::Rect {
+        Rect::ZERO
+    }
 }
 
 impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
@@ -35,22 +48,6 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
         area.x += 4;
         name.render(area, buf);
         Ok(())
-    }
-
-    fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
-        false
-    }
-
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
-        unimplemented!()
-    }
-
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
-        unimplemented!()
-    }
-
-    fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
-        false
     }
 
     fn apply_movement(
@@ -85,14 +82,6 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
         Ok(())
     }
 
-    fn popup_area(
-        &self,
-        sel: &Self::SelectionInner,
-        area: ratatui::prelude::Rect,
-        full_area: ratatui::prelude::Size,
-    ) -> ratatui::prelude::Rect {
-        Rect::ZERO
-    }
     fn apply_click_active(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,

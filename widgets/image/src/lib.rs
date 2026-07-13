@@ -156,6 +156,13 @@ impl JellyhajWidgetBase for JellyfinImage {
     const NAME: &str = "image";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        Some(1)
+    }
+    fn min_height(&self) -> Option<u16> {
+        Some(1)
+    }
 }
 
 impl<
@@ -220,23 +227,5 @@ impl<
         _: ratatui::crossterm::event::KeyModifiers,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        Some(1)
-    }
-    fn min_height(&self) -> Option<u16> {
-        Some(1)
-    }
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
     }
 }

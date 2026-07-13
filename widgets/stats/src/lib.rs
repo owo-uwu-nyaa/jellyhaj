@@ -100,19 +100,6 @@ impl JellyhajWidgetBase for StatsWidget {
     const NAME: &str = "stats";
 
     fn visit_children(&self, _visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-}
-
-impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        cx.submitter.spawn_stream(
-            unfold(interval(Duration::from_secs(5)), |mut i| async move {
-                i.tick().await;
-                Some((Ok(StatsUpdate), i))
-            }),
-            info_span!("update_stats_tick"),
-            "update_stats_tick",
-        );
-    }
 
     fn min_width(&self) -> Option<u16> {
         Some(
@@ -131,21 +118,21 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
                 .strict_add(11),
         )
     }
-
     fn min_height(&self) -> Option<u16> {
         Some(11)
     }
+}
 
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
+impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        cx.submitter.spawn_stream(
+            unfold(interval(Duration::from_secs(5)), |mut i| async move {
+                i.tick().await;
+                Some((Ok(StatsUpdate), i))
+            }),
+            info_span!("update_stats_tick"),
+            "update_stats_tick",
+        );
     }
 
     fn apply_action(
@@ -197,8 +184,8 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
         let cols = [LABEL_MAX_LEN, col.try_into()?];
         let table = BorderedTable::new(&rows, &cols);
         let table_area = block.inner(area).centered(
-            Constraint::Length(<Self as JellyhajWidget<R>>::min_width(self).unwrap()),
-            Constraint::Length(<Self as JellyhajWidget<R>>::min_height(self).unwrap()),
+            Constraint::Length(self.min_width().unwrap()),
+            Constraint::Length(self.min_height().unwrap()),
         );
         table.render(table_area, buf);
         block.render(area, buf);
