@@ -1,4 +1,4 @@
-# Jellyfin-TUI-rs
+# Jellyhaj
 
 This is a (not so little anymore) terminal based Jellyfin client. 
 It uses the great [ratatui](https://ratatui.rs/) library to bring you a nice tui and thanks to [ratatui-images](https://github.com/benjajaja/ratatui-image) even with nice preview images (needs terminal support).
