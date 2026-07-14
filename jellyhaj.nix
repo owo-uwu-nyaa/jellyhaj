@@ -7,6 +7,7 @@
   sqlite,
   chafa,
   glib,
+  aws-lc,
   versionCheckHook,
   runCommand,
   remarshal,
@@ -79,6 +80,7 @@ let
         mpv-unwrapped
         chafa
         glib
+        aws-lc.dev
       ];
       passthru = {
         inherit checkKeybinds checkEffects;
