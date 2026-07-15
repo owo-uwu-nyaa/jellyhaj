@@ -51,13 +51,15 @@ fn log_file() -> Result<()> {
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()
         .context("parsing log config from RUST_LOG")?;
+    #[cfg(feature = "journald")]
+    let journal_filter = filter.clone();
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_ansi_sanitization(false)
         .with_writer(Mutex::new(
             File::create(&logfile).context("opening logfile")?,
         ))
         .event_format(format)
-        .with_filter(filter.clone());
+        .with_filter(filter);
     let error_layer = ErrorLayer::default();
     let registry = tracing_subscriber::registry()
         .with(fmt_layer)
@@ -69,7 +71,7 @@ fn log_file() -> Result<()> {
     let registry = registry.with(
         tracing_journald::layer()?
             .with_syslog_identifier("jellyhaj".to_string())
-            .with_filter(filter),
+            .with_filter(journal_filter),
     );
     registry.init();
     println!("logging to {}", logfile.display());
