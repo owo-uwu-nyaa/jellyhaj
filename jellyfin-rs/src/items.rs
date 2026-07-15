@@ -213,6 +213,35 @@ pub enum ItemType {
     },
 }
 
+impl ItemType {
+    #[must_use]
+    pub const fn is_single_media_item(&self) -> bool {
+        match self {
+            Self::Movie
+            | Self::Episode {
+                season_id: _,
+                season_name: _,
+                series_id: _,
+                series_name: _,
+            }
+            | Self::Music {
+                album_id: _,
+                album: _,
+            } => true,
+            Self::Season {
+                series_id: _,
+                series_name: _,
+            }
+            | Self::MusicAlbum
+            | Self::Series
+            | Self::Playlist
+            | Self::Folder
+            | Self::CollectionFolder
+            | Self::Unknown { item_type: _ } => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]

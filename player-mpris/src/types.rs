@@ -21,6 +21,7 @@ pub fn track_id_as_object(id: Option<PlaylistItemId>) -> OwnedObjectPath {
     .expect("should always be valid")
 }
 
+#[allow(clippy::ref_option)]
 fn serialize_track_id<S: Serializer>(
     id: &Option<PlaylistItemId>,
     s: S,
@@ -60,7 +61,7 @@ pub fn parse_track_id(object: &ObjectPath<'_>) -> Result<Option<PlaylistItemId>>
     }
 }
 
-#[derive(Deserialize, Serialize, Type, Value, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Type, Value, PartialEq, Eq, Debug)]
 #[zvariant(signature = "s")]
 pub enum PlaybackStatus {
     Playing,
@@ -68,7 +69,7 @@ pub enum PlaybackStatus {
     Stopped,
 }
 
-#[derive(Deserialize, Serialize, Type, Value, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Type, Value, PartialEq, Eq, Debug)]
 #[zvariant(signature = "s")]
 pub enum LoopStatus {
     None,
@@ -120,7 +121,8 @@ impl From<Metadata> for Value<'static> {
 
 impl Metadata {
     pub fn new(item: &PlaylistItem, jellyfin: &JellyfinClient) -> Self {
-        let length = item.item.run_time_ticks.map(|v| (v as f64) / 10000000.0);
+        #[allow(clippy::cast_precision_loss)]
+        let length = item.item.run_time_ticks.map(|v| (v as f64) / 10_000_000.0);
         let image = select_images(&item.item)
             .next()
             .and_then(|(image_type, tag)| {

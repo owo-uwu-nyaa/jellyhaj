@@ -23,7 +23,7 @@ trait TraceError {
 impl TraceError for Result<()> {
     fn trace_error(self) {
         if let Err(e) = self {
-            warn!("error in mpris interface: {e:?}")
+            warn!("error in mpris interface: {e:?}");
         }
     }
 }
@@ -57,7 +57,7 @@ async fn property_changed<I: Interface>(
             })
             .trace_error();
     }
-    inner(emitter, I::name(), name, val.into()).await
+    inner(emitter, I::name(), name, val.into()).await;
 }
 
 pub async fn run_mpris_service(
@@ -137,7 +137,7 @@ pub async fn run_mpris_service(
                         invalidate_tracks(&emitter).await;
                     }
                     player_core::Events::Current(None) => {
-                        property_changed::<Player>(&emitter, "Metadata", Metadata::default()).await
+                        property_changed::<Player>(&emitter, "Metadata", Metadata::default()).await;
                     }
                     player_core::Events::Current(Some(pos)) => {
                         let metadata = Metadata::new(
@@ -148,7 +148,7 @@ pub async fn run_mpris_service(
                                 .ok_or_eyre("current index is not in playlist")?,
                             &jellyfin,
                         );
-                        property_changed::<Player>(&emitter, "Metadata", metadata).await
+                        property_changed::<Player>(&emitter, "Metadata", metadata).await;
                     }
                     player_core::Events::Paused(paused) => {
                         if !state.lock().stopped {
@@ -157,7 +157,7 @@ pub async fn run_mpris_service(
                             } else {
                                 PlaybackStatus::Playing
                             };
-                            property_changed::<Player>(&emitter, "PlaybackStatus", status).await
+                            property_changed::<Player>(&emitter, "PlaybackStatus", status).await;
                         }
                     }
                     player_core::Events::Stopped(stopped) => {
@@ -194,13 +194,15 @@ pub async fn run_mpris_service(
                         .context("sending seek signal")
                         .trace_error(),
                     player_core::Events::Speed(speed) => {
-                        property_changed::<Player>(&emitter, "Rate", speed).await
+                        property_changed::<Player>(&emitter, "Rate", speed).await;
                     }
                     player_core::Events::Fullscreen(f) => {
-                        property_changed::<MediaPlayer2>(&emitter, "Fullscreen", f).await
+                        property_changed::<MediaPlayer2>(&emitter, "Fullscreen", f).await;
                     }
+
                     player_core::Events::Volume(vol) => {
-                        property_changed::<Player>(&emitter, "Volume", (*vol as f64) / 100.0).await
+                        #[allow(clippy::cast_precision_loss)]
+                        property_changed::<Player>(&emitter, "Volume", (*vol as f64) / 100.0).await;
                     }
                 }
                 Ok(())

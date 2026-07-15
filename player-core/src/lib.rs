@@ -30,12 +30,19 @@ pub struct PlaylistItemIdGen {
 impl PlaylistItemIdGen {
     const fn next(&mut self) -> PlaylistItemId {
         let r = self.id;
-        self.id = self.id.wrapping_add(1);
+        let (new, failed) = self.id.overflowing_add(1);
+        self.id = new;
+        if failed {
+            panic!(
+                "You have somehow created enough playlist item ids to overflow a 64 bit integer. I don't know how you managed that but in any case please stop!"
+            )
+        };
         PlaylistItemId { id: r }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Valuable)]
+#[repr(transparent)]
 pub struct PlaylistItemId {
     pub id: u64,
 }

@@ -62,6 +62,7 @@ default = ["mimalloc"]
 mimalloc = ["dep:mimalloc"]
 mpris = ["dep:player-mpris"]
 journald = ["dep:tracing-journald"]
+full = ["mimalloc", "mpris", "journald"]
 
 [lints]
 workspace = true

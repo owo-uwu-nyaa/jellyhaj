@@ -491,6 +491,7 @@ fn insert_at(
         CString::new(uri)
             .context("converting video url to cstr")?
             .to_node(),
+        c"insert-at".to_node(),
         at.to_node(),
         MpvNodeMapRef::new(
             &[

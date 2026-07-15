@@ -419,6 +419,28 @@ impl<T: DeserializeOwned> JsonResponse<T> {
     }
 }
 
+pub trait JsonResponseHelper<T> {
+    fn deserialize(self) -> impl Send + Future<Output = Result<T>>;
+    fn deserialize_value(self) -> impl Send + Future<Output = Result<serde_json::Value>>;
+    fn deserialize_as<V: DeserializeOwned>(self) -> impl Send + Future<Output = Result<V>>;
+}
+
+impl<T: DeserializeOwned, F: Send + Future<Output = Result<JsonResponse<T>>>> JsonResponseHelper<T>
+    for F
+{
+    fn deserialize(self) -> impl Send + Future<Output = Result<T>> {
+        self.map(|v| v.and_then(JsonResponse::deserialize))
+    }
+
+    fn deserialize_value(self) -> impl Send + Future<Output = Result<serde_json::Value>> {
+        self.map(|v| v.and_then(|v| v.deserialize_value().map_err(Into::into)))
+    }
+
+    fn deserialize_as<V: DeserializeOwned>(self) -> impl Send + Future<Output = Result<V>> {
+        self.map(|v| v.and_then(JsonResponse::deserialize_as::<V>))
+    }
+}
+
 impl<T: DeserializeOwned> From<Bytes> for JsonResponse<T> {
     fn from(value: Bytes) -> Self {
         Self {

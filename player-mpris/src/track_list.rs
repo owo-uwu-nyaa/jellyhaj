@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use jellyfin::JellyfinClient;
-use player_core::{Command, PlayerHandle, PlaylistItem, state::SharedPlayerState};
+use jellyfin::{JellyfinClient, connect::JsonResponseHelper};
+use player_core::{Command, PlayItem, PlayerHandle, PlaylistItem, state::SharedPlayerState};
+use tokio::try_join;
 use zbus::{
     fdo::{Error, Result},
     interface,
@@ -18,7 +19,11 @@ pub struct TrackList {
 }
 
 impl TrackList {
-    pub fn new(player: PlayerHandle, jellyfin: JellyfinClient, state: SharedPlayerState) -> Self {
+    pub const fn new(
+        player: PlayerHandle,
+        jellyfin: JellyfinClient,
+        state: SharedPlayerState,
+    ) -> Self {
         Self {
             player,
             jellyfin,
@@ -26,8 +31,8 @@ impl TrackList {
         }
     }
 }
-
-#[interface(name = "org.mpris.MediaPlayer2.TrackList", spawn = false)]
+#[allow(clippy::needless_pass_by_value, clippy::unused_self)]
+#[interface(name = "org.mpris.MediaPlayer2.TrackList", spawn = true)]
 impl TrackList {
     fn get_track_metadata(&self, ids: Vec<ObjectPath<'_>>) -> Result<Vec<Metadata>> {
         let state = self.state.lock();
@@ -49,10 +54,37 @@ impl TrackList {
         }
         Ok(res)
     }
-    fn add_track(&self, _uri: &str, _after: ObjectPath<'_>, _c: bool) -> Result<()> {
-        Err(Error::NotSupported(
-            "Adding tracks is not supported".to_string(),
-        ))
+    async fn add_track(
+        &self,
+        uri: &str,
+        after: ObjectPath<'_>,
+        set_as_current: bool,
+    ) -> Result<()> {
+        if URI_PREFIX != &uri[..URI_PREFIX.len()] {
+            return Err(Error::InvalidArgs(format!("unsupported uri scheme: {uri}")));
+        }
+        let after = parse_track_id(&after)?;
+        let item = &uri[URI_PREFIX.len()..];
+        let (item, playback_info) = try_join!(
+            self.jellyfin.get_item(item, None).deserialize(),
+            self.jellyfin.get_playback_info(item).deserialize()
+        )
+        .map_err(|r| Error::Failed(r.to_string()))?;
+        if !item.item_type.is_single_media_item() {
+            return Err(Error::InvalidArgs(format!(
+                "Item {item:?} is not a single playable piece of media but some collection"
+            )));
+        }
+        self.player.send(Command::AddTrack {
+            item: Box::new(PlayItem {
+                item,
+                playback_session_id: playback_info.play_session_id,
+            }),
+            after,
+            play: set_as_current,
+        });
+
+        Ok(())
     }
     fn remove_track(&self, track: ObjectPath<'_>) -> Result<()> {
         let id = parse_track_id(&track)?
@@ -60,6 +92,7 @@ impl TrackList {
         self.player.send(Command::Remove(id));
         Ok(())
     }
+
     fn go_to(&self, track: ObjectPath<'_>) -> Result<()> {
         let id = parse_track_id(&track)?
             .ok_or_else(|| Error::InvalidArgs("NoTrack can not be played".to_string()))?;
@@ -96,4 +129,10 @@ impl TrackList {
             .map(|i| track_id_as_object(Some(i.id)))
             .collect()
     }
+    #[zbus(property(emits_changed_signal = "const"))]
+    const fn can_edit_tracks(&self) -> bool {
+        true
+    }
 }
+
+const URI_PREFIX: &str = "jellyfin-item:";
