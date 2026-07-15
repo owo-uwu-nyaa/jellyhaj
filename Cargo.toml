@@ -53,6 +53,7 @@ clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
+tracing-journald = { version = "0.3.2", optional = true }
 
 [features]
 attach = ["dep:libc"]
@@ -60,6 +61,7 @@ console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tr
 default = ["mimalloc"]
 mimalloc = ["dep:mimalloc"]
 mpris = ["dep:player-mpris"]
+journald = ["dep:tracing-journald"]
 
 [lints]
 workspace = true

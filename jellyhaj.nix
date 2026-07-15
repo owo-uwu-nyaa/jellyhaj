@@ -12,6 +12,7 @@
   runCommand,
   remarshal,
   withMpris ? stdenv.isLinux, # enable media player dbus interface
+  withJournald ? stdenv.isLinux,
   withTools ? false, # add developement tools
 }:
 let
@@ -99,7 +100,7 @@ let
       ];
       cargoTestFlags = [ "--workspace" ];
       cargoBuildFlags = lib.optional withTools "--workspace";
-      buildFeatures = lib.optional withMpris "mpris";
+      buildFeatures = (lib.optional withMpris "mpris") ++ (lib.optional withJournald "journald");
       separateDebugInfo = true;
       meta = {
         description = "Terminal client for Jellyfin reimplementing parts of the web ui";

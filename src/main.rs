@@ -57,7 +57,7 @@ fn log_file() -> Result<()> {
             File::create(&logfile).context("opening logfile")?,
         ))
         .event_format(format)
-        .with_filter(filter);
+        .with_filter(filter.clone());
     let error_layer = ErrorLayer::default();
     let registry = tracing_subscriber::registry()
         .with(fmt_layer)
@@ -65,6 +65,12 @@ fn log_file() -> Result<()> {
         .with(tui_logger::TuiTracingSubscriberLayer);
     #[cfg(feature = "console-subscriber")]
     let registry = registry.with(console_subscriber::spawn());
+    #[cfg(feature = "journald")]
+    let registry = registry.with(
+        tracing_journald::layer()?
+            .with_syslog_identifier("jellyhaj".to_string())
+            .with_filter(filter),
+    );
     registry.init();
     println!("logging to {}", logfile.display());
     Ok(())
