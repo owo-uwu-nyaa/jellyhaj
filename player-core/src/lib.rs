@@ -32,11 +32,10 @@ impl PlaylistItemIdGen {
         let r = self.id;
         let (new, failed) = self.id.overflowing_add(1);
         self.id = new;
-        if failed {
-            panic!(
-                "You have somehow created enough playlist item ids to overflow a 64 bit integer. I don't know how you managed that but in any case please stop!"
-            )
-        };
+        assert!(
+            !failed,
+            "You have somehow created enough playlist item ids to overflow a 64 bit integer. I don't know how you managed that but in any case please stop!"
+        );
         PlaylistItemId { id: r }
     }
 }
