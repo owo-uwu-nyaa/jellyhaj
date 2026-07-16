@@ -6,6 +6,7 @@ zbus = {workspace = true}
 serde.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+tokio-util.workspace = true
 
 [package]
 edition = "2024"

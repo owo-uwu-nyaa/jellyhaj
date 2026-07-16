@@ -279,7 +279,7 @@ impl Connection {
                     if retries > MAX_RETRIES {
                         color_eyre::eyre::bail!(
                             "sending request failed after {MAX_RETRIES} retries"
-                        )
+                        );
                     }
                     let resp = loop {
                         let inner = match &mut *state {

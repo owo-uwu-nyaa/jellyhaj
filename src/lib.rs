@@ -154,6 +154,7 @@ async fn run_app_inner(
     config: Config,
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
+    stop: CancellationToken,
 ) -> Result<()> {
     let config = Arc::new(config);
     debug!("logging in to jellyfin");
@@ -185,10 +186,12 @@ async fn run_app_inner(
         );
         #[cfg(feature = "mpris")]
         spawner.spawn_res(
-            player_mpris::run_mpris_service(mpv_handle.clone(), jellyfin.clone()),
+            player_mpris::run_mpris_service(mpv_handle.clone(), jellyfin.clone(), stop),
             error_span!("player_mpris"),
             "player_mpris",
         );
+        #[cfg(not(feature = "mpris"))]
+        let _ = stop;
         run_state(
             &mut term,
             &mut events,
@@ -240,6 +243,7 @@ impl AtomicStr {
 pub async fn run_app(
     term: DefaultTerminal,
     cancel: CancellationToken,
+    stop: CancellationToken,
     paniced: Arc<AtomicStr>,
     config_file: Option<PathBuf>,
     use_builtin_config: bool,
@@ -269,21 +273,35 @@ pub async fn run_app(
     let image_picker =
         Picker::from_query_stdio().context("getting information for image display")?;
     let events = KeybindEvents::new()?;
+
     let res = spawn::run_with_spawner(
-        |spawner| run_app_inner(term, events, spawner, config, cache.clone(), image_picker),
+        |spawner| {
+            run_app_inner(
+                term,
+                events,
+                spawner,
+                config,
+                cache.clone(),
+                image_picker,
+                stop.clone(),
+            )
+        },
         cancel,
         error_span!("jellyhaj"),
         "jellyhaj_main",
     )
     .await;
-
-    res.ok_or_else(move || {
-        if let Some(panic_message) = paniced.take() {
-            eyre!("Application paniced").section(panic_message.header("Panic message"))
-        } else if interrupted.load(SeqCst) {
-            eyre!("Application interrupted by signal")
-        } else {
-            eyre!("Application cancelled for unknown reason")
-        }
-    })?
+    if stop.is_cancelled() {
+        res.unwrap_or(Ok(()))
+    } else {
+        res.ok_or_else(move || {
+            if let Some(panic_message) = paniced.take() {
+                eyre!("Application paniced").section(panic_message.header("Panic message"))
+            } else if interrupted.load(SeqCst) {
+                eyre!("Application interrupted by signal")
+            } else {
+                eyre!("Application cancelled for unknown reason")
+            }
+        })?
+    }
 }

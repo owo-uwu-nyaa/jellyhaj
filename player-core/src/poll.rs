@@ -430,7 +430,7 @@ fn replace_playlist(
     index: &mut Option<usize>,
 ) -> Result<()> {
     if first >= items.len() {
-        bail!("could not set playlist because first {first} is out of bounds.")
+        bail!("could not set playlist because first {first} is out of bounds.");
     }
     info!("replacing playlist with new list of length {}", items.len());
     mpv.playlist_clear()?;

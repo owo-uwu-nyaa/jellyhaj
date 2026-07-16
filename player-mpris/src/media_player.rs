@@ -1,14 +1,25 @@
 use player_core::{Command, PlayerHandle, state::SharedPlayerState};
+use tokio_util::sync::CancellationToken;
+use tracing::info;
 use zbus::interface;
 
 pub struct MediaPlayer2 {
     player: PlayerHandle,
     state: SharedPlayerState,
+    stop: CancellationToken,
 }
 
 impl MediaPlayer2 {
-    pub const fn new(player: PlayerHandle, state: SharedPlayerState) -> Self {
-        Self { player, state }
+    pub const fn new(
+        player: PlayerHandle,
+        state: SharedPlayerState,
+        stop: CancellationToken,
+    ) -> Self {
+        Self {
+            player,
+            state,
+            stop,
+        }
     }
 }
 
@@ -17,7 +28,8 @@ impl MediaPlayer2 {
 impl MediaPlayer2 {
     const fn raise(&self) {}
     fn quit(&self) {
-        self.player.send(Command::Stop);
+        info!("mpris asked us to quit");
+        self.stop.cancel();
     }
     #[zbus(property(emits_changed_signal = "const"))]
     const fn can_quit(&self) -> bool {
