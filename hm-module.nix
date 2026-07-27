@@ -29,6 +29,8 @@ let
       }
       ''
         json2toml "$valuePath" "$out"
+        echo contents:
+        cat $out
         jellyhaj ${cmd} "$out"
       '';
 in
