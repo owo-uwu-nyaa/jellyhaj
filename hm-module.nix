@@ -26,6 +26,7 @@ let
         ];
         value = builtins.toJSON data;
         passAsFile = [ "value" ];
+        env.RUST_BACKTRACE = "1";
       }
       ''
         json2toml "$valuePath" "$out"
