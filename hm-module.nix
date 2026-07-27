@@ -19,7 +19,7 @@ let
     file: cmd: data:
     pkgs.runCommand file
       {
-        __structuredAttrs = true;
+        #__structuredAttrs = true;
         nativeBuildInputs = [
           pkgs.remarshal
           jellyhaj
