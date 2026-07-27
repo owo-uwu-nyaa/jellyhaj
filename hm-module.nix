@@ -15,6 +15,22 @@ let
     ;
   cfg = config.programs.jellyhaj;
   jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
+  checkFile =
+    file: cmd: data:
+    pkgs.runCommand file
+      {
+        __structuredAttrs = true;
+        nativeBuildInputs = [
+          pkgs.remarshal
+          jellyhaj
+        ];
+        value = builtins.toJSON data;
+        passAsFile = [ "value" ];
+      }
+      ''
+        json2toml "$valuePath" "$out"
+        jellyhaj ${cmd} "$out"
+      '';
 in
 {
   options.programs.jellyhaj = {
@@ -124,16 +140,16 @@ in
     (mkIf cfg.enable {
       home.packages = [ cfg.package ];
       xdg.configFile = {
-        "jellyhaj/config.toml".source = pkgs.writers.writeTOML "config.toml" (
+        "jellyhaj/config.toml".source = checkFile "config.toml" "check-config" (
           filterAttrs (_: v: !isNull v) cfg.config
         );
       };
     })
     (mkIf (!isNull cfg.keybinds) {
-      programs.jellyhaj.config.keybinds_file = jellyhaj.checkKeybinds cfg.keybinds;
+      programs.jellyhaj.config.keybinds_file = checkFile "keybinds.toml" "check-keybinds" cfg.keybinds;
     })
     (mkIf (!isNull cfg.effects) {
-      programs.jellyhaj.config.effects_file = jellyhaj.checkEffects cfg.effects;
+      programs.jellyhaj.config.effects_file = checkFile "effects.toml" "check-effects" cfg.effects;
     })
   ];
 }

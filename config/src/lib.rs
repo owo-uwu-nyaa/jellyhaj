@@ -1,4 +1,7 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use color_eyre::eyre::{Context, OptionExt, Result, eyre};
 use libmpv::MpvProfile;
@@ -201,6 +204,11 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         store_access_token: config.store_access_token.unwrap_or(false),
         dev_store_jellyfin_events: config.dev_store_jellyfin_events,
     })
+}
+
+pub fn check_config_file(file: PathBuf) -> Result<()> {
+    init_config(Some(file), false)?;
+    Ok(())
 }
 
 #[cfg(test)]

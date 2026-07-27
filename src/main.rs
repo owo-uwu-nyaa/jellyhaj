@@ -155,6 +155,12 @@ fn main() -> Result<()> {
             )?;
             Ok(())
         }
+        Some(Action::CheckConfig { file }) => {
+            color_eyre::install().expect("installing color eyre format handler");
+            log_stdout()?;
+            config::check_config_file(file)?;
+            Ok(())
+        }
         None => {
             log_file()?;
             tui_logger::init_logger(tui_logger::LevelFilter::Debug)
@@ -218,6 +224,11 @@ enum Action {
         /// effects file to check
         file: PathBuf,
     },
+    CheckConfig {
+        /// effects file to check
+        file: PathBuf,
+    },
+
     Print {
         /// what should be printed
         #[command(subcommand)]
