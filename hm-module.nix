@@ -29,6 +29,7 @@ let
         env.RUST_BACKTRACE = "1";
       }
       ''
+        echo converting to toml
         json2toml "$valuePath" "$out"
         echo contents:
         cat $out
