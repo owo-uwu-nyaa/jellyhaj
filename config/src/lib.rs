@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{path::PathBuf, str::FromStr};
 
 use color_eyre::eyre::{Context, OptionExt, Result, eyre};
 use libmpv::MpvProfile;
