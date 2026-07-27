@@ -6,7 +6,13 @@
       {
         "name": "id",
         "ordinal": 0,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "unique_id",
+            "name": "id"
+          }
+        }
       }
     ],
     "parameters": {

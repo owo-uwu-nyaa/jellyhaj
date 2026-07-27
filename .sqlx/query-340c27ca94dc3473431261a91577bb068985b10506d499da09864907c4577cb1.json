@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "insert into jellyfin_socket_events (val) values (?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "340c27ca94dc3473431261a91577bb068985b10506d499da09864907c4577cb1"
+}

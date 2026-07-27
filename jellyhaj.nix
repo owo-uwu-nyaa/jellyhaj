@@ -102,6 +102,7 @@ let
       cargoBuildFlags = lib.optional withTools "--workspace";
       buildFeatures = (lib.optional withMpris "mpris") ++ (lib.optional withJournald "journald");
       separateDebugInfo = true;
+      __structuredAttrs = true;
       meta = {
         description = "Terminal client for Jellyfin reimplementing parts of the web ui";
         license = lib.licenses.mit;

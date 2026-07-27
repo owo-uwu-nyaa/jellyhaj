@@ -82,11 +82,8 @@ in
         type = lib.types.ints.u16;
         default = 15;
       };
-      store_access_token = mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "store the access token in the cache";
-      };
+      store_access_token = mkEnableOption "store the access token in the cache";
+      dev_store_jellyfin_events = mkEnableOption "store all events received from jellyfin for later use (useful for development)";
     };
     keybinds = mkOption {
       type = types.nullOr (types.attrsOf types.anything);

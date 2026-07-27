@@ -89,6 +89,12 @@ Store the jellyfin access token in the cache. Disabled by default.
 programs.jellyhaj.config.store_access_token = false;
 ```
 
+### dev_store_jellyfin_events
+store all events received from jellyfin for later use (useful for development). Disabled by default.
+```nix
+programs.jellyhaj.config.dev_store_jellyfin_events = false;
+```
+
 ### keybinds
 [Keybinds definition](./config/keybinds.toml) or `null`
 ```nix

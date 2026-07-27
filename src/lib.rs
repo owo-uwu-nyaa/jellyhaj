@@ -169,7 +169,12 @@ async fn run_app_inner(
     )
     .await?
     {
-        let jellyfin_events = JellyfinEventInterests::new(&spawner, &jellyfin)?;
+        let jellyfin_events = JellyfinEventInterests::new(
+            &spawner,
+            &jellyfin,
+            cache.clone(),
+            config.dev_store_jellyfin_events,
+        )?;
         let mpv_handle = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,

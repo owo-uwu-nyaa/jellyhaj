@@ -2,12 +2,14 @@
 jellyfin = {path = "../jellyfin-rs"}
 jellyhaj-async-task = {path = "../async-task"}
 spawn = {path = "../spawn"}
-tokio = {features = ["macros"], workspace = true}
+tokio = {features = ["macros", "sync"], workspace = true}
 color-eyre.workspace = true
 futures-channel.workspace = true
 futures-intrusive.workspace = true
 parking_lot.workspace = true
 tracing.workspace = true
+sqlx.workspace = true
+serde_json.workspace = true
 
 [package]
 edition = "2024"

@@ -2085,7 +2085,9 @@ dependencies = [
  "jellyfin",
  "jellyhaj-async-task",
  "parking_lot",
+ "serde_json",
  "spawn",
+ "sqlx",
  "tokio",
  "tracing",
 ]

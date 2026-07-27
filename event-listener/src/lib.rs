@@ -14,6 +14,7 @@ use jellyfin::{
 use jellyhaj_async_task::{Cancellation, Stream, StreamExt, TaskSubmitterRef, Wrapper};
 use parking_lot::{Mutex, lock_api::MutexGuard};
 use spawn::Spawner;
+use sqlx::SqliteConnection;
 use tracing::{debug, info_span, instrument};
 
 trait InterestInner<T> {
@@ -186,7 +187,12 @@ impl JellyfinEventInterests {
         f(&mut guard);
         guard.clean();
     }
-    pub fn new(spawn: &Spawner, jellyfin: &JellyfinClient) -> Result<Self> {
+    pub fn new(
+        spawn: &Spawner,
+        jellyfin: &JellyfinClient,
+        storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+        store_events: bool,
+    ) -> Result<Self> {
         let this = Self {
             inner: Arc::new(Mutex::new(Interests {
                 refresh_progress: HashMap::new(),
@@ -202,7 +208,13 @@ impl JellyfinEventInterests {
         };
         let stream = jellyfin.get_socket()?;
         spawn.spawn(
-            poll_socket_cancellable(this.inner.clone(), stream, this.cancel.inner.clone()),
+            poll_socket_cancellable(
+                this.inner.clone(),
+                stream,
+                this.cancel.inner.clone(),
+                storage,
+                store_events,
+            ),
             info_span!("poll_jellyfin_socket"),
             "poll_jellyfin_socket",
         );
@@ -214,9 +226,11 @@ async fn poll_socket_cancellable(
     interests: Arc<Mutex<Interests>>,
     stream: impl Stream<Item = JellyfinMessage>,
     cancel: Arc<ManualResetEvent>,
+    storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    store_events: bool,
 ) {
     tokio::select! {
-        () = jellyfin_poll_socket(interests, stream) => {
+        () = jellyfin_poll_socket(interests, stream, storage, store_events) => {
             debug!("socket closed");
         }
         () = cancel.wait() => {
@@ -229,10 +243,26 @@ async fn poll_socket_cancellable(
 async fn jellyfin_poll_socket(
     interests: Arc<Mutex<Interests>>,
     stream: impl Stream<Item = JellyfinMessage>,
+    storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    store_events: bool,
 ) {
     let mut stream = pin!(stream);
     while let Some(message) = stream.next().await {
         debug!("received message {message:?}");
+        if store_events {
+            let message = serde_json::to_string(&message)
+                .expect("serialization of messages should never fail");
+            let mut db = storage.lock().await;
+            if let Err(e) = sqlx::query!(
+                "insert into jellyfin_socket_events (val) values (?)",
+                &message
+            )
+            .execute(&mut *db)
+            .await
+            {
+                tracing::error!("unable to store jellyfin socket events in database:\n{e:?}");
+            }
+        }
         match message {
             JellyfinMessage::RefreshProgress {
                 data: RefreshProgress { item_id, progress },

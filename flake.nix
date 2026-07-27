@@ -101,7 +101,6 @@
           };
         in
         {
-          inherit self;
           overlays = {
             inherit jellyhaj;
             default = jellyhaj;
