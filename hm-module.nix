@@ -15,26 +15,11 @@ let
     ;
   cfg = config.programs.jellyhaj;
   jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
-  checkFile =
-    file: cmd: data:
-    pkgs.runCommand file
-      {
-        #__structuredAttrs = true;
-        nativeBuildInputs = [
-          pkgs.remarshal
-          jellyhaj
-        ];
-        value = builtins.toJSON data;
-        passAsFile = [ "value" ];
-        env.RUST_BACKTRACE = "1";
-      }
-      ''
-        echo converting to toml
-        json2toml "$valuePath" "$out"
-        echo contents:
-        cat $out
-        jellyhaj ${cmd} "$out"
-      '';
+  writer = pkgs.callPackage ./checkFile {
+    jellyhaj = cfg.package;
+    debug = cfg.debugConfigChecker;
+  };
+  inherit (writer) writeConfig writeKeybinds writeEffects;
 in
 {
   options.programs.jellyhaj = {
@@ -44,6 +29,7 @@ in
       default = jellyhaj;
       description = "package with jellyhaj";
     };
+    debugConfigChecker = mkEnableOption "enable debug printing for the config checker derivations";
     config = {
       mpv_profile = mkOption {
         type = types.enum [
@@ -144,16 +130,14 @@ in
     (mkIf cfg.enable {
       home.packages = [ cfg.package ];
       xdg.configFile = {
-        "jellyhaj/config.toml".source = checkFile "config.toml" "check-config" (
-          filterAttrs (_: v: !isNull v) cfg.config
-        );
+        "jellyhaj/config.toml".source = writeConfig (filterAttrs (_: v: !isNull v) cfg.config);
       };
     })
     (mkIf (!isNull cfg.keybinds) {
-      programs.jellyhaj.config.keybinds_file = checkFile "keybinds.toml" "check-keybinds" cfg.keybinds;
+      programs.jellyhaj.config.keybinds_file = writeKeybinds cfg.keybinds;
     })
     (mkIf (!isNull cfg.effects) {
-      programs.jellyhaj.config.effects_file = checkFile "effects.toml" "check-effects" cfg.effects;
+      programs.jellyhaj.config.effects_file = writeEffects cfg.effects;
     })
   ];
 }

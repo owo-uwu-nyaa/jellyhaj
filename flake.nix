@@ -39,6 +39,8 @@
             inherit system overlays;
           };
           jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
+          writer = pkgs.callPackage ./checkFile { inherit jellyhaj; };
+          inherit (writer) writeConfig writeKeybinds writeEffects;
           test-server =
             if lib.systems.inspect.predicates.isLinux system then
               {
@@ -54,7 +56,12 @@
             inherit jellyhaj;
           }
           // test-server;
-          checks = { inherit jellyhaj; };
+          checks = {
+            inherit jellyhaj;
+            config = writeConfig (fromTOML (builtins.readFile ./config/config.toml));
+            keybinds = writeKeybinds (fromTOML (builtins.readFile ./config/keybinds.toml));
+            effects = writeEffects (fromTOML (builtins.readFile ./config/effects.toml));
+          };
           apps = {
             default = {
               type = "app";
