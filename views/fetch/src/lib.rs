@@ -13,8 +13,8 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::LoadingCommand,
-    render::{Erased, make_new_erased},
     state::{Navigation, NextScreen},
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_widget::{FetchAction, FetchWidget};
 use jellyhaj_keybinds_widget::KeybindWidget;

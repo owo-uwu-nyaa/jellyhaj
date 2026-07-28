@@ -9,8 +9,8 @@ use jellyfin::{
 };
 use jellyhaj_core::{
     context::TuiContext,
-    render::{Erased, make_new_erased},
     state::NextScreen,
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_view::make_fetch;
 use jellyhaj_library_widget::LibraryWidget;

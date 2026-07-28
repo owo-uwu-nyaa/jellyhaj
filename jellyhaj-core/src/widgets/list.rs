@@ -6,8 +6,12 @@ use std::{
 
 use tracing::instrument;
 
-use crate::render::StateValue;
+use crate::widgets::state::StateValue;
 
+/**
+ * # Safety
+ * `entry` and `token` must belong to the same list
+ *  */
 #[instrument(skip_all, level = "trace")]
 pub unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
     tracing::trace!("removing elelment");
@@ -24,6 +28,10 @@ pub unsafe fn remove_element(entry: &StateEntry, token: &mut ListAccessToken) {
     }
 }
 
+/**
+ * # Safety
+ * `entry` and `token` must belong to the same list
+ *  */
 #[instrument(skip_all, level = "trace")]
 pub unsafe fn replace_element(
     entry: &Arc<StateEntry>,
@@ -47,6 +55,10 @@ pub unsafe fn replace_element(
     unsafe { inspect_list(new_entry, token) };
 }
 
+/**
+ * # Safety
+ * `entry` and `token` must belong to the same list
+ *  */
 #[instrument(skip_all, level = "trace")]
 pub unsafe fn append_element(
     entry: &Arc<StateEntry>,
@@ -64,6 +76,10 @@ pub unsafe fn append_element(
     unsafe { inspect_list(entry, token) };
 }
 
+/**
+ * # Safety
+ * `entry` and `token` must belong to the same list
+ *  */
 #[instrument(skip_all, level = "trace")]
 pub unsafe fn prepend_element(
     entry: &Arc<StateEntry>,
@@ -87,6 +103,10 @@ pub unsafe fn prepend_element(
     unsafe { inspect_list(entry, token) };
 }
 
+/**
+ * # Safety
+ * `start` and `token` must belong to the same list
+ *  */
 pub unsafe fn inspect_list(start: &Arc<StateEntry>, token: &ListAccessToken) {
     let span = tracing::trace_span!("inspect_list");
     let _entered = span.enter();

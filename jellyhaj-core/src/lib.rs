@@ -1,7 +1,7 @@
 pub mod context;
-pub mod render;
 pub mod state;
 pub mod term;
+pub mod widgets;
 
 use std::fmt::Debug;
 use std::ops::ControlFlow;

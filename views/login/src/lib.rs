@@ -20,8 +20,14 @@ use jellyhaj_core::{
     CommandMapper, Config,
     context::ContextRef,
     keybinds::LoadingCommand,
-    render::{RenderStopRes, WidgetResult, make_new_erased, render_widget, render_widget_stop},
     state::Navigation,
+    widgets::{
+        WidgetResult,
+        shaded::{
+            render::{RenderStopRes, render_widget, render_widget_stop},
+            widget::make_new_erased,
+        },
+    },
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};

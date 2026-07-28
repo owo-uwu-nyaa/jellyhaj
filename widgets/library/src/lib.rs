@@ -10,8 +10,8 @@ use jellyhaj_core::{
     CommandMapper, Config,
     context::{DB, JellyfinEventInterests, Spawner},
     keybinds::UserViewCommand,
-    render::KeybindAction,
     state::{Navigation, NextScreen, flatten_control_flow},
+    widgets::KeybindAction,
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_item_grid::{GridWrapper, ItemGrid, ItemGridAction, new_item_grid};

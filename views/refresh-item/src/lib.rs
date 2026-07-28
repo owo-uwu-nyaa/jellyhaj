@@ -2,8 +2,8 @@ use color_eyre::eyre::Context;
 use jellyfin::items::RefreshItemQuery;
 use jellyhaj_core::{
     context::TuiContext,
-    render::{Erased, make_new_erased},
     state::Navigation,
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_form_widget::form::{FormCommandMapper, FormDataDefaultExt};
 use jellyhaj_keybinds_widget::KeybindWidget;

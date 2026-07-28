@@ -4,8 +4,8 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::StatsCommand,
-    render::{Erased, make_new_erased},
     state::Navigation,
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_stats_widget::{StatsUpdate, StatsWidget};

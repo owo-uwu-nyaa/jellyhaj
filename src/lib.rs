@@ -14,10 +14,15 @@ use color_eyre::{
 use config::{Config, init_config};
 use jellyhaj_core::{
     context::TuiContext,
-    render::{
-        Erased, RenderStopRes, RunResult, StateStack, StateValue, render_widget, render_widget_stop,
-    },
     state::{Navigation, NextScreen},
+    widgets::{
+        RunResult,
+        shaded::{
+            render::{RenderStopRes, render_widget, render_widget_stop},
+            widget::Erased,
+        },
+        state::{StateStack, StateValue},
+    },
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::cache::ImageCache;

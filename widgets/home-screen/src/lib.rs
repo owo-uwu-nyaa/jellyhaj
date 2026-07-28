@@ -5,8 +5,8 @@ use jellyhaj_core::{
     CommandMapper, Config,
     context::{DB, JellyfinEventInterests, Spawner},
     keybinds::HomeScreenCommand,
-    render::KeybindAction,
     state::{Navigation, NextScreen, flatten_control_flow},
+    widgets::KeybindAction,
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryData, ImageCache, Picker, Stats};
 use jellyhaj_item_screen::{ItemScreen, ItemScreenAction, new_item_list, new_item_screen};

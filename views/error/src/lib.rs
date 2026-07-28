@@ -5,8 +5,8 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::ErrorCommand,
-    render::{Erased, make_new_erased},
     state::Navigation,
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_error_widget::{ErrorAction, ErrorWidget};
 use jellyhaj_keybinds_widget::KeybindWidget;

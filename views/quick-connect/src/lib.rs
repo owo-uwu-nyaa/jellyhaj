@@ -3,8 +3,8 @@ use std::convert::Infallible;
 use color_eyre::eyre::Context;
 use jellyhaj_core::{
     context::TuiContext,
-    render::{Erased, make_new_erased},
     state::{Navigation, NextScreen::QuickConnectAuth},
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_view::make_nav_fetch;
 use jellyhaj_form_widget::{

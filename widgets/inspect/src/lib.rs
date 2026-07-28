@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use jellyhaj_core::render::{StateStack, StateValue};
+use jellyhaj_core::widgets::state::{StateStack, StateValue};
 use jellyhaj_widgets_core::{
     ContextRef, JellyhajWidget, JellyhajWidgetBase, MouseEventKind, TreeVisitor,
     ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::StatefulWidget},

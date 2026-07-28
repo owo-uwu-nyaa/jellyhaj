@@ -6,8 +6,8 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::{ItemDetailsCommand, ItemListDetailsCommand},
-    render::{Erased, make_new_erased},
     state::{Navigation, NextScreen},
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_entry_widget::EntryAction;
 use jellyhaj_fetch_view::{fetch_all_children, fetch_child_of_type, fetch_item, make_fetch};

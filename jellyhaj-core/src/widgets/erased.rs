@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll, ready},
 };
 
-use crate::render::{KeybindAction, WidgetResult};
+use crate::widgets::{KeybindAction, WidgetResult};
 use color_eyre::Result;
 use futures_util::{Stream, StreamExt};
 use jellyhaj_widgets_core::{
@@ -156,14 +156,27 @@ pub trait ErasedWidgetExt<'w, Res> {
     fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send;
 }
 
+fn filtered_poll<Res>(
+    erased: &mut dyn ErasedWidget<Res>,
+    cx: &mut Context<'_>,
+) -> Poll<Option<WidgetResult<Res>>> {
+    loop {
+        break match erased.poll_next_unpin(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Ready(Some(None)) => continue,
+            Poll::Ready(Some(Some(v))) => Poll::Ready(Some(v)),
+        };
+    }
+}
+
 impl<'w, Res> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res> {
     fn filtered_events(self) -> WidgetEventStream<'w, Res> {
         WidgetEventStream { inner: self }
     }
 
     fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send {
-        let mut stream = self.filtered_events();
-        std::future::poll_fn(move |cx| stream.poll_next_unpin(cx))
+        std::future::poll_fn(move |cx| filtered_poll(self, cx))
     }
 }
 
@@ -175,13 +188,6 @@ impl<Res> Stream for WidgetEventStream<'_, Res> {
     type Item = WidgetResult<Res>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            break match self.as_mut().get_mut().inner.poll_next_unpin(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(None) => Poll::Ready(None),
-                Poll::Ready(Some(None)) => continue,
-                Poll::Ready(Some(Some(v))) => Poll::Ready(Some(v)),
-            };
-        }
+        filtered_poll(self.as_mut().get_mut().inner, cx)
     }
 }

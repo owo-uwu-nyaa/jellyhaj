@@ -11,8 +11,8 @@ use jellyhaj_core::{
     CommandMapper,
     context::TuiContext,
     keybinds::MpvCommand,
-    render::{Erased, make_new_erased},
     state::{LoadPlay, Navigation, NextScreen},
+    widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_player_widget::{PlayerAction, PlayerWidget};

@@ -4,7 +4,7 @@ mod render;
 
 use std::{fmt::Debug, ops::ControlFlow};
 
-use jellyhaj_core::{CommandMapper, Config, render::KeybindAction, state::Navigation};
+use jellyhaj_core::{CommandMapper, Config, state::Navigation, widgets::KeybindAction};
 use jellyhaj_widgets_core::{
     ContextRef, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},

@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 
 pub use stats_data::Stats;
 
-use crate::render::StateStack;
+use crate::widgets::state::StateStack;
 pub type DBInner = Mutex<SqliteConnection>;
 pub type DB = Arc<DBInner>;
 pub type ImagePicker = Arc<Picker>;
