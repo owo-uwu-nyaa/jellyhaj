@@ -97,7 +97,7 @@ impl JellyhajWidgetBase for SelectWidget {
 
     type ActionResult = Navigation;
 
-    const NAME: &str = "server-url";
+    const NAME: &str = "login-select-method";
 
     fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
         visitor.visit(&self.inner);
@@ -159,6 +159,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
         if !(self.state.username.is_empty()
             || (self.state.passwort.is_empty() && self.state.passwort_cmd.is_empty()))
         {
+            self.inner.inner.sel = SelectDataSelection::Passwort(());
             cx.submitter
                 .spawn_value_infallible(KeybindAction::Inner(SelectAction::Initial));
         }

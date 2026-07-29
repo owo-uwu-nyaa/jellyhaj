@@ -154,7 +154,8 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for ServerWidget {
         &mut self,
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) {
-        if !self.inner.inner.data.server_url.text.is_empty() {
+        if !self.state.jellyfin_url.is_empty() {
+            self.inner.inner.sel = ServerDataSelection::Connect(());
             cx.submitter
                 .spawn_value_infallible(KeybindAction::Inner(ServerAction::Initial));
         }

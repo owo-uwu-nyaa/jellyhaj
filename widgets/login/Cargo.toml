@@ -11,6 +11,7 @@ ratatui.workspace = true
 serde.workspace = true
 valuable.workspace = true
 parking_lot.workspace = true
+serde_json.workspace = true
 
 [package]
 edition = "2024"

@@ -1,3 +1,4 @@
+pub mod password;
 pub mod select;
 pub mod server;
 
