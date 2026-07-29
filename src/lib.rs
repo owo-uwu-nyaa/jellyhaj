@@ -14,14 +14,10 @@ use color_eyre::{
 use config::{Config, init_config};
 use jellyhaj_core::{
     context::TuiContext,
-    state::{Navigation, NextScreen},
+    state::NextScreen,
     widgets::{
-        RunResult,
-        shaded::{
-            render::{RenderStopRes, render_widget, render_widget_stop},
-            widget::Erased,
-        },
-        state::{StateStack, StateValue},
+        shaded::widget::Erased,
+        state::{StateStack, render_loop},
     },
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
@@ -86,69 +82,31 @@ fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::QuickConnectAuth(code) => {
             jellyhaj_quick_connect_view::make_quick_connect_auth(cx, code)
         }
+        NextScreen::SelectServer { .. }
+        | NextScreen::ConnectToServer { .. }
+        | NextScreen::SelectAuthMethod { .. }
+        | NextScreen::AuthPassword { .. }
+        | NextScreen::AuthPasswordFetch { .. }
+        | NextScreen::AuthQuickConnectFetch { .. }
+        | NextScreen::AuthQuickConnectWait { .. } => unreachable!("already logged in"),
     }
 }
 
 #[instrument(skip_all, level = "debug")]
 async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
-    let mut top: Option<NextScreen> = None;
     let widget_creator = {
         let cx = cx.clone();
         Arc::new(move |next| make_screen(next, cx.clone()))
     };
     info!("reached main application loop");
-    loop {
-        let mut widget = if let Some(top) = top.take() {
-            debug!("running top next screen");
-            make_screen(top, cx.clone())
-        } else {
-            match cx.state.pop() {
-                StateValue::Suspended(suspended) => {
-                    debug!("resuming suspended widget: {}", suspended.name);
-                    match suspended.get_widget().await {
-                        RunResult::Cont(erased_widget) => erased_widget,
-                        RunResult::Empty => continue,
-                        RunResult::Exit => break,
-                    }
-                }
-                StateValue::Empty => {
-                    debug!("defaulting to displaying home screen");
-                    jellyhaj_home_screen_view::make_fetch_home_screen(cx.clone())
-                }
-                StateValue::WithoutTui(without_tui) => {
-                    if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
-                        jellyhaj_error_view::render_error(cx.clone(), &e)
-                    } else {
-                        continue;
-                    }
-                }
-            }
-        };
-        match render_widget(widget.as_mut(), events, term).await.into() {
-            Navigation::Push(next) => {
-                cx.state.push(widget, widget_creator.clone());
-                top = Some(next);
-            }
-            Navigation::PopContext => {
-                match render_widget_stop(widget.as_mut(), events, term).await {
-                    RenderStopRes::Ok => {}
-                    RenderStopRes::Exit => break,
-                }
-            }
-            Navigation::Replace(next) => {
-                match render_widget_stop(widget.as_mut(), events, term).await {
-                    RenderStopRes::Ok => top = Some(next),
-                    RenderStopRes::Exit => break,
-                }
-            }
-            Navigation::Exit => break,
-            Navigation::PushWithoutTui(without_tui) => {
-                if let Err(e) = jellyhaj_core::term::run_without(without_tui).await {
-                    top = Some(NextScreen::Error(e));
-                }
-            }
-        }
-    }
+    render_loop(
+        NextScreen::LoadHomeScreen,
+        widget_creator,
+        &cx.state,
+        term,
+        events,
+    )
+    .await;
     info!("main application loop exit")
 }
 

@@ -10,6 +10,7 @@ futures-util.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 valuable.workspace = true
+parking_lot.workspace = true
 
 [package]
 edition = "2024"

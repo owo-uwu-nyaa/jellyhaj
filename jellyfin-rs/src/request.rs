@@ -8,7 +8,7 @@ use tracing::debug;
 
 impl<Auth: AuthStatus> JellyfinClient<Auth> {
     pub fn build_uri(&self, uri: impl PathBuilder, query: impl Query) -> Result<String> {
-        let mut path = self.inner.uri_base.clone();
+        let mut path = self.inner.client.uri_base.clone();
         uri.append(&mut path);
         query.append(&mut path)?;
         Ok(path)
@@ -22,7 +22,7 @@ impl<Auth: AuthStatus> JellyfinClient<Auth> {
         debug!("sending request to {uri}");
         let builder = http::request::Builder::new()
             .uri(uri)
-            .header(HOST, self.inner.host_header.clone());
+            .header(HOST, self.inner.client.host_header.clone());
         Ok(self.inner.auth.add_auth_header(builder))
     }
 

@@ -13,9 +13,10 @@ use tracing::instrument;
 use crate::{
     state::Navigation,
     widgets::{
-        DropGuard, RunResult, ShadedErased, Visitor, WidgetCreator,
+        DropGuard, RunResult, Visitor, WidgetCreator,
         erased::ErasedWidgetExt,
         list::{ListAccessToken, StateEntry, append_element, remove_element, replace_element},
+        shaded::widget::Erased,
         state::StateValue,
     },
 };
@@ -33,7 +34,7 @@ pub struct SuspendedInner {
  *  */
 #[instrument(skip_all)]
 async unsafe fn run_suspended(
-    mut state: ShadedErased,
+    mut state: Erased,
     stop: Arc<ManualResetEvent>,
     mut visitors: UnboundedReceiver<Visitor>,
     widget_creator: WidgetCreator,
@@ -129,7 +130,7 @@ impl SuspendedInner {
      * `state_token` and `this` must belong to the same list
      *  */
     pub unsafe fn new(
-        widget: super::ShadedErased,
+        widget: Erased,
         this: Weak<StateEntry>,
         widget_creator: WidgetCreator,
         state_token: Arc<RwLock<ListAccessToken>>,

@@ -224,16 +224,6 @@ impl Connection {
         })
     }
 
-    pub(crate) fn with_same_config(&self) -> Self {
-        Self {
-            config: self.config.clone(),
-            guard: Semaphore::const_new(self.inner.len()),
-            inner: (0..self.inner.len())
-                .map(|_| Exclusive::new(ConnectionInner::Disconnected))
-                .collect(),
-        }
-    }
-
     fn send_request_json_inner(&self, req: Request<String>) -> impl Future<Output = Result<Bytes>> {
         self.send_request(req).map(|res| {
             let (data, parts) = res?;

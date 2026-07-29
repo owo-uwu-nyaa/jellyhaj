@@ -13,7 +13,7 @@ use futures_intrusive::sync::{ManualResetEvent, WaitForEventFuture};
 pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use pin_project_lite::pin_project;
 use spawn::Spawner;
-use tracing::Span;
+use tracing::{Span, info_span};
 
 struct CancellationInner {
     event: ManualResetEvent,
@@ -348,6 +348,18 @@ impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
             span,
             name,
         );
+    }
+}
+
+impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
+    #[track_caller]
+    pub fn spawn_value(&self, val: Result<A>) {
+        self.spawn_task(std::future::ready(val), info_span!("send_val"), "send_val");
+    }
+
+    #[track_caller]
+    pub fn spawn_value_infallible(&self, val: A) {
+        self.spawn_value(Ok(val));
     }
 }
 

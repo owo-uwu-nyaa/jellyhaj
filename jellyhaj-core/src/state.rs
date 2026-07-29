@@ -1,13 +1,17 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, ops::ControlFlow, sync::Arc};
 
 use color_eyre::Result;
 use color_eyre::eyre::Report;
 use config::keybind_defs::GlobalCommand;
 use futures_util::future::BoxFuture;
 use jellyfin::{
+    JellyfinClient, NoAuth,
     items::{MediaItem, PlaybackInfo, RefreshItemQuery},
     user_views::UserView,
 };
+use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
+use valuable::Valuable;
 
 pub fn flatten_control_flow(
     v: Result<Option<ControlFlow<Navigation, Navigation>>>,
@@ -18,6 +22,20 @@ pub fn flatten_control_flow(
         Ok(Some(ControlFlow::Continue(v) | ControlFlow::Break(v))) => Ok(Some(v)),
     }
 }
+
+#[derive(Debug, Valuable, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LoginState {
+    #[serde(default)]
+    pub jellyfin_url: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub passwort: String,
+    #[serde(default)]
+    pub passwort_cmd: Vec<String>,
+}
+
+pub type ClientOut = Arc<Mutex<Option<(JellyfinClient, LoginState)>>>;
 
 #[derive(Debug)]
 pub enum LoadPlay {
@@ -30,9 +48,8 @@ pub enum LoadPlay {
     MusicAlbum { id: String },
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub enum NextScreen {
-    #[default]
     LoadHomeScreen,
     HomeScreen {
         cont: Vec<MediaItem>,
@@ -67,6 +84,41 @@ pub enum NextScreen {
     Inspect,
     QuickConnect,
     QuickConnectAuth(String),
+    SelectServer {
+        state: LoginState,
+        out: ClientOut,
+    },
+    ConnectToServer {
+        state: LoginState,
+        out: ClientOut,
+    },
+    SelectAuthMethod {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient<NoAuth>,
+        quick_connect_available: bool,
+    },
+    AuthPassword {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient<NoAuth>,
+    },
+    AuthPasswordFetch {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient<NoAuth>,
+    },
+    AuthQuickConnectFetch {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient<NoAuth>,
+    },
+    AuthQuickConnectWait {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient<NoAuth>,
+        secret: String,
+    },
 }
 
 #[allow(clippy::large_enum_variant)]

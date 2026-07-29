@@ -2,13 +2,25 @@ use std::{cell::UnsafeCell, sync::Arc};
 
 use futures_util::future::BoxFuture;
 use jellyhaj_widgets_core::Result;
+use keybinds::KeybindEvents;
 use parking_lot::RwLock;
-use tracing::instrument;
+use ratatui::DefaultTerminal;
+use tracing::{debug, info, instrument};
 
-use crate::widgets::{
-    ShadedErased, WidgetCreator,
-    list::{ListAccessToken, ListEntry, StateEntry, inspect_list, prepend_element, remove_element},
-    suspended::SuspendedInner,
+use crate::{
+    state::{Navigation, NextScreen},
+    term::run_without,
+    widgets::{
+        RunResult, WidgetCreator,
+        list::{
+            ListAccessToken, ListEntry, StateEntry, inspect_list, prepend_element, remove_element,
+        },
+        shaded::{
+            render::{RenderStopRes, render_widget, render_widget_stop},
+            widget::Erased,
+        },
+        suspended::SuspendedInner,
+    },
 };
 
 pub enum StateValue {
@@ -64,7 +76,7 @@ impl StateStack {
             list,
         }
     }
-    pub fn push(&self, widget: ShadedErased, widget_creator: WidgetCreator) {
+    pub fn push(&self, widget: Erased, widget_creator: WidgetCreator) {
         let mut token = self.lock.write();
         unsafe {
             prepend_element(
@@ -126,5 +138,67 @@ impl StateStack {
 impl Default for StateStack {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub async fn render_loop(
+    initial: NextScreen,
+    widget_creator: WidgetCreator,
+    state: &StateStack,
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+) {
+    let mut top = Some(initial);
+    loop {
+        let mut widget = if let Some(top) = top.take() {
+            debug!("running top next screen");
+            widget_creator(top)
+        } else {
+            match state.pop() {
+                StateValue::Suspended(suspended) => {
+                    debug!("resuming suspended widget: {}", suspended.name);
+                    match suspended.get_widget().await {
+                        RunResult::Cont(erased_widget) => erased_widget,
+                        RunResult::Empty => continue,
+                        RunResult::Exit => break,
+                    }
+                }
+                StateValue::Empty => {
+                    info!("stack is now empty");
+                    break;
+                }
+                StateValue::WithoutTui(without_tui) => {
+                    if let Err(e) = run_without(without_tui).await {
+                        widget_creator(NextScreen::Error(e))
+                    } else {
+                        continue;
+                    }
+                }
+            }
+        };
+        match render_widget(widget.as_mut(), events, term).await.into() {
+            Navigation::Push(next) => {
+                state.push(widget, widget_creator.clone());
+                top = Some(next);
+            }
+            Navigation::PopContext => {
+                match render_widget_stop::<_>(widget.as_mut(), events, term).await {
+                    RenderStopRes::Ok => {}
+                    RenderStopRes::Exit => break,
+                }
+            }
+            Navigation::Replace(next) => {
+                match render_widget_stop(widget.as_mut(), events, term).await {
+                    RenderStopRes::Ok => top = Some(next),
+                    RenderStopRes::Exit => break,
+                }
+            }
+            Navigation::Exit => break,
+            Navigation::PushWithoutTui(without_tui) => {
+                if let Err(e) = run_without(without_tui).await {
+                    top = Some(NextScreen::Error(e));
+                }
+            }
+        }
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    Auth, JellyfinClient, NoAuth,
+    Auth, AuthStatus, JellyfinClient, NoAuth,
     auth::{make_auth_handshake_header, make_auth_header, make_auth_or_return, make_client_id},
     connect::JsonResponse,
     request::{NoQuery, RequestBuilderExt},
@@ -37,25 +37,27 @@ struct AuthQuickConnectReq<'s> {
     secret: &'s str,
 }
 
-impl JellyfinClient<NoAuth> {
+impl<A: AuthStatus> JellyfinClient<A> {
     pub async fn quick_connect_enabled(&self) -> Result<JsonResponse<bool>> {
         self.send_request_json(self.get("/QuickConnect/Enabled", NoQuery)?.empty_body()?)
             .await
     }
+}
 
+impl JellyfinClient<NoAuth> {
     pub async fn initiate_quick_connect(&self) -> Result<JsonResponse<QuickConnectStatus>> {
         let device_id = make_client_id(
-            &self.inner.unique,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.unique,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
         );
         self.send_request_json(
             self.post("/QuickConnect/Initiate", NoQuery)?
                 .header(
                     AUTHORIZATION,
                     make_auth_handshake_header(
-                        &self.inner.client_info,
-                        &self.inner.device_name,
+                        &self.inner.client.client_info,
+                        &self.inner.client.device_name,
                         &device_id,
                     ),
                 )
@@ -94,14 +96,14 @@ impl JellyfinClient<NoAuth> {
         };
 
         let device_id = make_client_id(
-            &self.inner.unique,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.unique,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
         );
         let auth_header = make_auth_header(
             &auth.access_token,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
             &device_id,
         );
 

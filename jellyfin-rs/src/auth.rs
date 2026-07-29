@@ -8,7 +8,8 @@ use base64::{Engine, engine::general_purpose::URL_SAFE};
 use tracing::{instrument, trace};
 
 use crate::{
-    Auth, AuthStatus, ClientInfo, ClientInner, JellyfinClient, KeyAuth, NoAuth, client_with_auth,
+    Auth, AuthStatus, ClientInfo, ClientInnerAuth, JellyfinClient, KeyAuth, NoAuth,
+    client_with_auth,
     request::{NoQuery, RequestBuilderExt},
     user::{User, UserAuth},
 };
@@ -25,14 +26,14 @@ impl JellyfinClient<NoAuth> {
     #[must_use]
     pub fn auth_key(self, key: String) -> JellyfinClient<KeyAuth> {
         let device_id = make_client_id(
-            &self.inner.unique,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.unique,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
         );
         let auth_header = make_auth_header(
             &key,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
             &device_id,
         );
         client_with_auth(
@@ -54,9 +55,9 @@ impl JellyfinClient<NoAuth> {
     ) -> StdResult<JellyfinClient<Auth>, (Self, color_eyre::Report)> {
         let username = username.as_ref();
         let device_id = make_client_id(
-            &self.inner.unique,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.unique,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
         );
         let auth: StdResult<UserAuth, color_eyre::Report> = async {
             self.send_request_json(
@@ -64,8 +65,8 @@ impl JellyfinClient<NoAuth> {
                     .header(
                         AUTHORIZATION,
                         make_auth_handshake_header(
-                            &self.inner.client_info,
-                            &self.inner.device_name,
+                            &self.inner.client.client_info,
+                            &self.inner.client.device_name,
                             &device_id,
                         ),
                     )
@@ -84,8 +85,8 @@ impl JellyfinClient<NoAuth> {
         };
         let auth_header = make_auth_header(
             &auth.access_token,
-            &self.inner.client_info,
-            &self.inner.device_name,
+            &self.inner.client.client_info,
+            &self.inner.client.device_name,
             &device_id,
         );
 
@@ -104,23 +105,13 @@ pub(crate) fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
     auth: Auth2,
 ) -> JellyfinClient<Auth2> {
     let inner = match Arc::try_unwrap(this.inner) {
-        Ok(client) => ClientInner {
-            uri_base: client.uri_base,
-            host_header: client.host_header,
-            connection: client.connection,
-            device_name: client.device_name,
-            client_info: client.client_info,
+        Ok(client) => ClientInnerAuth {
             auth,
-            unique: client.unique,
+            client: client.client,
         },
-        Err(client) => ClientInner {
-            host_header: client.host_header.clone(),
-            uri_base: client.uri_base.clone(),
-            connection: client.connection.with_same_config(),
-            client_info: client.client_info.clone(),
-            device_name: client.device_name.clone(),
+        Err(client) => ClientInnerAuth {
             auth,
-            unique: client.unique,
+            client: client.client.clone(),
         },
     };
     JellyfinClient {

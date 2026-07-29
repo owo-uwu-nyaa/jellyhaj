@@ -15,7 +15,7 @@ use ratatui::crossterm::event::KeyEvent;
 
 use crate::{
     state::{Navigation, NextScreen},
-    widgets::shaded::widget::ShadedWidget,
+    widgets::shaded::widget::Erased,
 };
 
 #[derive(Debug)]
@@ -43,7 +43,7 @@ impl From<WidgetResult<Self>> for Navigation {
 }
 
 pub enum RunResult {
-    Cont(ShadedErased),
+    Cont(Erased),
     Empty,
     Exit,
 }
@@ -60,6 +60,4 @@ impl Drop for DropGuard {
 
 type Visitor = Box<dyn FnOnce(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
 
-pub type ShadedErased = Box<ShadedWidget<Navigation>>;
-
-pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> ShadedErased + Send + Sync>;
+pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> Erased + Send + Sync>;

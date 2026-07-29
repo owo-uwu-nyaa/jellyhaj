@@ -24,6 +24,7 @@ futures-intrusive.workspace = true
 futures-util.workspace = true
 pin-project-lite.workspace = true
 valuable.workspace = true
+serde.workspace = true
 
 [package]
 edition = "2024"

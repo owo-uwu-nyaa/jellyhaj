@@ -30,7 +30,7 @@ impl CommandMapper<HomeScreenCommand> for Mapper {
 
     fn map(&self, command: HomeScreenCommand) -> ControlFlow<Navigation, Self::A> {
         match command {
-            HomeScreenCommand::Quit => ControlFlow::Break(Navigation::Exit),
+            HomeScreenCommand::Quit => ControlFlow::Break(Navigation::PopContext),
             HomeScreenCommand::Reload => {
                 ControlFlow::Break(Navigation::Replace(NextScreen::LoadHomeScreen))
             }
