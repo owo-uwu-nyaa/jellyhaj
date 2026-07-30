@@ -28,6 +28,7 @@ pub struct SessionInfo {
     pub is_active: bool,
     pub supports_media_control: bool,
     pub supports_remote_control: bool,
+    #[serde(default)]
     pub now_playing_queue_full_items: Vec<MediaItem>,
     pub has_custom_device_name: bool,
     pub playlist_item_id: Option<String>,

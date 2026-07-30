@@ -23,19 +23,19 @@ pub fn flatten_control_flow(
     }
 }
 
-#[derive(Debug, Valuable, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Valuable, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 pub struct LoginState {
     #[serde(default)]
-    pub jellyfin_url: String,
+    pub server_url: String,
     #[serde(default)]
     pub username: String,
     #[serde(default)]
-    pub passwort: String,
+    pub password: String,
     #[serde(default)]
     pub passwort_cmd: Vec<String>,
 }
 
-pub type ClientOut = Arc<Mutex<Option<(JellyfinClient, LoginState)>>>;
+pub type ClientOut = Arc<Mutex<Option<JellyfinClient>>>;
 
 #[derive(Debug)]
 pub enum LoadPlay {
@@ -97,27 +97,40 @@ pub enum NextScreen {
         out: ClientOut,
         client: JellyfinClient<NoAuth>,
         quick_connect_available: bool,
+        server_id: String,
     },
     AuthPassword {
         state: LoginState,
         out: ClientOut,
         client: JellyfinClient<NoAuth>,
+
+        server_id: String,
     },
     AuthPasswordFetch {
         state: LoginState,
         out: ClientOut,
         client: JellyfinClient<NoAuth>,
+        server_id: String,
     },
     AuthQuickConnectFetch {
         state: LoginState,
         out: ClientOut,
         client: JellyfinClient<NoAuth>,
+        server_id: String,
     },
     AuthQuickConnectWait {
         state: LoginState,
         out: ClientOut,
         client: JellyfinClient<NoAuth>,
         secret: String,
+        code: String,
+        server_id: String,
+    },
+    AuthFinished {
+        state: LoginState,
+        out: ClientOut,
+        client: JellyfinClient,
+        server_id: String,
     },
 }
 

@@ -84,7 +84,6 @@ nix = {features = ["process", "signal"], workspace = true}
 members = [
   "async-task",
   "config",
-  "event-collector",
   "event-listener",
   "image-cache",
   "jellyfin-rs",

@@ -1,15 +1,18 @@
 use std::ops::ControlFlow;
 
 use jellyhaj_core::{
-    CommandMapper,
-    context::TuiContext,
+    CommandMapper, Config,
+    context::Spawner,
     keybinds::LoggerCommand,
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_log_widget::{LogWidget, TuiWidgetEvent};
-use jellyhaj_widgets_core::outer::{Named, OuterWidget};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext,
+    outer::{Named, OuterWidget},
+};
 
 struct Mapper;
 
@@ -43,11 +46,8 @@ impl Named for Name {
 }
 
 #[must_use]
-pub fn render_log(cx: TuiContext) -> Erased {
-    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
-        LogWidget::new(),
-        cx.config.keybinds.logger.clone(),
-        Mapper,
-    ));
+pub fn render_log(cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static) -> Erased {
+    let top = Config::get_ref(&cx).keybinds.logger.clone();
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(LogWidget::new(), top, Mapper));
     make_new_erased(cx, widget)
 }

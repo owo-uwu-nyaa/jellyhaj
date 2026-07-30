@@ -138,9 +138,9 @@ fn map(
             ControlFlow::Continue(ControlFlow::Continue(server)) => {
                 Navigation::Push(NextScreen::ConnectToServer {
                     state: LoginState {
-                        jellyfin_url: server,
+                        server_url: server,
                         username: state.username.clone(),
-                        passwort: state.passwort.clone(),
+                        password: state.password.clone(),
                         passwort_cmd: state.passwort_cmd.clone(),
                     },
                     out: client_out.clone(),
@@ -154,7 +154,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for ServerWidget {
         &mut self,
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) {
-        if !self.state.jellyfin_url.is_empty() {
+        if !self.state.server_url.is_empty() {
             self.inner.inner.sel = ServerDataSelection::Connect(());
             cx.submitter
                 .spawn_value_infallible(KeybindAction::Inner(ServerAction::Initial));

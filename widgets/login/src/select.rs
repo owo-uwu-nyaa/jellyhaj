@@ -66,6 +66,7 @@ pub struct SelectWidget {
     #[valuable(skip)]
     client_out: ClientOut,
     state: LoginState,
+    server_id: String,
     #[valuable(skip)]
     client: JellyfinClient<NoAuth>,
 }
@@ -76,11 +77,13 @@ impl SelectWidget {
         client_out: ClientOut,
         state: LoginState,
         client: JellyfinClient<NoAuth>,
+        server_id: String,
     ) -> Self {
         Self {
             inner,
             client_out,
             state,
+            server_id,
             client,
         }
     }
@@ -130,6 +133,7 @@ fn map(
     client_out: &ClientOut,
     state: &LoginState,
     client: &JellyfinClient<NoAuth>,
+    server_id: &str,
 ) -> Result<Option<Navigation>> {
     v.map(|v| {
         v.map(|v| match v {
@@ -139,6 +143,7 @@ fn map(
                     state: state.clone(),
                     out: client_out.clone(),
                     client: client.clone(),
+                    server_id: server_id.to_owned(),
                 })
             }
             ControlFlow::Continue(ControlFlow::Continue(Selection::Password)) => {
@@ -146,6 +151,7 @@ fn map(
                     state: state.clone(),
                     out: client_out.clone(),
                     client: client.clone(),
+                    server_id: server_id.to_owned(),
                 })
             }
         })
@@ -157,7 +163,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) {
         if !(self.state.username.is_empty()
-            || (self.state.passwort.is_empty() && self.state.passwort_cmd.is_empty()))
+            || (self.state.password.is_empty() && self.state.passwort_cmd.is_empty()))
         {
             self.inner.inner.sel = SelectDataSelection::Passwort(());
             cx.submitter
@@ -177,6 +183,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
                     state: self.state.clone(),
                     out: self.client_out.clone(),
                     client: self.client.clone(),
+                    server_id: self.server_id.clone(),
                 })));
             }
             KeybindAction::Inner(SelectAction::Inner(v)) => KeybindAction::Inner(v),
@@ -187,6 +194,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
             &self.client_out,
             &self.state,
             &self.client,
+            &self.server_id,
         )
     }
 
@@ -204,6 +212,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
             &self.client_out,
             &self.state,
             &self.client,
+            &self.server_id,
         )
     }
 

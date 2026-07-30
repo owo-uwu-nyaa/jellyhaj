@@ -114,6 +114,7 @@ pub struct PasswordWidget {
     #[valuable(skip)]
     client_out: ClientOut,
     state: LoginState,
+    server_id: String,
     #[valuable(skip)]
     client: JellyfinClient<NoAuth>,
 }
@@ -128,11 +129,13 @@ impl PasswordWidget {
         client_out: ClientOut,
         state: LoginState,
         client: JellyfinClient<NoAuth>,
+        server_id: String,
     ) -> Self {
         Self {
             inner,
             client_out,
             state,
+            server_id,
             client,
         }
     }
@@ -182,19 +185,20 @@ fn map(
     client_out: &ClientOut,
     state: &LoginState,
     client: &JellyfinClient<NoAuth>,
+    server_id: &str,
 ) -> Result<Option<Navigation>> {
     v.map(|v| {
         v.map(|v| match v {
             ControlFlow::Break(n) | ControlFlow::Continue(ControlFlow::Break(n)) => n,
             ControlFlow::Continue(ControlFlow::Continue(LoginResult { password, username })) => {
                 let mut state = LoginState {
-                    jellyfin_url: state.jellyfin_url.clone(),
+                    server_url: state.server_url.clone(),
                     username,
-                    passwort: String::new(),
+                    password: String::new(),
                     passwort_cmd: Vec::new(),
                 };
                 match password {
-                    PasswordUsage::Password(p) => state.passwort = p,
+                    PasswordUsage::Password(p) => state.password = p,
                     PasswordUsage::PasswordCmd(cmd) => match serde_json::from_str(&cmd) {
                         Ok(v) => state.passwort_cmd = v,
                         Err(e) => {
@@ -208,6 +212,7 @@ fn map(
                     state,
                     out: client_out.clone(),
                     client: client.clone(),
+                    server_id: server_id.to_owned(),
                 })
             }
         })
@@ -219,7 +224,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for PasswordWidget {
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) {
         if !(self.state.username.is_empty()
-            || (self.state.passwort.is_empty() && self.state.passwort_cmd.is_empty()))
+            || (self.state.password.is_empty() && self.state.passwort_cmd.is_empty()))
         {
             self.inner.inner.sel = PasswordDataSelection::Login(());
             cx.submitter
@@ -239,6 +244,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for PasswordWidget {
                     state: self.state.clone(),
                     out: self.client_out.clone(),
                     client: self.client.clone(),
+                    server_id: self.server_id.clone(),
                 })));
             }
             KeybindAction::Inner(PasswordAction::Inner(v)) => KeybindAction::Inner(v),
@@ -249,6 +255,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for PasswordWidget {
             &self.client_out,
             &self.state,
             &self.client,
+            &self.server_id,
         )
     }
 
@@ -266,6 +273,7 @@ impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for PasswordWidget {
             &self.client_out,
             &self.state,
             &self.client,
+            &self.server_id,
         )
     }
 

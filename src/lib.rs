@@ -1,3 +1,5 @@
+pub mod widget_creators;
+
 use std::{
     path::PathBuf,
     ptr::NonNull,
@@ -15,13 +17,10 @@ use config::{Config, init_config};
 use jellyhaj_core::{
     context::TuiContext,
     state::NextScreen,
-    widgets::{
-        shaded::widget::Erased,
-        state::{StateStack, render_loop},
-    },
+    widgets::state::{StateStack, render_loop},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
-use jellyhaj_image::cache::ImageCache;
+use jellyhaj_image::{Stats, cache::ImageCache};
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -32,71 +31,13 @@ use sqlx::SqliteConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error_span, info, instrument};
 
-fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
-    match screen {
-        NextScreen::LoadHomeScreen => jellyhaj_home_screen_view::make_fetch_home_screen(cx),
-        NextScreen::HomeScreen {
-            cont,
-            next_up,
-            libraries,
-            library_latest,
-        } => jellyhaj_home_screen_view::render_home_screen(
-            cx,
-            cont,
-            next_up,
-            libraries,
-            library_latest,
-        ),
-        NextScreen::LoadUserView(user_view) => {
-            jellyhaj_library_view::render_fetch_user_view(cx, user_view)
-        }
-        NextScreen::UserView { view, items, seen } => {
-            jellyhaj_library_view::render_user_view(cx, view, items, seen)
-        }
-        NextScreen::FetchPlay(load_play) => jellyhaj_player_view::render_fetch_play(cx, load_play),
-        NextScreen::Play { items, index } => jellyhaj_player_view::render_play(cx, items, index),
-        NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, &report),
-        NextScreen::ItemDetails(media_item) => {
-            jellyhaj_item_details_view::render_item_details(cx, media_item)
-        }
-        NextScreen::ItemListDetails(media_item, media_items) => {
-            jellyhaj_item_details_view::render_item_list_details(cx, media_item, media_items)
-        }
-        NextScreen::FetchItemListDetails(media_item) => {
-            jellyhaj_item_details_view::render_fetch_item_list(cx, media_item)
-        }
-        NextScreen::FetchItemListDetailsRef(id) => {
-            jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id)
-        }
-        NextScreen::FetchItemDetails(item) => {
-            jellyhaj_item_details_view::render_fetch_episode(cx, item)
-        }
-        NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id),
-        NextScreen::DoRefreshItem { id, query } => {
-            jellyhaj_refresh_item_view::render_do_refresh_item(cx, id, query)
-        }
-        NextScreen::Stats => jellyhaj_stats_view::render_stats(cx),
-        NextScreen::Logs => jellyhaj_log_view::render_log(cx),
-        NextScreen::Inspect => jellyhaj_inspect_view::render_inspect(cx),
-        NextScreen::QuickConnect => jellyhaj_quick_connect_view::make_quick_connect(cx),
-        NextScreen::QuickConnectAuth(code) => {
-            jellyhaj_quick_connect_view::make_quick_connect_auth(cx, code)
-        }
-        NextScreen::SelectServer { .. }
-        | NextScreen::ConnectToServer { .. }
-        | NextScreen::SelectAuthMethod { .. }
-        | NextScreen::AuthPassword { .. }
-        | NextScreen::AuthPasswordFetch { .. }
-        | NextScreen::AuthQuickConnectFetch { .. }
-        | NextScreen::AuthQuickConnectWait { .. } => unreachable!("already logged in"),
-    }
-}
+use crate::widget_creators::make_screen_login;
 
 #[instrument(skip_all, level = "debug")]
 async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
     let widget_creator = {
         let cx = cx.clone();
-        Arc::new(move |next| make_screen(next, cx.clone()))
+        Arc::new(move |next| widget_creators::make_screen(next, cx.clone()))
     };
     info!("reached main application loop");
     render_loop(
@@ -120,17 +61,18 @@ async fn run_app_inner(
     stop: CancellationToken,
 ) -> Result<()> {
     let config = Arc::new(config);
+    let stats: Stats = Arc::default();
     debug!("logging in to jellyfin");
     if let Some(jellyfin) = jellyhaj_login_view::login(
-        clap::crate_name!(),
-        clap::crate_version!(),
+        config.clone(),
+        cache.clone(),
+        spawner.clone(),
+        stats.clone(),
+        make_screen_login,
         &mut term,
         &mut events,
-        spawner.clone(),
-        config.clone(),
-        &cache,
     )
-    .await?
+    .await
     {
         let jellyfin_events = JellyfinEventInterests::new(
             &spawner,
@@ -171,7 +113,7 @@ async fn run_app_inner(
                 image_cache: ImageCache::new(),
                 mpv_handle: mpv_handle.clone(),
                 image_picker: Arc::new(image_picker),
-                stats: Arc::default(),
+                stats,
                 spawn: spawner,
                 state: Arc::new(StateStack::new()),
             },

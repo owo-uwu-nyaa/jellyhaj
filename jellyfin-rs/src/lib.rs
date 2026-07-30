@@ -13,6 +13,7 @@ use http::{Uri, header::AUTHORIZATION};
 use hyper::header::HeaderValue;
 use sealed::AuthSealed;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use user::User;
 
 use crate::auth::UniqueId;
@@ -164,6 +165,7 @@ impl JellyfinClient {
             Some("https") => true,
             Some(val) => return Err(eyre!("unexpected jellyfin uri scheme {val}")),
         };
+        debug!(?uri, "build jellyfin client");
         let authority = uri.authority.ok_or_eyre("uri has no authority part")?;
         let host_header = HeaderValue::from_str(authority.as_str())?;
         let uri_base = uri.path_and_query.map_or(String::new(), |path| {

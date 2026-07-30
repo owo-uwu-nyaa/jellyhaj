@@ -1,15 +1,21 @@
 use std::ops::ControlFlow;
 
 use jellyhaj_core::{
-    CommandMapper,
-    context::TuiContext,
+    CommandMapper, Config,
+    context::Spawner,
     keybinds::InspectCommand,
     state::Navigation,
-    widgets::shaded::widget::{Erased, make_new_erased},
+    widgets::{
+        shaded::widget::{Erased, make_new_erased},
+        state::StateStack,
+    },
 };
 use jellyhaj_inspect_widget::{InspectAction, InspectWidget};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_widgets_core::outer::{Named, OuterWidget};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext,
+    outer::{Named, OuterWidget},
+};
 
 struct Mapper;
 impl CommandMapper<InspectCommand> for Mapper {
@@ -36,11 +42,11 @@ impl Named for Name {
 }
 
 #[must_use]
-pub fn render_inspect(cx: TuiContext) -> Erased {
-    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
-        InspectWidget::default(),
-        cx.config.keybinds.inspect.clone(),
-        Mapper,
-    ));
+pub fn render_inspect(
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
+) -> Erased {
+    let top = Config::get_ref(&cx).keybinds.inspect.clone();
+    let widget =
+        OuterWidget::<Name, _>::new(KeybindWidget::new(InspectWidget::default(), top, Mapper));
     make_new_erased(cx, widget)
 }

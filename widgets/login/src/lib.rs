@@ -1,12 +1,11 @@
 pub mod password;
+pub mod quick_connect;
 pub mod select;
 pub mod server;
 
-use std::time::Duration;
 use std::{convert::Infallible, ops::ControlFlow};
 
 use color_eyre::Report;
-use color_eyre::eyre::Context;
 use jellyhaj_core::Config;
 use jellyhaj_core::{keybinds::FormCommand, state::Navigation};
 use jellyhaj_form_widget::button::Button;
@@ -19,15 +18,12 @@ use jellyhaj_form_widget::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::flatten::FlattenWidget;
-use jellyhaj_widgets_core::spawn::tracing::{info, info_span};
 use jellyhaj_widgets_core::valuable::Valuable;
 use jellyhaj_widgets_core::{
     ContextRef, KeyModifiers, MouseEventKind, Result, WidgetContext, Wrapper,
 };
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase};
-use ratatui::layout::Constraint;
 use ratatui::prelude::{Buffer, Position, Rect, Size};
-use ratatui::widgets::{Block, Padding, Widget};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonAction {
@@ -232,136 +228,5 @@ impl LoginWidget {
                 FormCommandMapper::default(),
             )),
         }
-    }
-}
-
-#[derive(Valuable)]
-pub struct QuickConnectWidget {
-    code: String,
-    position: u8,
-}
-
-impl QuickConnectWidget {
-    #[must_use]
-    pub const fn new(code: String) -> Self {
-        Self { code, position: 0 }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum QuickConectAction {
-    Clock,
-    Quit,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Quit;
-
-const TICK_INTERVAL: Duration = Duration::from_millis(200);
-const CANCEL_STR: &str = "Cancel";
-
-impl JellyhajWidgetBase for QuickConnectWidget {
-    type Action = QuickConectAction;
-
-    type ActionResult = Quit;
-
-    const NAME: &str = "quick-connect";
-
-    fn visit_children(&self, _: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
-
-    fn min_width(&self) -> Option<u16> {
-        Some(33)
-    }
-    fn min_height(&self) -> Option<u16> {
-        Some(9)
-    }
-}
-
-impl<R: 'static> JellyhajWidget<R> for QuickConnectWidget {
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
-        let interval = tokio::time::interval(TICK_INTERVAL);
-        cx.submitter.spawn_stream(
-            futures_util::stream::unfold(interval, |mut interval| async move {
-                interval.tick().await;
-                Some((Ok(QuickConectAction::Clock), interval))
-            }),
-            info_span!("quick-connect-clock"),
-            "quick-connect-clock",
-        );
-    }
-
-    fn apply_action(
-        &mut self,
-        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        match action {
-            QuickConectAction::Clock => {
-                self.position = (self.position + 1) % 4;
-                Ok(None)
-            }
-            QuickConectAction::Quit => Ok(Some(Quit)),
-        }
-    }
-
-    fn click(
-        &mut self,
-        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: Position,
-        size: Size,
-        kind: MouseEventKind,
-        _modifier: KeyModifiers,
-    ) -> Result<Option<Self::ActionResult>> {
-        if kind.is_down() && {
-            let mut area = Rect::from((Position::ORIGIN, size)).centered(
-                Constraint::Length(u16::try_from(CANCEL_STR.len()).expect("known length") + 2),
-                Constraint::Length(5),
-            );
-            area.y += 2;
-            area.height -= 2;
-            area.contains(position)
-        } {
-            Ok(Some(Quit))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn render_fallible_inner(
-        &mut self,
-        area: Rect,
-        buf: &mut Buffer,
-        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        info!("area: {area:?}");
-        info!("rendering quick connect");
-        let block = Block::bordered()
-            .title("Quick Connect ")
-            .padding(Padding::uniform(1));
-        let mut main = block.inner(area).centered_vertically(Constraint::Length(5));
-        info!("main: {main:?}");
-        let spin = ['|', '/', '-', '\\'];
-        let text = format!(
-            "Enter code {} to login {}",
-            self.code, spin[self.position as usize]
-        );
-        let mut text_area = main.centered_horizontally(Constraint::Length(
-            text.len()
-                .try_into()
-                .context("text lenght conversion overflowed")?,
-        ));
-        text_area.height = 1;
-        info!("text_area: {text_area:?}");
-        text.render(text_area, buf);
-        main.y += 2;
-        main.height -= 2;
-        main = main.centered_horizontally(Constraint::Length(
-            u16::try_from(CANCEL_STR.len()).expect("known length") + 2,
-        ));
-        let cancel_block = Block::bordered();
-        CANCEL_STR.render(cancel_block.inner(main), buf);
-        cancel_block.render(main, buf);
-        block.render(area, buf);
-        Ok(())
     }
 }

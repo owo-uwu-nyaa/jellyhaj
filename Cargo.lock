@@ -2045,22 +2045,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jellyhaj-event-collector"
-version = "0.1.0"
-dependencies = [
- "clap",
- "color-eyre",
- "config",
- "futures-util",
- "jellyfin",
- "serde_json",
- "tokio",
- "toml",
- "tracing-subscriber",
- "whoami",
-]
-
-[[package]]
 name = "jellyhaj-event-listener"
 version = "0.1.0"
 dependencies = [
@@ -2360,11 +2344,14 @@ dependencies = [
  "config",
  "jellyfin",
  "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-form-widget",
  "jellyhaj-keybinds-widget",
  "jellyhaj-loading-widget",
  "jellyhaj-login-widget",
  "jellyhaj-widgets-core",
  "keybinds",
+ "parking_lot",
  "ratatui",
  "spawn",
  "sqlx",

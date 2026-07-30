@@ -2,15 +2,18 @@ use std::ops::ControlFlow;
 
 use color_eyre::eyre::Report;
 use jellyhaj_core::{
-    CommandMapper,
-    context::TuiContext,
+    CommandMapper, Config,
+    context::Spawner,
     keybinds::ErrorCommand,
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_error_widget::{ErrorAction, ErrorWidget};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_widgets_core::outer::{Named, OuterWidget};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext,
+    outer::{Named, OuterWidget},
+};
 
 struct Mapper;
 
@@ -35,11 +38,15 @@ impl Named for Name {
     const NAME: &str = "error";
 }
 
-pub fn render_error(cx: TuiContext, e: &Report) -> Erased {
+pub fn render_error(
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+    e: &Report,
+) -> Erased {
     tracing::error!("Error encountered: {e:?}");
+    let top = Config::get_ref(&cx).keybinds.error.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         ErrorWidget::new(format!("{e:?}")),
-        cx.config.keybinds.error.clone(),
+        top,
         Mapper,
     ));
     make_new_erased(cx, widget)

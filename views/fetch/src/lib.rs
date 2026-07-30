@@ -10,15 +10,18 @@ use jellyfin::{
     items::{GetItemsQuery, MediaItem},
 };
 use jellyhaj_core::{
-    CommandMapper,
-    context::TuiContext,
+    CommandMapper, Config,
     keybinds::LoadingCommand,
     state::{Navigation, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_widget::{FetchAction, FetchWidget};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_widgets_core::outer::{Named, OuterWidget};
+use jellyhaj_widgets_core::{
+    ContextRef, GetFromContext,
+    outer::{Named, OuterWidget},
+};
+use spawn::Spawner;
 use tracing::instrument;
 
 struct FetchMapper;
@@ -40,7 +43,7 @@ impl Named for Name {
 }
 
 pub fn make_fetch(
-    cx: TuiContext,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
     title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<NextScreen>> + Send + 'static,
 ) -> Erased {
@@ -48,13 +51,14 @@ pub fn make_fetch(
 }
 
 pub fn make_nav_fetch(
-    cx: TuiContext,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
     title: impl Into<Cow<'static, str>>,
     fut: impl Future<Output = Result<Navigation>> + Send + 'static,
 ) -> Erased {
+    let top = Config::get_ref(&cx).keybinds.fetch.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         FetchWidget::new(fut, title),
-        cx.config.keybinds.fetch.clone(),
+        top,
         FetchMapper,
     ));
     make_new_erased(cx, widget)

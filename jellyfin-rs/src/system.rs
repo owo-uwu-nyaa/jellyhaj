@@ -19,7 +19,7 @@ pub struct PublicSysteminfo {
 
 impl<A: AuthStatus> JellyfinClient<A> {
     pub async fn get_system_info_public(&self) -> Result<JsonResponse<PublicSysteminfo>> {
-        self.send_request_json(self.get("System/Info/Public", NoQuery)?.empty_body()?)
+        self.send_request_json(self.get("/System/Info/Public", NoQuery)?.empty_body()?)
             .await
     }
 }

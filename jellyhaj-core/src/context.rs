@@ -11,10 +11,9 @@ pub use ratatui::DefaultTerminal;
 pub use ratatui_image::picker::Picker;
 pub use spawn::Spawner;
 use sqlx::SqliteConnection;
-use stats_data::StatsData;
 use tokio::sync::Mutex;
 
-pub use stats_data::Stats;
+pub use stats_data::{Stats, StatsData};
 
 use crate::widgets::state::StateStack;
 pub type DBInner = Mutex<SqliteConnection>;
