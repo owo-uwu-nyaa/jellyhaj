@@ -57,7 +57,7 @@ impl MediaPlayer2 {
     }
     #[zbus(property(emits_changed_signal = "const"))]
     const fn identity(&self) -> &'static str {
-        "Jellyfin TUI Player"
+        "Jellyhaj"
     }
     #[zbus(property(emits_changed_signal = "const"))]
     const fn desktop_entry(&self) -> &'static str {

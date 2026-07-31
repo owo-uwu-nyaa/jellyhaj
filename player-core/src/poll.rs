@@ -576,8 +576,8 @@ fn name(item: &MediaItem) -> Result<CString> {
 fn index_of(playlist: &[Arc<PlaylistItem>], id: PlaylistItemId) -> Option<usize> {
     playlist
         .iter()
-        .filter(|i| i.id == id)
         .enumerate()
+        .filter(|(_, i)| i.id == id)
         .next()
         .map(|(i, _)| i)
 }
