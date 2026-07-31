@@ -116,6 +116,7 @@ O = {name = "open-", e = "open-episode", S = "open-season", s = "open-series"}
 R = "refresh-item"
 w = "set-watched"
 u = "unset-watched"
+"C-i" = "copy-id"
 
 [template.g.s]
 name = "show-"

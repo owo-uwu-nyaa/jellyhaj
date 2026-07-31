@@ -1,3 +1,4 @@
+use color_eyre::eyre::Context;
 use jellyfin::{
     JellyfinClient,
     items::{ItemType, MediaItem},
@@ -9,6 +10,7 @@ use jellyhaj_core::{
     state::{LoadPlay, Navigation, NextScreen},
 };
 use jellyhaj_widgets_core::{ContextRef, GetFromContext};
+use ratatui::crossterm::{clipboard::CopyToClipboard, execute};
 use tracing::info_span;
 
 use crate::EntryData;
@@ -53,6 +55,17 @@ impl EntryData {
                     "unset_watched",
                 );
                 return None;
+            }
+            (
+                Self::View(UserView { id, .. }) | Self::Item(MediaItem { id, .. }),
+                EntryCommand::CopyId,
+            ) => {
+                match execute!(std::io::stdout(), CopyToClipboard::to_clipboard_from(id))
+                    .context("sending clipboard cmd")
+                {
+                    Ok(()) => return None,
+                    Err(e) => NextScreen::Error(e),
+                }
             }
             (
                 Self::View(_),
