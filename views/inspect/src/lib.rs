@@ -46,7 +46,23 @@ pub fn render_inspect(
     cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
 ) -> Erased {
     let top = Config::get_ref(&cx).keybinds.inspect.clone();
-    let widget =
-        OuterWidget::<Name, _>::new(KeybindWidget::new(InspectWidget::default(), top, Mapper));
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+        InspectWidget::widget_state(),
+        top,
+        Mapper,
+    ));
+    make_new_erased(cx, widget)
+}
+#[must_use]
+pub fn render_inspect_value(
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
+    value: &serde_json::Value,
+) -> Erased {
+    let top = Config::get_ref(&cx).keybinds.inspect.clone();
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+        InspectWidget::json_value(value),
+        top,
+        Mapper,
+    ));
     make_new_erased(cx, widget)
 }

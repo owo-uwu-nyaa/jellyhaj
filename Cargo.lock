@@ -1922,6 +1922,7 @@ dependencies = [
  "jellyhaj-error-view",
  "jellyhaj-event-listener",
  "jellyhaj-home-screen-view",
+ "jellyhaj-http-client-view",
  "jellyhaj-image",
  "jellyhaj-inspect-view",
  "jellyhaj-item-details-view",
@@ -1998,6 +1999,7 @@ dependencies = [
  "ratatui",
  "ratatui-image",
  "serde",
+ "serde_json",
  "spawn",
  "sqlx",
  "stats-data",
@@ -2155,6 +2157,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-http-client-view"
+version = "0.1.0"
+dependencies = [
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-form-widget",
+ "jellyhaj-http-client-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
+]
+
+[[package]]
+name = "jellyhaj-http-client-widget"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-core",
+ "jellyhaj-form-widget",
+ "jellyhaj-widgets-core",
+ "valuable",
+]
+
+[[package]]
 name = "jellyhaj-image"
 version = "0.1.0"
 dependencies = [
@@ -2185,6 +2210,7 @@ dependencies = [
  "jellyhaj-inspect-widget",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "serde_json",
 ]
 
 [[package]]
@@ -2193,6 +2219,7 @@ version = "0.1.0"
 dependencies = [
  "jellyhaj-core",
  "jellyhaj-widgets-core",
+ "serde_json",
  "tokio",
  "tracing",
  "tui-tree-widget",

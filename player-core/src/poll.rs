@@ -577,7 +577,6 @@ fn index_of(playlist: &[Arc<PlaylistItem>], id: PlaylistItemId) -> Option<usize>
     playlist
         .iter()
         .enumerate()
-        .filter(|(_, i)| i.id == id)
-        .next()
+        .find(|(_, i)| i.id == id)
         .map(|(i, _)| i)
 }

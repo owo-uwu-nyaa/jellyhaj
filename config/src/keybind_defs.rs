@@ -24,6 +24,7 @@ pub enum GlobalCommand {
     ShowInspect,
     QuickConnect,
     ShowHome,
+    HttpClient,
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]

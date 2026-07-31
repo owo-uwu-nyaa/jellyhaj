@@ -348,14 +348,92 @@ async fn collect_tree_items(items: Vec<ViewInfo>) -> Vec<IdTreeItem> {
     res
 }
 
-pub fn inspect_state(state: &StateStack) -> impl Future<Output = Vec<IdTreeItem>> + Send + 'static {
+fn inspect_state(state: &StateStack) -> impl Future<Output = Vec<IdTreeItem>> + Send + 'static {
     collect_tree_items(inspect_state_inner(state))
 }
 
-#[derive(Default)]
+fn inspect_json_value_inner(
+    mut name: String,
+    value: &serde_json::Value,
+    id_gen: &mut usize,
+) -> IdTreeItem {
+    let id = *id_gen;
+    *id_gen += 1;
+    match value {
+        serde_json::Value::Null => {
+            name.push_str("null");
+            IdTreeItem::new_leaf((0, id), name)
+        }
+        serde_json::Value::Bool(v) => {
+            let val = if *v { "true" } else { "false" };
+            name.push_str(val);
+            IdTreeItem::new_leaf((0, id), name)
+        }
+        serde_json::Value::Number(number) => {
+            name.push_str(&number.to_string());
+            IdTreeItem::new_leaf((0, id), name)
+        }
+        serde_json::Value::String(s) => {
+            name.push('"');
+            name.push_str(s);
+            name.push('"');
+            IdTreeItem::new_leaf((0, id), name)
+        }
+        serde_json::Value::Array(values) => {
+            name.push_str("[]");
+            let vals = values
+                .iter()
+                .enumerate()
+                .map(|(index, val)| {
+                    let prefix = format!("[{index}]: ");
+                    inspect_json_value_inner(prefix, val, id_gen)
+                })
+                .collect();
+            IdTreeItem::new((0, id), name, vals).expect("should always be unique")
+        }
+        serde_json::Value::Object(map) => {
+            name.push_str("{...}");
+            let vals = map
+                .iter()
+                .map(|(name, val)| {
+                    let prefix = format!("{name:?} : ");
+                    inspect_json_value_inner(prefix, val, id_gen)
+                })
+                .collect();
+            IdTreeItem::new((0, id), name, vals).expect("should always be unique")
+        }
+    }
+}
+
+fn inspect_json_value(value: &serde_json::Value) -> Vec<IdTreeItem> {
+    let mut id = 0;
+    let val = inspect_json_value_inner(String::new(), value, &mut id);
+    vec![val]
+}
+
 pub struct InspectWidget {
     items: Vec<IdTreeItem>,
     state: TreeState<Id>,
+    from_widget_state: bool,
+}
+
+impl InspectWidget {
+    #[must_use]
+    pub fn widget_state() -> Self {
+        Self {
+            items: Vec::new(),
+            state: TreeState::default(),
+            from_widget_state: true,
+        }
+    }
+    #[must_use]
+    pub fn json_value(val: &serde_json::Value) -> Self {
+        Self {
+            items: inspect_json_value(val),
+            state: TreeState::default(),
+            from_widget_state: false,
+        }
+    }
 }
 
 impl Valuable for InspectWidget {
@@ -411,10 +489,12 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             R,
         >,
     ) {
-        let f = inspect_state(cx.refs.as_ref());
-        cx.submitter
-            .wrap_with(InspectAction::Content)
-            .spawn_task_infallible(f, info_span!("collect-inspect"), "collect-inspect");
+        if self.from_widget_state {
+            let f = inspect_state(cx.refs.as_ref());
+            cx.submitter
+                .wrap_with(InspectAction::Content)
+                .spawn_task_infallible(f, info_span!("collect-inspect"), "collect-inspect");
+        }
     }
 
     fn apply_action(

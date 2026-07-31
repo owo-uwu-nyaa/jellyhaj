@@ -53,6 +53,12 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::QuickConnectAuth(code) => {
             jellyhaj_quick_connect_view::make_quick_connect_auth(cx, code)
         }
+        NextScreen::InspectValue(value) => jellyhaj_inspect_view::render_inspect_value(cx, &value),
+        NextScreen::HttpClient => jellyhaj_http_client_view::render_http_client(cx),
+        NextScreen::HttpClientFetch { url } => {
+            jellyhaj_http_client_view::render_http_client_fetch(cx, url)
+        }
+
         NextScreen::SelectServer { .. }
         | NextScreen::ConnectToServer { .. }
         | NextScreen::SelectAuthMethod { .. }
@@ -73,6 +79,7 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         NextScreen::Stats => jellyhaj_stats_view::render_stats(cx),
         NextScreen::Logs => jellyhaj_log_view::render_log(cx),
         NextScreen::Inspect => jellyhaj_inspect_view::render_inspect(cx),
+        NextScreen::InspectValue(v) => jellyhaj_inspect_view::render_inspect_value(cx, &v),
         NextScreen::QuickConnect => jellyhaj_error_view::render_error(
             cx,
             &eyre!("Authenticating another client through quick connect requires beeing logged in"),
@@ -154,7 +161,9 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::FetchItemDetails(_)
         | NextScreen::RefreshItem(_)
         | NextScreen::DoRefreshItem { .. }
-        | NextScreen::QuickConnectAuth(_) => {
+        | NextScreen::QuickConnectAuth(_)
+        | NextScreen::HttpClient
+        | NextScreen::HttpClientFetch { .. } => {
             jellyhaj_error_view::render_error(cx, &eyre!("This requires beeing logged in"))
         }
     }

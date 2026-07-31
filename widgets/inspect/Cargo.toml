@@ -1,6 +1,7 @@
 [dependencies]
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+serde_json.workspace = true
 tokio = {features = ["sync"], workspace = true}
 tracing.workspace = true
 tui-tree-widget.workspace = true

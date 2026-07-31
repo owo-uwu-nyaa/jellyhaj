@@ -54,6 +54,7 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
 tracing-journald = { version = "0.3.2", optional = true }
+jellyhaj-http-client-view = { version = "0.1.0", path = "views/http-client" }
 
 [features]
 attach = ["dep:libc"]
@@ -101,7 +102,7 @@ members = [
   "stats-data",
   "views/error",
   "views/fetch",
-  "views/home-screen",
+  "views/home-screen", "views/http-client",
   "views/inspect",
   "views/item-details",
   "views/library",
@@ -118,7 +119,7 @@ members = [
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl",
-  "widgets/home-screen",
+  "widgets/home-screen", "widgets/http-client",
   "widgets/image",
   "widgets/inspect",
   "widgets/item-details",

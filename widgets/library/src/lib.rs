@@ -1,9 +1,9 @@
 use std::{fmt::Debug, ops::ControlFlow, pin::pin};
 
-use color_eyre::eyre::Context;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
-    items::{GetItemsQuery, MediaItem},
+    connect::JsonResponseHelper,
+    items::{ALL_FIELDS, GetItemsQuery, MediaItem},
     user_views::UserView,
 };
 use jellyhaj_core::{
@@ -70,6 +70,22 @@ impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for Wrap {
     }
 }
 
+#[must_use]
+pub fn make_item_query(seen: u32, parent: &str) -> GetItemsQuery<'_> {
+    GetItemsQuery {
+        start_index: seen.into(),
+        limit: 10.into(),
+        parent_id: parent.into(),
+        enable_images: true.into(),
+        enable_image_types: "Thumb, Backdrop, Primary".into(),
+        enable_user_data: true.into(),
+        sort_by: "DateLastContentAdded".into(),
+        sort_order: "Descending".into(),
+        fields: Some(ALL_FIELDS),
+        ..Default::default()
+    }
+}
+
 async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
     jellyfin: JellyfinClient,
     library_id: String,
@@ -81,28 +97,10 @@ async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
     let inner = async move {
         let mut stream = pin!(JellyfinVec::stream_from(
             async |seen| {
-                let user_id = jellyfin.get_auth().user.id.as_str();
                 jellyfin
-                    .get_items(&GetItemsQuery {
-                        user_id: user_id.into(),
-                        start_index: seen.into(),
-                        limit: 100.into(),
-                        recursive: None,
-                        parent_id: library_id.as_str().into(),
-                        exclude_item_types: None,
-                        include_item_types: None,
-                        enable_images: true.into(),
-                        enable_image_types: "Thumb, Backdrop, Primary".into(),
-                        image_type_limit: 1.into(),
-                        enable_user_data: true.into(),
-                        fields: None,
-                        sort_by: "DateLastContentAdded".into(),
-                        sort_order: "Descending".into(),
-                    })
-                    .await
-                    .context("requesting items")?
+                    .get_items(&make_item_query(seen, &library_id))
                     .deserialize()
-                    .context("deserializing items")
+                    .await
             },
             seen
         ));

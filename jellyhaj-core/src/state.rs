@@ -132,6 +132,11 @@ pub enum NextScreen {
         client: JellyfinClient,
         server_id: String,
     },
+    InspectValue(serde_json::Value),
+    HttpClient,
+    HttpClientFetch {
+        url: String,
+    },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -157,6 +162,7 @@ impl From<GlobalCommand> for Navigation {
             GlobalCommand::ShowInspect => NextScreen::Inspect,
             GlobalCommand::QuickConnect => NextScreen::QuickConnect,
             GlobalCommand::ShowHome => NextScreen::LoadHomeScreen,
+            GlobalCommand::HttpClient => NextScreen::HttpClient,
         })
     }
 }
