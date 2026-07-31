@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::items::MediaItem;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SessionInfo {
     pub play_state: PlayState,

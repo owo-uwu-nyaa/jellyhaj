@@ -2,7 +2,7 @@ use color_eyre::{Result, eyre::Context};
 use futures_util::{StreamExt, TryStreamExt, stream};
 use jellyfin::{
     JellyfinClient,
-    items::{GetNextUpQuery, GetResumeQuery, MediaItem},
+    items::{ALL_FIELDS, GetNextUpQuery, GetResumeQuery, MediaItem},
     user_library::GetLatestQuery,
     user_views::{CollectionType, GetUserViewsQuery, UserView, UserViewType},
 };
@@ -35,8 +35,7 @@ async fn resume(client: &JellyfinClient) -> Result<Vec<MediaItem>> {
             image_type_limit: 1.into(),
             enable_image_types: "Thumb, Backdrop, Primary".into(),
             media_types: "Video".into(),
-
-            fields: "Overview".into(),
+            fields: ALL_FIELDS.into(),
             enable_total_record_count: true.into(),
             enable_images: true.into(),
             exclude_active_sessions: false.into(),
@@ -57,7 +56,7 @@ async fn next_up(client: &JellyfinClient) -> Result<Vec<MediaItem>> {
             limit: Some(16),
             enable_user_data: Some(true),
             enable_images: Some(true),
-            fields: "Overview".into(),
+            fields: ALL_FIELDS.into(),
             image_type_limit: Some(1),
             enable_image_types: Some("Thumb, Backdrop, Primary"),
             enable_total_record_count: Some(true),

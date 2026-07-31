@@ -66,6 +66,46 @@ pub enum RefreshMode {
     FullRefresh,
 }
 
+macro_rules! join_concat {
+    () => {""};
+    ($i:literal) => {concat!($i)};
+    ($i:literal,) => {concat!($i)};
+    ($f:literal,$($i:literal),+) => {concat!($f, $(",", $i),+)};
+}
+
+pub static ALL_FIELDS: &str = join_concat!(
+    "AirTime",
+    "Chapters",
+    "ChildCount",
+    "CumulativeRunTimeTicks",
+    "DateCreated",
+    "DateLastMediaAdded",
+    "Etag",
+    "ExternalUrls",
+    "Genres",
+    "ItemCounts",
+    "MediaSources",
+    "OriginalTitle",
+    "Overview",
+    "ParentId",
+    "Path",
+    "People",
+    "ProductionLocations",
+    "ProviderIds",
+    "PrimaryImageAspectRatio",
+    "Settings",
+    "SeriesStudio",
+    "SortName",
+    "SpecialEpisodeNumbers",
+    "Studios",
+    "Tags",
+    "MediaStreams",
+    "SeasonUserData",
+    "DateLastRefreshed",
+    "DateLastSaved",
+    "SpecialFeatureCount"
+);
+
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetItemsQuery<'a> {
@@ -73,6 +113,7 @@ pub struct GetItemsQuery<'a> {
     pub start_index: Option<u32>,
     pub limit: Option<u32>,
     pub parent_id: Option<&'a str>,
+    pub adjacent_to: Option<&'a str>,
     pub exclude_item_types: Option<&'a str>,
     pub include_item_types: Option<&'a str>,
     pub enable_images: Option<bool>,
@@ -261,24 +302,101 @@ pub struct SetUserData {
     pub played: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MediaItem {
     pub id: String,
-    pub image_tags: Option<HashMap<ImageType, String>>,
+    #[serde(default)]
+    pub image_tags: HashMap<ImageType, String>,
     pub media_type: MediaType,
     pub name: String,
     pub sort_name: Option<String>,
     pub overview: Option<String>,
-    #[serde(flatten)]
-    pub item_type: ItemType,
     pub user_data: Option<UserData>,
     #[serde(rename = "IndexNumber")]
     pub episode_index: Option<u64>,
     #[serde(rename = "ParentIndexNumber")]
     pub season_index: Option<u64>,
     pub run_time_ticks: Option<u64>,
+    #[serde(default)]
+    pub air_days: Vec<String>,
+    #[serde(default)]
+    pub chapters: Vec<Chapter>,
+    #[serde(default)]
+    pub child_count: u32,
+    pub cumulative_runtime_ticks: Option<u64>,
+    pub date_created: Option<String>,
+    pub date_last_media_added: Option<String>,
+    pub etag: Option<String>,
+    #[serde(default)]
+    pub external_urls: Vec<ExternalUrl>,
+    #[serde(default)]
+    pub genre_items: Vec<GenreItem>,
+    pub original_language: Option<String>,
+    pub original_title: Option<String>,
+    pub parent_id: Option<String>,
+    pub path: Option<String>,
+    #[serde(default)]
+    pub people: Vec<People>,
+    pub premiere_date: Option<String>,
+    pub primary_image_aspect_ratio: Option<f32>,
+    pub production_year: Option<u16>,
+    #[serde(default)]
+    pub provider_ids: HashMap<String, String>,
+    pub status: Option<String>,
+    #[serde(default)]
+    pub studios: Vec<Studio>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(flatten)]
+    pub item_type: ItemType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct Studio {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct People {
+    pub id: String,
+    pub name: String,
+    pub primary_image_tag: Option<String>,
+    pub role: Option<String>,
+    #[serde(rename = "Type")]
+    pub p_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct GenreItem {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct ExternalUrl {
+    pub name: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct Chapter {
+    pub start_position_ticks: Option<u64>,
+    name: String,
+    image_path: Option<String>,
+    image_tag: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

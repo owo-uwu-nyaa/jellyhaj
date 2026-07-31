@@ -40,14 +40,11 @@ fn image_req(
 pub fn select_images(item: &MediaItem) -> impl Iterator<Item = (ImageType, &str)> {
     item.image_tags
         .iter()
-        .flat_map(|map| map.iter())
         .map(|(image_type, tag)| (*image_type, tag.as_str()))
 }
 
 pub fn select_images_owned(item: MediaItem) -> impl Iterator<Item = (ImageType, String)> {
-    item.image_tags
-        .into_iter()
-        .flat_map(std::iter::IntoIterator::into_iter)
+    item.image_tags.into_iter()
 }
 
 impl<Auth: AuthStatus> JellyfinClient<Auth> {

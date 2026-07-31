@@ -628,7 +628,7 @@ pub struct UserAccessSchedule {
     pub end_hour: i64,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct UserAuth {
     pub user: User,
