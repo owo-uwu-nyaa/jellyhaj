@@ -8,6 +8,7 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
 valuable.workspace = true
+serde_json.workspace = true
 
 [package]
 edition = "2024"

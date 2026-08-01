@@ -2018,6 +2018,7 @@ dependencies = [
  "jellyhaj-image",
  "jellyhaj-widgets-core",
  "ratatui",
+ "serde_json",
  "tokio",
  "tracing",
  "valuable",

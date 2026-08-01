@@ -67,6 +67,19 @@ impl EntryData {
                     Err(e) => NextScreen::Error(e),
                 }
             }
+            (Self::View(v), EntryCommand::InspectData) => {
+                match serde_json::to_value(v).context("converting entry data to json value") {
+                    Ok(v) => NextScreen::InspectValue(v),
+                    Err(e) => NextScreen::Error(e),
+                }
+            }
+            (Self::Item(i), EntryCommand::InspectData) => {
+                match serde_json::to_value(i).context("converting entry data to json value") {
+                    Ok(v) => NextScreen::InspectValue(v),
+                    Err(e) => NextScreen::Error(e),
+                }
+            }
+
             (
                 Self::View(_),
                 EntryCommand::Play

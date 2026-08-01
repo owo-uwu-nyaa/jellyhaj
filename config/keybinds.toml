@@ -117,6 +117,7 @@ R = "refresh-item"
 w = "set-watched"
 u = "unset-watched"
 "C-i" = "copy-id"
+I = "inspect-data"
 
 [template.g.s]
 name = "show-"
