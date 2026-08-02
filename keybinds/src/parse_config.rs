@@ -5,7 +5,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Context, Result, eyre};
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, MediaKeyCode};
 use serde::Deserialize;
 
 use super::{BindingMap, Command, Key, KeyBinding};
@@ -115,6 +115,7 @@ fn parse_mapping_item<T: Command>(
     Ok((key, binding))
 }
 
+// When modifying update impl Display doe Key, too
 fn parse_key_code(mut name: &str) -> Option<Key> {
     let mut control = false;
     let mut alt = false;
@@ -151,12 +152,17 @@ fn parse_key_code(mut name: &str) -> Option<Key> {
         "delete" => KeyCode::Delete,
         "insert" => KeyCode::Insert,
         "esc" => KeyCode::Esc,
+        "play-pause" => KeyCode::Media(MediaKeyCode::PlayPause),
+        "fast-forward" => KeyCode::Media(MediaKeyCode::FastForward),
+        "rewind" => KeyCode::Media(MediaKeyCode::Rewind),
+        "track-next" => KeyCode::Media(MediaKeyCode::TrackNext),
+        "track-previous" => KeyCode::Media(MediaKeyCode::TrackPrevious),
         code => {
             let mut chars = code.chars();
             let first = chars.next()?;
             if chars.next().is_none() {
                 KeyCode::Char(first)
-            } else if first == 'f' {
+            } else if first == 'f' || first == 'F' {
                 if let Ok(n) = code[1..].parse() {
                     KeyCode::F(n)
                 } else {

@@ -18,6 +18,9 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Widget},
 };
 
+const KEYBIND_ENTRY_WIDTH_INNER: u16 = 20;
+const KEYBIND_ENTRY_WIDTH: u16 = KEYBIND_ENTRY_WIDTH_INNER + 4;
+
 pub fn render_keybinds<
     R: ContextRef<Config> + 'static,
     T: Command,
@@ -32,7 +35,7 @@ pub fn render_keybinds<
     let task = cx.wrap_with(KeybindWrapper);
     let len: usize = this.current_map.iter().map(|v| v.len()).sum();
     if len > 0 {
-        let width = (area.width - 4) / 20;
+        let width = (area.width - 4) / KEYBIND_ENTRY_WIDTH;
         let full_usable_height = len.div_ceil(width as usize);
         let full_height = full_usable_height + 4;
         let height = u16::try_from(min(
@@ -78,7 +81,7 @@ pub fn render_keybinds<
             .take(items_per_screen)
             .zip((0u16..usable_height).flat_map(|y| {
                 (0u16..width).map(move |x| Position {
-                    x: main.x + x * 20,
+                    x: main.x + x * KEYBIND_ENTRY_WIDTH,
                     y: main.y + y,
                 })
             }))
@@ -97,7 +100,7 @@ pub fn render_keybinds<
                 (
                     pos,
                     Size {
-                        width: 16,
+                        width: KEYBIND_ENTRY_WIDTH_INNER,
                         height: 1,
                     },
                 )

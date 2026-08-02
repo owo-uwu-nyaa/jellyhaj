@@ -55,8 +55,13 @@ space = "pause"
 enter = "pause"
 right = "forward"
 left = "backward"
-"C-right" = "next"
-"C-left" = "prev"
+"n" = "next"
+"p" = "prev"
+"play-pause" = "pause"
+"fast-forward" = "forward"
+"rewind" = "backward"
+"track-next" = "next"
+"track-previous" = "prev"
 
 [form]
 template = ["g", "m"]

@@ -1,12 +1,12 @@
 pub mod parse_config;
 
 use color_eyre::Result;
-use crossterm::event::{EventStream, KeyCode};
+use crossterm::event::{EventStream, KeyCode, MediaKeyCode};
 use futures_core::Stream;
 use std::{
     cell::LazyCell,
     collections::{BTreeMap, HashMap, hash_map::Entry},
-    fmt::{Debug, Display},
+    fmt::{Debug, Display, Write},
     pin::Pin,
     sync::{Arc, Mutex},
     task::Poll,
@@ -86,15 +86,42 @@ impl Debug for Key {
         Display::fmt(&self, f)
     }
 }
+
+//if modifying update parse_key_code, too
 impl Display for Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.control {
             f.write_str("C-")?;
         }
         if self.alt {
-            f.write_str("A")?;
+            f.write_str("A-")?;
         }
-        Display::fmt(&self.inner, f)
+        let name = match &self.inner {
+            KeyCode::Backspace => "backspace",
+            KeyCode::Char(' ') => "space",
+            KeyCode::Enter => "enter",
+            KeyCode::Left => "left",
+            KeyCode::Right => "right",
+            KeyCode::Up => "up",
+            KeyCode::Down => "down",
+            KeyCode::Tab => "tab",
+            KeyCode::BackTab => "back-tab",
+            KeyCode::Delete => "delete",
+            KeyCode::Insert => "insert",
+            KeyCode::Esc => "esc",
+            KeyCode::Media(MediaKeyCode::PlayPause) => "play-pause",
+            KeyCode::Media(MediaKeyCode::FastForward) => "fast-forward",
+            KeyCode::Media(MediaKeyCode::Rewind) => "rewind",
+            KeyCode::Media(MediaKeyCode::TrackNext) => "track-next",
+            KeyCode::Media(MediaKeyCode::TrackPrevious) => "track-previous",
+            KeyCode::Char(c) => return f.write_char(*c),
+            KeyCode::F(n) => {
+                f.write_char('F')?;
+                return Display::fmt(n, f);
+            }
+            _ => "unknown",
+        };
+        f.write_str(name)
     }
 }
 
