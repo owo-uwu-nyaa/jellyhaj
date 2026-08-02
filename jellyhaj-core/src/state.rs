@@ -6,7 +6,7 @@ use config::keybind_defs::GlobalCommand;
 use futures_util::future::BoxFuture;
 use jellyfin::{
     JellyfinClient, NoAuth,
-    items::{MediaItem, PlaybackInfo, RefreshItemQuery},
+    items::{MediaItem, RefreshItemQuery},
     user_views::UserView,
 };
 use parking_lot::Mutex;
@@ -65,7 +65,7 @@ pub enum NextScreen {
     },
     FetchPlay(LoadPlay),
     Play {
-        items: Vec<(MediaItem, PlaybackInfo)>,
+        items: Vec<MediaItem>,
         index: usize,
     },
     Error(Report),

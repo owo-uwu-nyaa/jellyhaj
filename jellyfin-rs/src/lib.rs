@@ -72,6 +72,7 @@ pub struct NoAuth;
 #[derive(Debug, Clone)]
 pub struct Auth {
     pub user: User,
+    pub session_id: String,
     pub access_token: String,
     pub header: HeaderValue,
     pub device_id: String,

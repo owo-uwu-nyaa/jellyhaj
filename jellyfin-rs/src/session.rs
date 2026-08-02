@@ -2,7 +2,12 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::Authed;
+use crate::JellyfinClient;
+use crate::Result;
+use crate::connect::JsonResponse;
 use crate::items::MediaItem;
+use crate::request::RequestBuilderExt;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -242,4 +247,22 @@ pub struct TranscodingInfo {
     pub audio_channels: i64,
     pub hardware_acceleration_type: String,
     pub transcode_reasons: Vec<String>,
+}
+
+#[derive(Debug, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionsQuery<'a> {
+    pub device_id: Option<&'a str>,
+    pub active_within_seconds: Option<u32>,
+    pub controllable_by_user_id: Option<&'a str>,
+}
+
+impl<A: Authed> JellyfinClient<A> {
+    pub async fn get_sessions(
+        &self,
+        query: &SessionsQuery<'_>,
+    ) -> Result<JsonResponse<Vec<SessionInfo>>> {
+        self.send_request_json(self.get("/Sessions", query)?.empty_body()?)
+            .await
+    }
 }

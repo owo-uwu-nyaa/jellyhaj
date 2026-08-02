@@ -20,6 +20,7 @@ tokio-websockets = {workspace = true}
 tracing = {workspace = true}
 valuable = {optional = true, workspace = true}
 getrandom.workspace = true
+strum = { workspace = true }
 
 [dev-dependencies]
 tokio = {features = ["macros"], version = "1.28.2"}

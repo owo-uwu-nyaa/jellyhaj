@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use aws_lc_rs::digest;
+use color_eyre::eyre::eyre;
+use futures_util::future::try_join;
 use http::{HeaderValue, header::AUTHORIZATION};
 use serde::Serialize;
 
@@ -8,9 +10,11 @@ use base64::{Engine, engine::general_purpose::URL_SAFE};
 use tracing::{instrument, trace};
 
 use crate::{
-    Auth, AuthStatus, ClientInfo, ClientInnerAuth, JellyfinClient, KeyAuth, NoAuth,
+    Auth, AuthStatus, Authed, ClientInfo, ClientInnerAuth, JellyfinClient, KeyAuth, NoAuth,
     client_with_auth,
+    connect::JsonResponseHelper,
     request::{NoQuery, RequestBuilderExt},
+    session::{SessionInfo, SessionsQuery},
     user::{User, UserAuth},
 };
 
@@ -75,8 +79,8 @@ impl JellyfinClient<NoAuth> {
                         pw: password.as_ref(),
                     })?,
             )
-            .await?
             .deserialize()
+            .await
         }
         .await;
         let auth = match auth {
@@ -95,6 +99,7 @@ impl JellyfinClient<NoAuth> {
             access_token: auth.access_token,
             header: auth_header,
             device_id,
+            session_id: auth.session_info.id,
         };
         Ok(make_auth_or_return(self, auth))
     }
@@ -122,20 +127,34 @@ pub(crate) fn make_auth_or_return<Auth1: AuthStatus, Auth2: AuthStatus>(
 impl JellyfinClient<KeyAuth> {
     pub async fn get_self(self) -> StdResult<JellyfinClient<Auth>, (Self, color_eyre::Report)> {
         let user = async {
-            self.send_request_json(self.get("/Users/Me", NoQuery)?.empty_body()?)
-                .await?
+            self.send_request_json::<User>(self.get("/Users/Me", NoQuery)?.empty_body()?)
                 .deserialize()
+                .await
         };
-        let user: User = match user.await {
+        let sessions = async {
+            self.get_sessions(&SessionsQuery {
+                device_id: self.get_auth().device_id().into(),
+                ..Default::default()
+            })
+            .deserialize()
+            .await
+        };
+        let (user, mut sessions): (User, Vec<SessionInfo>) = match try_join(user, sessions).await {
             Ok(v) => v,
             Err(e) => return Err((self, e)),
         };
-
+        if sessions.len() > 1 {
+            return Err((self, eyre!("The current device has more than 1 session")));
+        }
+        let Some(session) = sessions.pop() else {
+            return Err((self, eyre!("The current device has no associated sessions")));
+        };
         let auth = Auth {
             user,
             access_token: self.inner.auth.access_key.clone(),
             header: self.inner.auth.header.clone(),
             device_id: self.inner.auth.device_id.clone(),
+            session_id: session.id,
         };
         Ok(make_auth_or_return(self, auth))
     }

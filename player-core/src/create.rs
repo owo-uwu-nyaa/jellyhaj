@@ -27,8 +27,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error_span, instrument};
 
 use crate::{
-    OwnedPlayerHandle, PlayItem, PlayerHandle, PlaylistItem, PlaylistItemIdGen,
-    mpv_stream::MpvStream, poll::PollState,
+    OwnedPlayerHandle, PlayerHandle, PlaylistItem, PlaylistItemIdGen, mpv_stream::MpvStream,
+    poll::PollState,
 };
 
 impl OwnedPlayerHandle {
@@ -91,11 +91,10 @@ pub fn set_playlist(
     mpv: &Mpv<EventContextAsync>,
     jellyfin: &JellyfinClient,
     id_gen: &mut PlaylistItemIdGen,
-    items: Vec<PlayItem>,
+    items: Vec<MediaItem>,
     index: usize,
 ) -> Result<Vec<Arc<PlaylistItem>>> {
     let position = items[index]
-        .item
         .user_data
         .as_ref()
         .ok_or_eyre("user data missing")?
@@ -107,9 +106,7 @@ pub fn set_playlist(
     }
     debug!("previous files added");
     let item = &items[index];
-    let uri = jellyfin
-        .get_video_uri(&item.item.id, &item.playback_session_id)?
-        .to_string();
+    let uri = jellyfin.get_playback_uri(item)?.to_string();
     debug!("adding {uri} to queue and play it");
     mpv.command(&[
         c"loadfile".to_node(),
@@ -127,7 +124,7 @@ pub fn set_playlist(
                 CString::new(position.to_string())
                     .context("converting start to cstr")?
                     .to_node(),
-                name(&items[index].item)?.to_node(),
+                name(item)?.to_node(),
             ],
         )
         .to_node(),
@@ -142,7 +139,7 @@ pub fn set_playlist(
         .into_iter()
         .map(|item| {
             Arc::new(PlaylistItem {
-                item: item.item,
+                item,
                 id: id_gen.next(),
             })
         })
@@ -150,10 +147,8 @@ pub fn set_playlist(
 }
 
 #[instrument(skip_all)]
-fn append(mpv: &Mpv<EventContextAsync>, jellyfin: &JellyfinClient, item: &PlayItem) -> Result<()> {
-    let uri = jellyfin
-        .get_video_uri(&item.item.id, &item.playback_session_id)?
-        .to_string();
+fn append(mpv: &Mpv<EventContextAsync>, jellyfin: &JellyfinClient, item: &MediaItem) -> Result<()> {
+    let uri = jellyfin.get_playback_uri(item)?.to_string();
     debug!("adding {uri} to queue");
     mpv.command(&[
         c"loadfile".to_node(),
@@ -164,7 +159,7 @@ fn append(mpv: &Mpv<EventContextAsync>, jellyfin: &JellyfinClient, item: &PlayIt
         0i64.to_node(),
         MpvNodeMapRef::new(
             &[BorrowingCPtr::new(c"force-media-title")],
-            &[name(&item.item)?.to_node()],
+            &[name(item)?.to_node()],
         )
         .to_node(),
     ])?;

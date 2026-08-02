@@ -28,6 +28,7 @@ pub struct ShadedWidgetGen<W: ?Sized> {
 
 pub type ShadedWidget<Res> = ShadedWidgetGen<dyn ErasedWidget<Res>>;
 
+#[must_use]
 pub fn make_new_erased<
     R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
     A: Debug + Send + 'static,

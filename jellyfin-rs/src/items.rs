@@ -5,10 +5,11 @@ use crate::Authed;
 use crate::request::{NoQuery, RequestBuilderExt};
 use crate::user::MediaSource;
 use crate::{JellyfinClient, JellyfinVec, Result, connect::JsonResponse};
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, eyre};
 use http::Uri;
 use serde::Deserialize;
 use serde::Serialize;
+use strum::IntoStaticStr;
 use tracing::instrument;
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -220,7 +221,7 @@ pub enum MediaType {
     Book,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, IntoStaticStr)]
 #[serde(tag = "Type")]
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum ItemType {
@@ -406,7 +407,7 @@ pub struct PlaybackInfo {
     pub play_session_id: String,
 }
 
-impl<Auth: Authed> JellyfinClient<Auth> {
+impl JellyfinClient {
     #[instrument(skip(self))]
     pub async fn get_user_items_resume(
         &self,
@@ -501,7 +502,46 @@ impl<Auth: Authed> JellyfinClient<Auth> {
             .context("assembling video uri")
     }
 
-    pub fn get_video_uri(&self, item_id: &str, play_session_id: &str) -> Result<Uri> {
+    pub fn get_playback_uri(&self, item: &MediaItem) -> Result<Uri> {
+        match &item.item_type {
+            ItemType::Movie | ItemType::Episode { .. } => self.get_video_uri(&item.id),
+            ItemType::Music { .. } => self.get_audio_uri(&item.id),
+            ItemType::Season { .. }
+            | ItemType::MusicAlbum
+            | ItemType::Series
+            | ItemType::Playlist
+            | ItemType::Folder
+            | ItemType::CollectionFolder => Err(eyre!(
+                "item type {} is not itself playable",
+                <&str>::from(&item.item_type)
+            )),
+            ItemType::Unknown { item_type } => Err(eyre!("unsupported item type {item_type}")),
+        }
+    }
+
+    pub fn get_audio_uri(&self, item_id: &str) -> Result<Uri> {
+        Uri::builder()
+            .scheme(if self.config.tls { "https" } else { "http" })
+            .authority(self.config.authority.clone())
+            .path_and_query(self.build_uri(
+                |prefix: &mut String| {
+                    prefix.push_str("/Audio/");
+                    prefix.push_str(item_id);
+                    prefix.push_str("/universal");
+                },
+                GetVideoQuery {
+                    use_original: "true",
+                    media_source_id: item_id,
+                    play_session_id: &self.get_auth().session_id,
+                    api_key: self.get_auth().token(),
+                    device_id: self.get_auth().device_id(),
+                },
+            )?)
+            .build()
+            .context("assembling audio uri")
+    }
+
+    pub fn get_video_uri(&self, item_id: &str) -> Result<Uri> {
         Uri::builder()
             .scheme(if self.config.tls { "https" } else { "http" })
             .authority(self.config.authority.clone())
@@ -514,7 +554,7 @@ impl<Auth: Authed> JellyfinClient<Auth> {
                 GetVideoQuery {
                     use_original: "true",
                     media_source_id: item_id,
-                    play_session_id,
+                    play_session_id: &self.get_auth().session_id,
                     api_key: self.get_auth().token(),
                     device_id: self.get_auth().device_id(),
                 },

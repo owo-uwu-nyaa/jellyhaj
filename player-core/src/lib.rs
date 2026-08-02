@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use jellyfin::items::{MediaItem, PlaybackInfo};
+use jellyfin::items::MediaItem;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
@@ -62,21 +62,6 @@ impl FromStr for PlaylistItemId {
     }
 }
 
-#[derive(Debug)]
-pub struct PlayItem {
-    pub item: MediaItem,
-    pub playback_session_id: String,
-}
-
-impl From<(MediaItem, PlaybackInfo)> for PlayItem {
-    fn from((item, playback): (MediaItem, PlaybackInfo)) -> Self {
-        Self {
-            item,
-            playback_session_id: playback.play_session_id,
-        }
-    }
-}
-
 pub enum Command {
     Pause(bool),
     TogglePause,
@@ -90,13 +75,13 @@ pub enum Command {
     Volume(i64),
     Play(PlaylistItemId),
     AddTrack {
-        item: Box<PlayItem>,
+        item: Box<MediaItem>,
         after: Option<PlaylistItemId>,
         play: bool,
     },
     Remove(PlaylistItemId),
     ReplacePlaylist {
-        items: Vec<PlayItem>,
+        items: Vec<MediaItem>,
         first: usize,
     },
     Stop,

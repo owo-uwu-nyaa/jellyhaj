@@ -112,6 +112,7 @@ impl JellyfinClient<NoAuth> {
             access_token: auth.access_token,
             header: auth_header,
             device_id,
+            session_id: auth.session_info.id,
         };
         Ok(make_auth_or_return(self, auth))
     }

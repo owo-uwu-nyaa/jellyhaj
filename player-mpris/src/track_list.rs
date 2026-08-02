@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use jellyfin::{JellyfinClient, connect::JsonResponseHelper};
-use player_core::{Command, PlayItem, PlayerHandle, PlaylistItem, state::SharedPlayerState};
-use tokio::try_join;
+use player_core::{Command, PlayerHandle, PlaylistItem, state::SharedPlayerState};
 use zbus::{
     fdo::{Error, Result},
     interface,
@@ -65,21 +64,19 @@ impl TrackList {
         }
         let after = parse_track_id(&after)?;
         let item = &uri[URI_PREFIX.len()..];
-        let (item, playback_info) = try_join!(
-            self.jellyfin.get_item(item, None).deserialize(),
-            self.jellyfin.get_playback_info(item).deserialize()
-        )
-        .map_err(|r| Error::Failed(r.to_string()))?;
+        let item = self
+            .jellyfin
+            .get_item(item, None)
+            .deserialize()
+            .await
+            .map_err(|r| Error::Failed(r.to_string()))?;
         if !item.item_type.is_single_media_item() {
             return Err(Error::InvalidArgs(format!(
                 "Item {item:?} is not a single playable piece of media but some collection"
             )));
         }
         self.player.send(Command::AddTrack {
-            item: Box::new(PlayItem {
-                item,
-                playback_session_id: playback_info.play_session_id,
-            }),
+            item: Box::new(item),
             after,
             play: set_as_current,
         });

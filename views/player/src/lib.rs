@@ -1,9 +1,8 @@
 use std::ops::ControlFlow;
 
-use futures_util::future::try_join_all;
 use jellyfin::{
     JellyfinClient, JellyfinVec,
-    items::{GetItemsQuery, MediaItem, PlaybackInfo},
+    items::{GetItemsQuery, MediaItem},
     playlist::GetPlaylistItemsQuery,
     shows::GetEpisodesQuery,
 };
@@ -17,10 +16,10 @@ use jellyhaj_core::{
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
 use jellyhaj_widgets_core::outer::{Named, OuterWidget};
-use player_core::{Command, PlayItem};
+use player_core::Command;
 
 use color_eyre::{
-    Report, Result,
+    Result,
     eyre::{Context, eyre},
 };
 use tracing::warn;
@@ -45,11 +44,12 @@ impl Named for Name {
     const NAME: &str = "player";
 }
 
-pub fn render_play(cx: TuiContext, items: Vec<(MediaItem, PlaybackInfo)>, index: usize) -> Erased {
+#[must_use]
+pub fn render_play(cx: TuiContext, items: Vec<MediaItem>, index: usize) -> Erased {
     cx.mpv_handle.send(Command::Minimized(false));
     cx.mpv_handle.send(Command::Fullscreen(true));
     cx.mpv_handle.send(Command::ReplacePlaylist {
-        items: items.into_iter().map(PlayItem::from).collect(),
+        items,
         first: index,
     });
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
@@ -147,16 +147,6 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
         LoadPlay::MusicAlbum { id } => (fetch_childs(&cx, &id).await?, 0),
     };
 
-    let items = try_join_all(items.into_iter().map(|item| async {
-        let info = cx
-            .get_playback_info(&item.id)
-            .await
-            .context("getting playback info")?
-            .deserialize()
-            .context("parsing playback info")?;
-        Ok::<_, Report>((item, info))
-    }))
-    .await?;
     if items.is_empty() {
         return Err(eyre!("Unable to play, item is empty"));
     }
