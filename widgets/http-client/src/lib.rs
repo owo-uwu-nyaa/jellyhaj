@@ -5,6 +5,7 @@ use jellyhaj_form_widget::{
     button::Button,
     form::{FormDataTypes, FormResultMapper},
     form_widget,
+    label::DynamicLabel,
     text_field::TextField,
 };
 use jellyhaj_widgets_core::{Result, WidgetContext, Wrapper, valuable::Valuable};
@@ -44,6 +45,8 @@ pub struct HttpClientData {
     url: TextField,
     #[descr("GET")]
     get: Button<Get>,
+    #[descr("Device ID:")]
+    device_id: DynamicLabel,
 }
 
 impl Default for HttpClientDataSelection {
@@ -54,16 +57,11 @@ impl Default for HttpClientDataSelection {
 
 impl HttpClientData {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(device_id: String) -> Self {
         Self {
             url: TextField::new("/".to_string()),
             get: Button::new(Get),
+            device_id: DynamicLabel { val: device_id },
         }
-    }
-}
-
-impl Default for HttpClientData {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -1,4 +1,5 @@
 use jellyfin::{
+    Authed,
     connect::JsonResponseHelper,
     request::{NoQuery, RequestBuilderExt},
 };
@@ -19,7 +20,9 @@ impl Named for Name {
 #[must_use]
 pub fn render_http_client(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
-        UnwrapWidget::new(HttpClientData::new().make_with_default()),
+        UnwrapWidget::new(
+            HttpClientData::new(cx.jellyfin.get_auth().device_id().to_owned()).make_with_default(),
+        ),
         cx.config.keybinds.form.clone(),
         FormCommandMapper::default(),
     ));
