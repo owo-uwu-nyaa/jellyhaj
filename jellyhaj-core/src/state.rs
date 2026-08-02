@@ -40,6 +40,7 @@ pub type ClientOut = Arc<Mutex<Option<JellyfinClient>>>;
 #[derive(Debug)]
 pub enum LoadPlay {
     Movie(Box<MediaItem>),
+    Audio(Box<MediaItem>),
     Series { id: String },
     Season { series_id: String, id: String },
     Episode { series_id: String, id: String },

@@ -5,6 +5,7 @@ jellyfin = {features = ["valuable"], path = "../jellyfin-rs"}
 libmpv = {default-features = false, features = ["tokio"], path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
+regex.workspace = true
 spawn = {path = "../spawn"}
 tokio = {features = ["macros", "rt", "time"], workspace = true}
 tokio-util = {workspace = true}

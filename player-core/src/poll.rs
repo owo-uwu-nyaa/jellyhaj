@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::mem;
+use std::sync::LazyLock;
 use std::{ffi::CString, sync::Arc, task::Poll};
 
 use color_eyre::eyre::{bail, eyre};
@@ -10,6 +11,7 @@ use jellyfin::{JellyfinClient, items::ItemType};
 use libmpv::Mpv;
 use libmpv::events::EventContextAsync;
 use libmpv::node::{BorrowingCPtr, MpvNode, MpvNodeMapRef, ToNode};
+use regex::Regex;
 use tokio::{
     sync::{broadcast, mpsc},
     time::Interval,
@@ -68,15 +70,17 @@ impl ResExt for Result<()> {
     }
 }
 
+static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:/Audio/([0-9a-z]+)/stream)|(?:/videos/([0-9a-z]+)/stream)")
+        .expect("constructing regex failed")
+});
+
 fn extract_id(download_url: &str) -> &str {
-    let id_part = download_url
-        .rsplit("/videos/")
-        .next()
-        .expect("Items part not present in url");
-    id_part
-        .split('/')
-        .next()
-        .expect("no item id after last /Items")
+    let Some(id) = ID_REGEX.captures(download_url) else {
+        panic!("url did not match regex: {download_url:?}")
+    };
+    let (_, [id]) = id.extract();
+    id
 }
 
 fn assert_shadow_playlist_state(
@@ -570,4 +574,14 @@ fn index_of(playlist: &[Arc<PlaylistItem>], id: PlaylistItemId) -> Option<usize>
         .enumerate()
         .find(|(_, i)| i.id == id)
         .map(|(i, _)| i)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::poll::ID_REGEX;
+
+    #[test]
+    fn test_compile_regex() {
+        assert_eq!(Some(2), ID_REGEX.static_captures_len());
+    }
 }

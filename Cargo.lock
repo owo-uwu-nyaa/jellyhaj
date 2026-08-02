@@ -3275,6 +3275,7 @@ dependencies = [
  "libmpv",
  "parking_lot",
  "pin-project-lite",
+ "regex",
  "spawn",
  "tokio",
  "tokio-util",

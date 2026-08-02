@@ -16,6 +16,7 @@ jellyhaj-core = {path = "jellyhaj-core"}
 jellyhaj-error-view = {path = "views/error", version = "0.1.0"}
 jellyhaj-event-listener = {path = "event-listener", version = "0.1.0"}
 jellyhaj-home-screen-view = {path = "views/home-screen", version = "0.1.0"}
+jellyhaj-http-client-view = {path = "views/http-client", version = "0.1.0"}
 jellyhaj-image = {path = "widgets/image", version = "0.1.0"}
 jellyhaj-inspect-view = {path = "views/inspect", version = "0.1.0"}
 jellyhaj-item-details-view = {path = "views/item-details", version = "0.1.0"}
@@ -48,22 +49,21 @@ tokio-util = {workspace = true}
 toml = {workspace = true}
 tracing = {workspace = true}
 tracing-error = "0.2.0"
+tracing-journald = {optional = true, version = "0.3.2"}
 tracing-subscriber = {workspace = true}
 clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
-tracing-journald = { version = "0.3.2", optional = true }
-jellyhaj-http-client-view = { version = "0.1.0", path = "views/http-client" }
 
 [features]
 attach = ["dep:libc"]
 console-subscriber = ["dep:console-subscriber", "player-core/tracing", "tokio/tracing"]
 default = ["mimalloc"]
+full = ["journald", "mimalloc", "mpris"]
+journald = ["dep:tracing-journald"]
 mimalloc = ["dep:mimalloc"]
 mpris = ["dep:player-mpris"]
-journald = ["dep:tracing-journald"]
-full = ["mimalloc", "mpris", "journald"]
 
 [lints]
 workspace = true
@@ -102,7 +102,8 @@ members = [
   "stats-data",
   "views/error",
   "views/fetch",
-  "views/home-screen", "views/http-client",
+  "views/home-screen",
+  "views/http-client",
   "views/inspect",
   "views/item-details",
   "views/library",
@@ -119,7 +120,8 @@ members = [
   "widgets/form",
   "widgets/form-derive",
   "widgets/form-derive-impl",
-  "widgets/home-screen", "widgets/http-client",
+  "widgets/home-screen",
+  "widgets/http-client",
   "widgets/image",
   "widgets/inspect",
   "widgets/item-details",
@@ -174,12 +176,13 @@ ratatui = {features = ["unstable-widget-ref"], version = "0.30.0"}
 ratatui-core = "0.1.0"
 ratatui-image = {default-features = false, features = ["chafa-dyn", "crossterm"], version = "11.0.2"}
 rayon = "1.10.0"
+regex = "1.13.1"
 rustls-native-certs = "0.8.1"
 serde = {features = ["derive"], version = "1.0.164"}
 serde_json = "1.0.97"
 serde_urlencoded = "0.7.1"
 sqlx = {default-features = false, features = ["macros", "migrate", "runtime-tokio", "sqlite-unbundled"], version = "0.9.0"}
-strum = { version = "0.28.0", features = ["derive"] }
+strum = {features = ["derive"], version = "0.28.0"}
 syn = {default-features = false, version = "2.0.100"}
 tachyonfx = {features = ["sendable", "std-duration"], version = "0.25.0"}
 textwrap = {features = [], version = "0.16.2"}

@@ -160,10 +160,25 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
             if let Some(index) = state.current {
                 let media_item = &state.playlist[index].item;
                 match &media_item.item_type {
-                    ItemType::Movie => {
+                    ItemType::Movie | ItemType::Audio => {
                         Paragraph::new(media_item.name.clone())
                             .centered()
                             .render(area, buf);
+                    }
+                    ItemType::Music {
+                        album_id: _,
+                        album: album_name,
+                    } => {
+                        let [album, name] =
+                            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)])
+                                .vertical_margin(3)
+                                .areas(main);
+                        Paragraph::new(media_item.name.as_str())
+                            .centered()
+                            .render(name, buf);
+                        Paragraph::new(album_name.as_str())
+                            .centered()
+                            .render(album, buf);
                     }
                     ItemType::Episode {
                         season_id: _,
@@ -189,7 +204,7 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
                         }
 
                         Paragraph::new(series_str).centered().render(series, buf);
-                        Paragraph::new(media_item.name.clone())
+                        Paragraph::new(media_item.name.as_str())
                             .centered()
                             .render(episode, buf);
                     }

@@ -10,7 +10,7 @@ use http::Uri;
 use serde::Deserialize;
 use serde::Serialize;
 use strum::IntoStaticStr;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +35,16 @@ struct GetVideoQuery<'s> {
     #[serde(rename = "static")]
     use_original: &'s str,
     media_source_id: &'s str,
+    play_session_id: &'s str,
+    api_key: &'s str,
+    device_id: &'s str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct GetAudioQuery<'s> {
+    #[serde(rename = "static")]
+    use_original: &'s str,
     play_session_id: &'s str,
     api_key: &'s str,
     device_id: &'s str,
@@ -248,6 +258,7 @@ pub enum ItemType {
         album_id: String,
         album: String,
     },
+    Audio,
     #[serde(untagged)]
     Unknown {
         #[serde(rename = "Type")]
@@ -259,21 +270,8 @@ impl ItemType {
     #[must_use]
     pub const fn is_single_media_item(&self) -> bool {
         match self {
-            Self::Movie
-            | Self::Episode {
-                season_id: _,
-                season_name: _,
-                series_id: _,
-                series_name: _,
-            }
-            | Self::Music {
-                album_id: _,
-                album: _,
-            } => true,
-            Self::Season {
-                series_id: _,
-                series_name: _,
-            }
+            Self::Audio | Self::Movie | Self::Episode { .. } | Self::Music { .. } => true,
+            Self::Season { .. }
             | Self::MusicAlbum
             | Self::Series
             | Self::Playlist
@@ -503,9 +501,9 @@ impl JellyfinClient {
     }
 
     pub fn get_playback_uri(&self, item: &MediaItem) -> Result<Uri> {
-        match &item.item_type {
+        let uri = match &item.item_type {
             ItemType::Movie | ItemType::Episode { .. } => self.get_video_uri(&item.id),
-            ItemType::Music { .. } => self.get_audio_uri(&item.id),
+            ItemType::Music { .. } | ItemType::Audio => self.get_audio_uri(&item.id),
             ItemType::Season { .. }
             | ItemType::MusicAlbum
             | ItemType::Series
@@ -516,7 +514,9 @@ impl JellyfinClient {
                 <&str>::from(&item.item_type)
             )),
             ItemType::Unknown { item_type } => Err(eyre!("unsupported item type {item_type}")),
-        }
+        }?;
+        debug!(%uri,"constructed playback uri");
+        Ok(uri)
     }
 
     pub fn get_audio_uri(&self, item_id: &str) -> Result<Uri> {
@@ -527,11 +527,10 @@ impl JellyfinClient {
                 |prefix: &mut String| {
                     prefix.push_str("/Audio/");
                     prefix.push_str(item_id);
-                    prefix.push_str("/universal");
+                    prefix.push_str("/stream");
                 },
-                GetVideoQuery {
+                GetAudioQuery {
                     use_original: "true",
-                    media_source_id: item_id,
                     play_session_id: &self.get_auth().session_id,
                     api_key: self.get_auth().token(),
                     device_id: self.get_auth().device_id(),

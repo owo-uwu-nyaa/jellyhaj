@@ -138,7 +138,7 @@ async fn fetch_items(cx: JellyfinClient, item: LoadPlay) -> Result<NextScreen> {
             .await?;
             (items, 0)
         }
-        LoadPlay::Movie(item) => (vec![*item], 0),
+        LoadPlay::Movie(item) | LoadPlay::Audio(item) => (vec![*item], 0),
         LoadPlay::Music { id, album_id } => {
             let items = fetch_childs(&cx, &album_id).await?;
             let pos = item_position(&id, &items).unwrap_or(0);
@@ -178,6 +178,7 @@ async fn fetch_childs(cx: &JellyfinClient, parent_id: &str) -> Result<Vec<MediaI
             enable_user_data: true.into(),
             sort_by: "ParentIndexNumber,IndexNumber,SortName".into(),
             recursive: true.into(),
+            include_item_types: "Movie,Episode,Music,Audio".into(),
             ..Default::default()
         })
         .await

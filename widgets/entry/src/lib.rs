@@ -296,6 +296,7 @@ impl<
 fn from_media_item(item: MediaItem, size: Size) -> Entry {
     let (title, subtitle) = match &item.item_type {
         ItemType::Movie
+        | ItemType::Audio
         | ItemType::Unknown { item_type: _ }
         | ItemType::CollectionFolder
         | ItemType::Series

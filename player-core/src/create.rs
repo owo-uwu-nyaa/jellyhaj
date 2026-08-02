@@ -174,7 +174,8 @@ fn name(item: &MediaItem) -> Result<CString> {
             album_id: _,
             album: _,
         }
-        | ItemType::Movie => item.name.clone(),
+        | ItemType::Movie
+        | ItemType::Audio => item.name.clone(),
         ItemType::Episode {
             season_id: _,
             season_name: _,

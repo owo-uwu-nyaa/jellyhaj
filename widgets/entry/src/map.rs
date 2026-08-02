@@ -126,6 +126,10 @@ pub fn play_item(item: MediaItem) -> Option<NextScreen> {
             item_type: ItemType::Music { album_id, .. },
             ..
         } => LoadPlay::Music { id, album_id },
+        v @ MediaItem {
+            item_type: ItemType::Audio,
+            ..
+        } => LoadPlay::Audio(Box::new(v)),
         MediaItem {
             id,
             item_type: ItemType::MusicAlbum,
@@ -141,7 +145,8 @@ pub fn play_item(item: MediaItem) -> Option<NextScreen> {
 fn open_item(item: &MediaItem) -> Option<NextScreen> {
     Some(match item {
         v @ MediaItem {
-            item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
+            item_type:
+                ItemType::Movie | ItemType::Audio | ItemType::Music { .. } | ItemType::Episode { .. },
             ..
         } => NextScreen::ItemDetails(Box::new(v.clone())),
         v @ MediaItem {
@@ -163,7 +168,8 @@ fn open_item(item: &MediaItem) -> Option<NextScreen> {
 fn item_episode(item: &MediaItem) -> Option<NextScreen> {
     Some(match item {
         v @ MediaItem {
-            item_type: ItemType::Movie | ItemType::Music { .. } | ItemType::Episode { .. },
+            item_type:
+                ItemType::Movie | ItemType::Audio | ItemType::Music { .. } | ItemType::Episode { .. },
             ..
         } => NextScreen::ItemDetails(Box::new(v.clone())),
         i @ MediaItem {
