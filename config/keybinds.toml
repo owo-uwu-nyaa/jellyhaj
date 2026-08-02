@@ -53,6 +53,10 @@ template = ["g"]
 q = "quit"
 space = "pause"
 enter = "pause"
+right = "forward"
+left = "backward"
+"C-right" = "next"
+"C-left" = "prev"
 
 [form]
 template = ["g", "m"]

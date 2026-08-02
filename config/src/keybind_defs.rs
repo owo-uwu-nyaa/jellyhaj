@@ -92,6 +92,10 @@ pub enum LoadingCommand {
 pub enum MpvCommand {
     Quit,
     Pause,
+    Forward,
+    Backward,
+    Next,
+    Prev,
     #[command(flatten)]
     Global(GlobalCommand),
 }

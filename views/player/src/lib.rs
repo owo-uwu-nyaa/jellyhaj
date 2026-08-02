@@ -34,6 +34,10 @@ impl CommandMapper<MpvCommand> for Mapper {
             MpvCommand::Quit => ControlFlow::Break(Navigation::PopContext),
             MpvCommand::Pause => ControlFlow::Continue(PlayerAction::TogglePause),
             MpvCommand::Global(g) => ControlFlow::Break(g.into()),
+            MpvCommand::Forward => ControlFlow::Continue(PlayerAction::Forward),
+            MpvCommand::Backward => ControlFlow::Continue(PlayerAction::Backward),
+            MpvCommand::Next => ControlFlow::Continue(PlayerAction::Next),
+            MpvCommand::Prev => ControlFlow::Continue(PlayerAction::Prev),
         }
     }
 }

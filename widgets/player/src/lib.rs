@@ -9,6 +9,7 @@ use player_core::{
 };
 use ratatui::{
     buffer::CellWidth,
+    crossterm::event::MouseEventKind,
     layout::Constraint,
     prelude::Rect,
     widgets::{Block, Gauge, Padding, Paragraph, Widget},
@@ -44,6 +45,10 @@ impl PlayerWidget {
 #[derive(Debug)]
 pub enum PlayerAction {
     Quit,
+    Forward,
+    Backward,
+    Next,
+    Prev,
     TogglePause,
     Update,
     Events(EventReceiver),
@@ -158,6 +163,22 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
                 self.handle.send(Command::TogglePause);
                 Ok(None)
             }
+            PlayerAction::Forward => {
+                self.handle.send(Command::SeekRelative(15.0));
+                Ok(None)
+            }
+            PlayerAction::Backward => {
+                self.handle.send(Command::SeekRelative(-15.0));
+                Ok(None)
+            }
+            PlayerAction::Next => {
+                self.handle.send(Command::Next);
+                Ok(None)
+            }
+            PlayerAction::Prev => {
+                self.handle.send(Command::Previous);
+                Ok(None)
+            }
             PlayerAction::Update => {
                 if let Some(state) = self.state.as_ref() {
                     self.labels = make_lables(&state.lock())?;
@@ -206,18 +227,30 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
     fn click(
         &mut self,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        _: ratatui::prelude::Position,
-        _: ratatui::prelude::Size,
-        _: ratatui::crossterm::event::MouseEventKind,
+        pos: ratatui::prelude::Position,
+        size: ratatui::prelude::Size,
+        kind: MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
     ) -> Result<Option<Self::ActionResult>> {
+        if kind.is_down()
+            && let Some(state) = self.state.as_ref()
+        {
+            if pos.y == size.height - 3 && pos.x > 1 && pos.x < (size.width - 2) {
+                let pos = f64::from(pos.x - 2);
+                let len = f64::from(size.width - 4);
+                let pos = pos / len * state.lock().duration;
+                self.handle.send(Command::Seek(pos));
+            } else {
+                self.handle.send(Command::TogglePause);
+            }
+        }
         Ok(None)
     }
 
     #[instrument(name = "render_player", skip_all)]
     fn render_fallible_inner(
         &mut self,
-        area: Rect,
+        mut area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
     ) -> Result<()> {
@@ -261,8 +294,22 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
                 .use_unicode(true)
                 .ratio((position / duration).min(1.0))
                 .render(timeline_pos, buf);
+            block.render(area, buf);
+            let play_state = if state.stopped {
+                "Stopped"
+            } else if state.pause {
+                "Paused"
+            } else {
+                "Playing"
+            };
+            let play_state_len = play_state.cell_width();
+            area.x += area.width - 1 - play_state_len;
+            area.height = 1;
+            area.width = play_state_len;
+            play_state.render(area, buf);
+        } else {
+            block.render(area, buf);
         }
-        block.render(area, buf);
         Ok(())
     }
 }
