@@ -190,7 +190,7 @@ pub async fn run_mpris_service(
                         .context("sending property changed in interface Player")
                         .trace_error();
                     }
-                    player_core::Events::Position(_) => {}
+                    player_core::Events::Duration(_) | player_core::Events::Position(_) => {}
                     player_core::Events::Seek(pos) => Player::seeked(&emitter, pos_to_mpris(*pos))
                         .await
                         .context("sending seek signal")
