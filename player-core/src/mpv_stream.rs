@@ -25,6 +25,7 @@ use super::log::log_message;
 #[derive(Debug)]
 pub enum ObservedProperty {
     Position(f64),
+    Duration(f64),
     Idle(bool),
     Pause(bool),
     Fullscreen(bool),
@@ -139,6 +140,11 @@ impl Stream for MpvStream {
                             volume,
                         ))));
                     }
+                    ("duration", PropertyData::Double(duration), 9) => {
+                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Duration(
+                            duration,
+                        ))));
+                    }
                     (name, val, id) => {
                         warn!(name, ?val, id, "received unrequested property change event");
                     }
@@ -212,6 +218,7 @@ impl MpvStream {
         mpv.observe_property("playlist-pos", Format::Int64, 6)?;
         mpv.observe_property("speed", Format::Double, 7)?;
         mpv.observe_property("volume", Format::Int64, 8)?;
+        mpv.observe_property("duration", Format::Double, 9)?;
         mpv.command(&[
             c"keybind".to_node(),
             c"q".to_node(),

@@ -38,6 +38,7 @@ impl State for PlayerState {
             Events::Speed(s) => self.speed = s,
             Events::Fullscreen(f) => self.fullscreen = f,
             Events::Volume(v) => self.volume = v,
+            Events::Duration(d) => self.duration = d,
         }
     }
 }

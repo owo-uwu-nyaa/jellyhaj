@@ -45,6 +45,7 @@ pin_project_lite::pin_project! {
         pub(crate) position_send_timer: Interval,
         pub(crate) paused: bool,
         pub(crate) position: f64,
+        pub(crate) duration: f64,
         pub(crate) speed: f64,
         pub(crate) volume: i64,
         pub(crate) index: Option<usize>,
@@ -265,6 +266,7 @@ impl Future for PollState {
                                         speed: *this.speed,
                                         fullscreen: *this.fullscreen,
                                         volume: *this.volume,
+                                        duration: *this.duration,
                                     },
                                     receive: this.send_events.subscribe(),
                                 })
@@ -350,6 +352,12 @@ impl Future for PollState {
                     *this.volume = volume;
                     this.send_events
                         .send(Events::Volume(volume))
+                        .trace_send_error();
+                }
+                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Duration(duration)))) => {
+                    *this.duration = duration;
+                    this.send_events
+                        .send(Events::Duration(duration))
                         .trace_send_error();
                 }
                 Some(Ok(MpvEvent::Command(ClientCommand::Stop))) => {

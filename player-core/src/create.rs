@@ -62,6 +62,7 @@ impl OwnedPlayerHandle {
                 position_send_timer,
                 paused: false,
                 position: 0.0,
+                duration: 0.0,
                 speed: 1.0,
                 volume: 100,
                 index: None,
