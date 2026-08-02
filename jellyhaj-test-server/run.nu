@@ -55,8 +55,20 @@ def send_complete_setup [] {
   http post -H $headers $"http://localhost:($port)/Startup/Complete" "" | check_status
 }
 
+def send_new_library [type: string, name: string, path: string] {
+  print $"[setup] adding library ($name)"
+  let library = {
+    LibraryOptions: {
+      PathInfos: [
+        {Path: $path}
+      ]
+    }
+  }
+  http post -t application/json -H $headers $"http://localhost:($port)/Library/VirtualFolders?collectionType=($type)&refreshLibrary=true&name=($name)" $library | check_status
+}
+
 def setup [] {
-  if not ("/var/lib/jellyfin/.setup-complete" | path exists) {
+  if not (($env.SKIP_SETUP? == "true") or ("/var/lib/jellyfin/.setup-complete" | path exists)) {
     run-external /bin/sh "-c" "/bin/nu /bin/run.nu setup&"
   }
 }
@@ -73,6 +85,9 @@ def "main setup" [] {
   sleep 1sec
   send_user_config 
   sleep 1sec
+  send_new_library "movies" "Movies" "/media/movies"
+  send_new_library "tvshows" "Shows" "/media/series"
+  send_new_library "music" "Music" "/media/music"
   send_network_config
   sleep 1sec
   send_complete_setup

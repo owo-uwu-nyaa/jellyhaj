@@ -41,21 +41,14 @@
           jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
           writer = pkgs.callPackage ./checkFile { inherit jellyhaj; };
           inherit (writer) writeConfig writeKeybinds writeEffects;
-          test-server =
-            if lib.systems.inspect.predicates.isLinux system then
-              {
-                test-server = pkgs.callPackage ./jellyhaj-test-server { };
-              }
-            else
-              { };
         in
         {
           formatter = pkgs.nixfmt-tree;
           packages = {
             default = jellyhaj;
+            test-server = pkgs.callPackage ./jellyhaj-test-server { };
             inherit jellyhaj;
-          }
-          // test-server;
+          };
           checks = {
             inherit jellyhaj;
             config = writeConfig (fromTOML (builtins.readFile ./config/config.toml));

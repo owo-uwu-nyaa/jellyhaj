@@ -3,6 +3,8 @@
   nushell,
   dockerTools,
   runCommand,
+  fetchurl,
+  fetchzip,
   lib,
   port ? 8000,
 }:
@@ -14,6 +16,8 @@ let
       lib
       jellyfin
       nushell
+      fetchurl
+      fetchzip
       ;
   };
 in
