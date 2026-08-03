@@ -192,13 +192,22 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
                     unfold(receiver, |mut receiver| async {
                         loop {
                             let action = receiver
-                                .receive_inspect(async |event, _| match event {
+                                .receive_inspect(async |event, state| match event {
                                     Events::Duration(_)
-                                    | Events::Position(_)
                                     | Events::ReplacePlaylist { .. }
                                     | Events::AddPlaylistItem { .. }
                                     | Events::RemovePlaylistItem { .. }
                                     | Events::Current(_) => Some(PlayerAction::Update),
+                                    Events::Position(p) => {
+                                        let floored = p.floor();
+                                        let lock = state.lock();
+                                        let prev = lock.position.floor();
+                                        if lock.pause || floored > prev {
+                                            Some(PlayerAction::Update)
+                                        } else {
+                                            None
+                                        }
+                                    }
                                     Events::Paused(_)
                                     | Events::Stopped(false)
                                     | Events::Seek(_)
