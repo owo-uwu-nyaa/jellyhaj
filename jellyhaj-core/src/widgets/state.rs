@@ -15,7 +15,7 @@ use keybinds::KeybindEvents;
 use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use ratatui::DefaultTerminal;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, coop::poll_proceed};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
@@ -279,6 +279,7 @@ impl Future for RenderLoop<'_> {
                 };
             };
             this.loop_state.set(new_state);
+            ready!(poll_proceed(cx)).made_progress();
         }
     }
 }
