@@ -55,6 +55,7 @@ clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
+jellyhaj-context = { version = "0.1.0", path = "context" }
 
 [features]
 attach = ["dep:libc"]
@@ -84,7 +85,7 @@ nix = {features = ["process", "signal"], workspace = true}
 [workspace]
 members = [
   "async-task",
-  "config",
+  "config", "context",
   "event-listener",
   "image-cache",
   "jellyfin-rs",

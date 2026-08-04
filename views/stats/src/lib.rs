@@ -2,7 +2,6 @@ use std::ops::ControlFlow;
 
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::{Spawner, StatsData},
     keybinds::StatsCommand,
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
@@ -13,6 +12,8 @@ use jellyhaj_widgets_core::{
     ContextRef, GetFromContext,
     outer::{Named, OuterWidget},
 };
+use spawn::Spawner;
+use stats_data::StatsData;
 
 struct Mapper;
 impl CommandMapper<StatsCommand> for Mapper {

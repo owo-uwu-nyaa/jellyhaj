@@ -5,12 +5,12 @@ use jellyfin::{
     user_views::UserView,
 };
 use jellyhaj_core::{
-    context::Spawner,
     keybinds::EntryCommand,
     state::{LoadPlay, Navigation, NextScreen},
 };
 use jellyhaj_widgets_core::{ContextRef, GetFromContext};
 use ratatui::crossterm::{clipboard::CopyToClipboard, execute};
+use spawn::Spawner;
 use tracing::info_span;
 
 use crate::EntryData;

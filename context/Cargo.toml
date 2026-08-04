@@ -1,0 +1,24 @@
+[package]
+name = "jellyhaj-context"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+keybinds = {path = "../keybinds"}
+jellyhaj-core = {path = "../jellyhaj-core"}
+jellyhaj-event-listener = {path = "../event-listener", version = "0.1.0"}
+player-core = {path = "../player-core"}
+sqlx = {workspace = true}
+parking_lot = {workspace = true}
+config = {path = "../config"}
+image-cache = {path = "../image-cache", version = "0.1.0"}
+jellyfin = {path = "../jellyfin-rs"}
+jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
+ratatui-image = {workspace = true}
+ratatui = {workspace = true}
+tokio = {workspace = true, features = ["sync"]}
+spawn = {path = "../spawn", version = "0.1.0"}
+stats-data = {path = "../stats-data", version = "0.1.0"}
+
+[lints]
+workspace = true

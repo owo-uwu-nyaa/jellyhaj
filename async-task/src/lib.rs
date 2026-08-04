@@ -1,19 +1,17 @@
 use std::{
-    ops::Deref,
-    pin::{Pin, pin},
+    ops::{Deref, DerefMut},
+    pin::pin,
     sync::{Arc, atomic::AtomicBool},
     task::Poll,
 };
 
 use color_eyre::Result;
-pub use futures_channel::mpsc::SendError;
-pub use futures_channel::mpsc::Sender;
-use futures_channel::mpsc::{Receiver, channel};
 use futures_intrusive::sync::{ManualResetEvent, WaitForEventFuture};
-pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
+pub use futures_util::{Stream, StreamExt};
 use pin_project_lite::pin_project;
 use spawn::Spawner;
-use tracing::{Span, info_span};
+pub use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tracing::Span;
 
 struct CancellationInner {
     event: ManualResetEvent,
@@ -67,7 +65,7 @@ impl<A, R: Send + 'static, F: Clone + Copy + Send + Sync + 'static + Fn(A) -> R>
 
 pub struct TaskSubmitter<A, W: Wrapper<A>> {
     wrapper: W,
-    sender: Sender<Result<W::F>>,
+    sender: UnboundedSender<Result<W::F>>,
     spawner: Spawner,
     cancel: Cancellation,
 }
@@ -85,7 +83,7 @@ impl<A, W: Wrapper<A>> TaskSubmitter<A, W> {
 
 pub struct TaskSubmitterRef<'r, A, W: Wrapper<A>> {
     wrapper: W,
-    sender: &'r Sender<Result<W::F>>,
+    sender: &'r UnboundedSender<Result<W::F>>,
     spawner: &'r Spawner,
     cancel: &'r Cancellation,
 }
@@ -161,18 +159,21 @@ impl<T: Send + 'static> Wrapper<T> for IdWrapper {
 }
 
 pub struct EventReceiver<T> {
-    receiver: Receiver<Result<T>>,
+    receiver: UnboundedReceiver<Result<T>>,
     _cancel: DropGuard,
 }
 
-impl<T> Stream for EventReceiver<T> {
-    type Item = Result<T>;
-    #[inline]
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.get_mut().receiver).poll_next(cx)
+impl<T> DerefMut for EventReceiver<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.receiver
+    }
+}
+
+impl<T> Deref for EventReceiver<T> {
+    type Target = UnboundedReceiver<Result<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.receiver
     }
 }
 
@@ -180,7 +181,7 @@ impl<T> Stream for EventReceiver<T> {
 pub fn new_task_pair<T: Send + 'static>(
     spawner: Spawner,
 ) -> (TaskSubmitter<T, IdWrapper>, EventReceiver<T>) {
-    let (sender, receiver) = channel(16);
+    let (sender, receiver) = unbounded_channel();
     let cancel = Cancellation {
         inner: Arc::new(CancellationInner {
             event: ManualResetEvent::new(false),
@@ -224,7 +225,7 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
         self.wrapper
     }
 
-    pub const fn sender(&self) -> &Sender<Result<W::F>> {
+    pub const fn sender(&self) -> &UnboundedSender<Result<W::F>> {
         self.sender
     }
 
@@ -240,12 +241,12 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
         name: &'static str,
     ) {
         let wrapper = self.wrapper;
-        let mut sender = self.sender.clone();
+        let sender = self.sender.clone();
         let cancel = self.cancel.clone();
         self.spawner.spawn(
             async move {
                 let inner = async {
-                    let _ = sender.feed(fut.await.map(|v| wrapper.wrap(v))).await;
+                    let _ = sender.send(fut.await.map(|v| wrapper.wrap(v)));
                 };
                 Cancelled {
                     f: inner,
@@ -266,12 +267,12 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
         name: &'static str,
     ) {
         let wrapper = self.wrapper;
-        let mut sender = self.sender.clone();
+        let sender = self.sender.clone();
         let cancel = self.cancel.clone();
         self.spawner.spawn(
             async move {
                 let inner = async {
-                    let _ = sender.feed(Ok(wrapper.wrap(fut.await))).await;
+                    let _ = sender.send(Ok(wrapper.wrap(fut.await)));
                 };
                 Cancelled {
                     f: inner,
@@ -294,14 +295,14 @@ impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
         name: &'static str,
     ) {
         let wrapper = self.wrapper;
-        let mut sender = self.sender.clone();
+        let sender = self.sender.clone();
         let cancel = self.cancel.clone();
         self.spawner.spawn(
             async move {
                 let inner = async {
                     let mut stream = pin!(stream);
                     while let Some(v) = stream.next().await {
-                        if sender.feed(v.map(|v| wrapper.wrap(v))).await.is_err() {
+                        if sender.send(v.map(|v| wrapper.wrap(v))).is_err() {
                             break;
                         }
                     }
@@ -325,14 +326,14 @@ impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
         name: &'static str,
     ) {
         let wrapper = self.wrapper;
-        let mut sender = self.sender.clone();
+        let sender = self.sender.clone();
         let cancel = self.cancel.clone();
         self.spawner.spawn(
             async move {
                 let inner = async {
                     match fut.await {
                         Ok(v) => {
-                            let _ = sender.feed(Ok(wrapper.wrap(v))).await;
+                            let _ = sender.send(Ok(wrapper.wrap(v)));
                         }
                         Err(e) => {
                             tracing::error!("task returned suppressed error:\n{e:?}");
@@ -354,12 +355,12 @@ impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
 impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_value(&self, val: Result<A>) {
-        self.spawn_task(std::future::ready(val), info_span!("send_val"), "send_val");
+        let _ = self.sender.send(val.map(|v| self.wrapper().wrap(v)));
     }
 
     #[track_caller]
     pub fn spawn_value_infallible(&self, val: A) {
-        self.spawn_value(Ok(val));
+        let _ = self.sender.send(Ok(self.wrapper().wrap(val)));
     }
 }
 

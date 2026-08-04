@@ -4,6 +4,8 @@ jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-stats-widget = {path = "../../widgets/stats", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
 color-eyre.workspace = true
+spawn = { version = "0.1.0", path = "../../spawn" }
+stats-data = { version = "0.1.0", path = "../../stats-data" }
 
 [package]
 edition = "2024"

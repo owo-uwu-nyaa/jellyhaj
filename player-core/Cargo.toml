@@ -2,6 +2,7 @@
 color-eyre = {workspace = true}
 futures-util = {workspace = true}
 jellyfin = {features = ["valuable"], path = "../jellyfin-rs"}
+jellyhaj-core = { version = "0.1.0", path = "../jellyhaj-core" }
 libmpv = {default-features = false, features = ["tokio"], path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}

@@ -3,8 +3,8 @@ use jellyfin::{
     connect::JsonResponseHelper,
     request::{NoQuery, RequestBuilderExt},
 };
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    context::TuiContext,
     state::NextScreen,
     widgets::shaded::widget::{Erased, make_new_erased},
 };

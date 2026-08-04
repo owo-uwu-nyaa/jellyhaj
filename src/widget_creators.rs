@@ -1,5 +1,6 @@
 use color_eyre::eyre::eyre;
-use jellyhaj_core::{context::TuiContext, state::NextScreen, widgets::shaded::widget::Erased};
+use jellyhaj_context::TuiContext;
+use jellyhaj_core::{state::NextScreen, widgets::shaded::widget::Erased};
 use jellyhaj_login_view::LoginContext;
 
 #[must_use]
@@ -69,6 +70,7 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         | NextScreen::AuthFinished { .. } => {
             jellyhaj_error_view::render_error(cx, &eyre!("already logged in"))
         }
+        NextScreen::Exit => jellyhaj_player_view::render_exit(cx),
     }
 }
 
@@ -166,5 +168,6 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::HttpClientFetch { .. } => {
             jellyhaj_error_view::render_error(cx, &eyre!("This requires beeing logged in"))
         }
+        NextScreen::Exit => jellyhaj_player_view::render_exit(cx),
     }
 }

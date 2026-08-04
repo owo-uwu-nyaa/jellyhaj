@@ -2,10 +2,10 @@
 futures-util = {features = ["sink"], workspace = true}
 spawn = {path = "../spawn", version = "0.1.0"}
 color-eyre.workspace = true
-futures-channel.workspace = true
 futures-intrusive.workspace = true
 pin-project-lite.workspace = true
 tracing.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 
 [package]
 edition = "2024"

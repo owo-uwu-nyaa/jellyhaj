@@ -4,7 +4,6 @@ jellyhaj-async-task = {path = "../async-task"}
 spawn = {path = "../spawn"}
 tokio = {features = ["macros", "sync"], workspace = true}
 color-eyre.workspace = true
-futures-channel.workspace = true
 futures-intrusive.workspace = true
 parking_lot.workspace = true
 tracing.workspace = true

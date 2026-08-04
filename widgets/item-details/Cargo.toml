@@ -10,6 +10,10 @@ textwrap.workspace = true
 valuable.workspace = true
 jellyhaj-image = { version = "0.1.0", path = "../image" }
 jellyhaj-tabs-widget = { version = "0.1.0", path = "../tabs" }
+sqlx.workspace = true
+spawn = { version = "0.1.0", path = "../../spawn" }
+tokio = { workspace = true, features = ["sync"] }
+jellyhaj-event-listener = { version = "0.1.0", path = "../../event-listener" }
 
 [package]
 edition = "2024"

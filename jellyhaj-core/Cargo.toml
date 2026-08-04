@@ -2,24 +2,15 @@
 color-eyre = {workspace = true}
 config = {path = "../config"}
 crossbeam-epoch = "0.9.18"
-image = {workspace = true}
-image-cache = {path = "../image-cache", version = "0.1.0"}
 jellyfin = {path = "../jellyfin-rs"}
-jellyhaj-event-listener = {path = "../event-listener", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
 keybinds = {path = "../keybinds"}
-libmpv = {default-features = false, path = "../libmpv-rs"}
 parking_lot = {workspace = true}
-player-core = {path = "../player-core"}
 ratatui = {workspace = true}
-ratatui-image = {workspace = true}
 spawn = {path = "../spawn", version = "0.1.0"}
-sqlx = {workspace = true}
-stats-data = {path = "../stats-data", version = "0.1.0"}
 tokio = {workspace = true}
 tracing = {workspace = true}
 either.workspace = true
-futures-channel.workspace = true
 futures-intrusive.workspace = true
 futures-util.workspace = true
 pin-project-lite.workspace = true

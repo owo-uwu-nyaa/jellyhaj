@@ -170,8 +170,7 @@ fn main() -> Result<()> {
             let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::new().into_hooks();
             eyre_hook.install().expect("installing eyre hook");
             register_signal_handler()?;
-            let stop = CancellationToken::new();
-            let cancel = stop.child_token();
+            let cancel = CancellationToken::new();
             let handler_cancel = cancel.clone();
             std::io::stdout().execute(SetTitle("jellyhaj"))?;
             let panic_message = Arc::new(AtomicStr::default());
@@ -190,7 +189,6 @@ fn main() -> Result<()> {
                 run_app(
                     term,
                     cancel,
-                    stop,
                     panic_message,
                     args.config,
                     args.use_builtin_config,

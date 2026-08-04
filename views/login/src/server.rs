@@ -7,7 +7,6 @@ use color_eyre::{
 use config::Config;
 use jellyfin::{ClientInfo, auth::UniqueId, connect::JsonResponseHelper};
 use jellyhaj_core::{
-    context::DB,
     state::{ClientOut, LoginState, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
@@ -21,7 +20,7 @@ use jellyhaj_widgets_core::Result;
 use ratatui::crossterm::style::Stylize;
 use sqlx::SqliteConnection;
 
-use crate::LoginContext;
+use crate::{DB, LoginContext};
 pub fn render_select_server(cx: LoginContext, state: LoginState, out: ClientOut) -> Erased {
     let widget =
         ServerData::new(state.server_url.clone()).make_with(ServerDataSelection::ServerUrl(()));

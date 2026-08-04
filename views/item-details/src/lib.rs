@@ -2,9 +2,9 @@ use std::ops::ControlFlow;
 
 use color_eyre::eyre::Context;
 use jellyfin::items::MediaItem;
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
     CommandMapper,
-    context::TuiContext,
     keybinds::{ItemDetailsCommand, ItemListDetailsCommand},
     state::{Navigation, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},

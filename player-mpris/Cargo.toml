@@ -6,7 +6,7 @@ zbus = {workspace = true}
 serde.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tokio-util.workspace = true
+jellyhaj-core = { version = "0.1.0", path = "../jellyhaj-core" }
 
 [package]
 edition = "2024"

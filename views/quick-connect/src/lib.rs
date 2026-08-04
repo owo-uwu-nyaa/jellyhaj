@@ -1,8 +1,8 @@
 use std::convert::Infallible;
 
 use color_eyre::eyre::Context;
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    context::TuiContext,
     state::{Navigation, NextScreen::QuickConnectAuth},
     widgets::shaded::widget::{Erased, make_new_erased},
 };

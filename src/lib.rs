@@ -14,13 +14,14 @@ use color_eyre::{
     eyre::{Context, eyre},
 };
 use config::{Config, init_config};
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    context::TuiContext,
     state::NextScreen,
     widgets::state::{StateStack, render_loop},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::{Stats, cache::ImageCache};
+use jellyhaj_widgets_core::async_task::{UnboundedReceiver, unbounded_channel};
 use keybinds::KeybindEvents;
 use player_core::OwnedPlayerHandle;
 use player_jellyfin::player_jellyfin;
@@ -34,7 +35,12 @@ use tracing::{debug, error_span, info, instrument};
 use crate::widget_creators::make_screen_login;
 
 #[instrument(skip_all, level = "debug")]
-async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: TuiContext) {
+async fn run_state(
+    term: &mut DefaultTerminal,
+    events: &mut KeybindEvents,
+    cx: TuiContext,
+    external: &mut UnboundedReceiver<NextScreen>,
+) {
     let widget_creator = {
         let cx = cx.clone();
         Arc::new(move |next| widget_creators::make_screen(next, cx.clone()))
@@ -46,6 +52,7 @@ async fn run_state(term: &mut DefaultTerminal, events: &mut KeybindEvents, cx: T
         &cx.state,
         term,
         events,
+        external,
     )
     .await;
     info!("main application loop exit")
@@ -58,11 +65,11 @@ async fn run_app_inner(
     config: Config,
     cache: Arc<tokio::sync::Mutex<SqliteConnection>>,
     image_picker: Picker,
-    stop: CancellationToken,
 ) -> Result<()> {
     let config = Arc::new(config);
     let stats: Stats = Arc::default();
     debug!("logging in to jellyfin");
+    let (widget_sender, mut widget_receiver) = unbounded_channel();
     if let Some(jellyfin) = jellyhaj_login_view::login(
         config.clone(),
         cache.clone(),
@@ -71,6 +78,7 @@ async fn run_app_inner(
         make_screen_login,
         &mut term,
         &mut events,
+        &mut widget_receiver,
     )
     .await
     {
@@ -88,20 +96,24 @@ async fn run_app_inner(
             config.mpv_config_file.as_deref(),
             true,
             &spawner,
+            widget_sender.clone(),
         )?;
+        #[cfg(feature = "mpris")]
+        spawner.spawn_res(
+            player_mpris::run_mpris_service(
+                mpv_handle.clone(),
+                jellyfin.clone(),
+                widget_sender.clone(),
+            ),
+            error_span!("player_mpris"),
+            "player_mpris",
+        );
         spawner.spawn(
             player_jellyfin(mpv_handle.clone(), jellyfin.clone(), spawner.clone()),
             error_span!("player_jellyfin"),
             "player_jellyfin",
         );
-        #[cfg(feature = "mpris")]
-        spawner.spawn_res(
-            player_mpris::run_mpris_service(mpv_handle.clone(), jellyfin.clone(), stop),
-            error_span!("player_mpris"),
-            "player_mpris",
-        );
-        #[cfg(not(feature = "mpris"))]
-        let _ = stop;
+
         run_state(
             &mut term,
             &mut events,
@@ -117,6 +129,7 @@ async fn run_app_inner(
                 spawn: spawner,
                 state: Arc::new(StateStack::new()),
             },
+            &mut widget_receiver,
         )
         .await;
     }
@@ -153,7 +166,6 @@ impl AtomicStr {
 pub async fn run_app(
     term: DefaultTerminal,
     cancel: CancellationToken,
-    stop: CancellationToken,
     paniced: Arc<AtomicStr>,
     config_file: Option<PathBuf>,
     use_builtin_config: bool,
@@ -184,34 +196,20 @@ pub async fn run_app(
         Picker::from_query_stdio().context("getting information for image display")?;
     let events = KeybindEvents::new()?;
 
-    let res = spawn::run_with_spawner(
-        |spawner| {
-            run_app_inner(
-                term,
-                events,
-                spawner,
-                config,
-                cache.clone(),
-                image_picker,
-                stop.clone(),
-            )
-        },
+    spawn::run_with_spawner(
+        |spawner| run_app_inner(term, events, spawner, config, cache.clone(), image_picker),
         cancel,
         error_span!("jellyhaj"),
         "jellyhaj_main",
     )
-    .await;
-    if stop.is_cancelled() {
-        res.unwrap_or(Ok(()))
-    } else {
-        res.ok_or_else(move || {
-            if let Some(panic_message) = paniced.take() {
-                eyre!("Application paniced").section(panic_message.header("Panic message"))
-            } else if interrupted.load(SeqCst) {
-                eyre!("Application interrupted by signal")
-            } else {
-                eyre!("Application cancelled for unknown reason")
-            }
-        })?
-    }
+    .await
+    .ok_or_else(move || {
+        if let Some(panic_message) = paniced.take() {
+            eyre!("Application paniced").section(panic_message.header("Panic message"))
+        } else if interrupted.load(SeqCst) {
+            eyre!("Application interrupted by signal")
+        } else {
+            eyre!("Application cancelled for unknown reason")
+        }
+    })?
 }

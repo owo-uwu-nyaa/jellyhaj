@@ -3,8 +3,7 @@ mod fetch;
 use image::DynamicImage;
 pub use image_cache as cache;
 pub use image_cache::ImageSize;
-use jellyhaj_core::context::DB;
-use std::{cmp::min, convert::Infallible};
+use std::{cmp::min, convert::Infallible, sync::Arc};
 use valuable::Valuable;
 
 use image_cache::{ImageCache, ImageKey, ImageProtocolKeyRef};
@@ -27,6 +26,8 @@ pub use tokio;
 use tracing::info_span;
 
 pub use fetch::ParsedImage;
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Valuable)]
 pub struct JellyfinImage {

@@ -1,20 +1,24 @@
-use std::{fmt::Debug, ops::ControlFlow};
+use std::{fmt::Debug, ops::ControlFlow, sync::Arc};
 
 use jellyfin::{JellyfinClient, items::MediaItem, socket::ChangedUserData, user_views::UserView};
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::{DB, JellyfinEventInterests, Spawner},
     keybinds::HomeScreenCommand,
     state::{Navigation, NextScreen, flatten_control_flow},
     widgets::KeybindAction,
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, EntryData, ImageCache, Picker, Stats};
+use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_item_screen::{ItemScreen, ItemScreenAction, new_item_list, new_item_screen};
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper,
 };
+use spawn::Spawner;
+use sqlx::SqliteConnection;
 use valuable::Valuable;
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum HomeScreenAction {

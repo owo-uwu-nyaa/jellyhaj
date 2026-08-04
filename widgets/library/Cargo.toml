@@ -7,6 +7,10 @@ jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 valuable.workspace = true
 color-eyre.workspace = true
+jellyhaj-event-listener = { version = "0.1.0", path = "../../event-listener" }
+spawn = { version = "0.1.0", path = "../../spawn" }
+tokio = { workspace = true, features = ["sync"] }
+sqlx.workspace = true
 
 [package]
 edition = "2024"

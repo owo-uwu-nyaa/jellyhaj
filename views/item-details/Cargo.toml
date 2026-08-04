@@ -11,6 +11,7 @@ tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 tracing.workspace = true
 jellyhaj-tabs-widget = { version = "0.1.0", path = "../../widgets/tabs" }
+jellyhaj-context = { version = "0.1.0", path = "../../context" }
 
 [package]
 edition = "2024"

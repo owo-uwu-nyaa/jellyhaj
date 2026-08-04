@@ -1919,6 +1919,7 @@ dependencies = [
  "futures-util",
  "image",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-error-view",
  "jellyhaj-event-listener",
@@ -1968,12 +1969,33 @@ name = "jellyhaj-async-task"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "futures-channel",
  "futures-intrusive",
  "futures-util",
  "pin-project-lite",
  "spawn",
+ "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jellyhaj-context"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "image-cache",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-event-listener",
+ "jellyhaj-widgets-core",
+ "keybinds",
+ "parking_lot",
+ "player-core",
+ "ratatui",
+ "ratatui-image",
+ "spawn",
+ "sqlx",
+ "stats-data",
+ "tokio",
 ]
 
 [[package]]
@@ -1984,26 +2006,17 @@ dependencies = [
  "config",
  "crossbeam-epoch",
  "either",
- "futures-channel",
  "futures-intrusive",
  "futures-util",
- "image",
- "image-cache",
  "jellyfin",
- "jellyhaj-event-listener",
  "jellyhaj-widgets-core",
  "keybinds",
- "libmpv",
  "parking_lot",
  "pin-project-lite",
- "player-core",
  "ratatui",
- "ratatui-image",
  "serde",
  "serde_json",
  "spawn",
- "sqlx",
- "stats-data",
  "tokio",
  "tracing",
  "valuable",
@@ -2014,12 +2027,16 @@ name = "jellyhaj-entry-widget"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "crossterm",
  "jellyfin",
  "jellyhaj-core",
+ "jellyhaj-event-listener",
  "jellyhaj-image",
  "jellyhaj-widgets-core",
  "ratatui",
  "serde_json",
+ "spawn",
+ "sqlx",
  "tokio",
  "tracing",
  "valuable",
@@ -2034,6 +2051,7 @@ dependencies = [
  "jellyhaj-error-widget",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "spawn",
  "tracing",
 ]
 
@@ -2053,7 +2071,6 @@ name = "jellyhaj-event-listener"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "futures-channel",
  "futures-intrusive",
  "jellyfin",
  "jellyhaj-async-task",
@@ -2139,6 +2156,7 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-home-screen-widget",
@@ -2152,9 +2170,13 @@ dependencies = [
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-entry-widget",
+ "jellyhaj-event-listener",
  "jellyhaj-item-screen",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "spawn",
+ "sqlx",
+ "tokio",
  "valuable",
 ]
 
@@ -2163,6 +2185,7 @@ name = "jellyhaj-http-client-view"
 version = "0.1.0"
 dependencies = [
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-form-widget",
@@ -2213,6 +2236,7 @@ dependencies = [
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
  "serde_json",
+ "spawn",
 ]
 
 [[package]]
@@ -2234,6 +2258,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-entry-widget",
  "jellyhaj-fetch-view",
@@ -2254,12 +2279,16 @@ dependencies = [
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-entry-widget",
+ "jellyhaj-event-listener",
  "jellyhaj-image",
  "jellyhaj-item-list",
  "jellyhaj-tabs-widget",
  "jellyhaj-widgets-core",
  "ratatui",
+ "spawn",
+ "sqlx",
  "textwrap",
+ "tokio",
  "valuable",
 ]
 
@@ -2313,6 +2342,7 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-library-widget",
@@ -2326,9 +2356,13 @@ dependencies = [
  "jellyfin",
  "jellyhaj-core",
  "jellyhaj-entry-widget",
+ "jellyhaj-event-listener",
  "jellyhaj-item-grid",
  "jellyhaj-keybinds-widget",
  "jellyhaj-widgets-core",
+ "spawn",
+ "sqlx",
+ "tokio",
  "valuable",
 ]
 
@@ -2354,6 +2388,7 @@ dependencies = [
  "jellyhaj-keybinds-widget",
  "jellyhaj-log-widget",
  "jellyhaj-widgets-core",
+ "spawn",
 ]
 
 [[package]]
@@ -2384,6 +2419,7 @@ dependencies = [
  "ratatui",
  "spawn",
  "sqlx",
+ "stats-data",
  "tokio",
  "toml",
  "tracing",
@@ -2416,6 +2452,7 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-keybinds-widget",
@@ -2445,6 +2482,7 @@ name = "jellyhaj-quick-connect-view"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-form-widget",
@@ -2459,6 +2497,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "jellyfin",
+ "jellyhaj-context",
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-form-widget",
@@ -2489,6 +2528,8 @@ dependencies = [
  "jellyhaj-keybinds-widget",
  "jellyhaj-stats-widget",
  "jellyhaj-widgets-core",
+ "spawn",
+ "stats-data",
 ]
 
 [[package]]
@@ -3272,6 +3313,7 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "jellyfin",
+ "jellyhaj-core",
  "libmpv",
  "parking_lot",
  "pin-project-lite",
@@ -3303,10 +3345,10 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "jellyfin",
+ "jellyhaj-core",
  "player-core",
  "serde",
  "tokio",
- "tokio-util",
  "tracing",
  "zbus",
 ]

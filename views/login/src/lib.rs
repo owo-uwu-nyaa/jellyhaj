@@ -18,7 +18,6 @@ use color_eyre::{
 use jellyfin::{Authed, JellyfinClient};
 use jellyhaj_core::{
     Config,
-    context::{ContextRef, DB, Stats, StatsData},
     state::{ClientOut, LoginState, Navigation, NextScreen},
     widgets::{
         shaded::widget::Erased,
@@ -26,10 +25,15 @@ use jellyhaj_core::{
     },
 };
 use jellyhaj_fetch_view::make_nav_fetch;
+use jellyhaj_widgets_core::{ContextRef, async_task::UnboundedReceiver};
 use keybinds::KeybindEvents;
 use parking_lot::Mutex;
 use ratatui::DefaultTerminal;
 use spawn::Spawner;
+use sqlx::SqliteConnection;
+use stats_data::{Stats, StatsData};
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Clone)]
 pub struct LoginContext {
@@ -71,6 +75,7 @@ impl ContextRef<StateStack> for LoginContext {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn login(
     config: Arc<Config>,
     db: DB,
@@ -79,6 +84,7 @@ pub async fn login(
     widget_creator_fn: fn(NextScreen, LoginContext) -> Erased,
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
+    external: &mut UnboundedReceiver<NextScreen>,
 ) -> Option<JellyfinClient> {
     let (original_state, state_err) = match read_login_state(&config.login_file) {
         Ok(v) => (v, None),
@@ -115,7 +121,7 @@ pub async fn login(
             out: out.clone(),
         }
     };
-    render_loop(initial, widget_creator, &cx.state, term, events).await;
+    render_loop(initial, widget_creator, &cx.state, term, events, external).await;
     out.lock().take()
 }
 

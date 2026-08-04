@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::ControlFlow, pin::pin};
+use std::{fmt::Debug, ops::ControlFlow, pin::pin, sync::Arc};
 
 use jellyfin::{
     JellyfinClient, JellyfinVec,
@@ -8,21 +8,25 @@ use jellyfin::{
 };
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::{DB, JellyfinEventInterests, Spawner},
     keybinds::UserViewCommand,
     state::{Navigation, NextScreen, flatten_control_flow},
     widgets::KeybindAction,
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
+use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_item_grid::{GridWrapper, ItemGrid, ItemGridAction, new_item_grid};
 use jellyhaj_keybinds_widget::{KeybindWidget, KeybindWrapper};
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetBase, Result,
     WidgetContext, WidgetTreeVisitor, Wrapper,
-    async_task::{Cancellation, Cancelled, Sender, SinkExt, StreamExt},
+    async_task::{Cancellation, Cancelled, StreamExt, UnboundedSender},
     spawn::tracing::{debug, info_span},
     valuable::Valuable,
 };
+use spawn::Spawner;
+use sqlx::SqliteConnection;
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum LibraryAction {
@@ -90,7 +94,7 @@ async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
     jellyfin: JellyfinClient,
     library_id: String,
     wrapper: W,
-    mut sender: Sender<Result<W::F>>,
+    sender: UnboundedSender<Result<W::F>>,
     cancel: Cancellation,
     seen: u32,
 ) {
@@ -106,8 +110,7 @@ async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
         ));
         while let Some(v) = stream.next().await {
             if sender
-                .feed(v.map(|v| wrapper.wrap(KeybindAction::Inner(LibraryAction::Add(v.items)))))
-                .await
+                .send(v.map(|v| wrapper.wrap(KeybindAction::Inner(LibraryAction::Add(v.items)))))
                 .is_err()
             {
                 break;

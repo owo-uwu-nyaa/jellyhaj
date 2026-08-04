@@ -1,7 +1,7 @@
 use color_eyre::eyre::Context;
 use jellyfin::items::RefreshItemQuery;
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    context::TuiContext,
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
 };

@@ -5,6 +5,7 @@ jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
 color-eyre.workspace = true
 serde_json.workspace = true
+spawn = { version = "0.1.0", path = "../../spawn" }
 
 [package]
 edition = "2024"

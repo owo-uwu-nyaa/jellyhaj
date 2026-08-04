@@ -2,9 +2,13 @@
 jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
 jellyhaj-entry-widget = {path = "../entry", version = "0.1.0"}
+jellyhaj-event-listener = { version = "0.1.0", path = "../../event-listener" }
 jellyhaj-item-screen = {path = "../item-screen", version = "0.1.0"}
 jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+spawn = { version = "0.1.0", path = "../../spawn" }
+sqlx.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 valuable.workspace = true
 
 [package]

@@ -1,17 +1,16 @@
-use jellyfin::items::MediaItem;
+use jellyfin::{JellyfinClient, items::MediaItem};
+use jellyhaj_entry_widget::ImageCache;
+use jellyhaj_event_listener::JellyfinEventInterests;
+use jellyhaj_image::{Picker, Stats};
 use jellyhaj_tabs_widget::TabContainer;
+use spawn::Spawner;
 
 use crate::{
+    DB,
     children::{ChildAction, ItemChilds},
     overview::{Overview, OverviewAction},
 };
-use jellyhaj_core::{
-    context::{
-        Config, DB, ImageCache, JellyfinClient, JellyfinEventInterests, Picker, Spawner, Stats,
-    },
-    keybinds::EntryCommand,
-    state::Navigation,
-};
+use jellyhaj_core::{Config, keybinds::EntryCommand, state::Navigation};
 use jellyhaj_widgets_core::ContextRef;
 
 #[derive(Debug)]

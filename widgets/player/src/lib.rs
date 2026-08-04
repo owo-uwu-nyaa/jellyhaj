@@ -1,7 +1,7 @@
 use color_eyre::eyre::{Context, bail};
 use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
-use jellyhaj_core::state::Navigation;
+use jellyhaj_core::{state::Navigation, widgets::KeybindAction};
 use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper};
 use player_core::{
     Command, Events, PlayerHandle, PlayerState,
@@ -331,4 +331,69 @@ fn secs_to_str(secs: f64) -> String {
     total_secs /= 60;
     let hours = total_secs;
     format!("{hours}:{mins:02}:{secs:02}")
+}
+
+#[derive(Debug)]
+pub enum ExitAction {
+    Quit,
+}
+#[derive(Valuable)]
+pub struct ExitWidget;
+
+impl JellyhajWidgetBase for ExitWidget {
+    type Action = KeybindAction<ExitAction>;
+
+    type ActionResult = Navigation;
+
+    const NAME: &str = "quit";
+
+    fn visit_children(&self, _: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {}
+
+    fn min_width(&self) -> Option<u16> {
+        None
+    }
+
+    fn min_height(&self) -> Option<u16> {
+        None
+    }
+}
+
+impl<R: 'static> JellyhajWidget<R> for ExitWidget {
+    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        cx.submitter
+            .spawn_value_infallible(KeybindAction::Inner(ExitAction::Quit));
+    }
+
+    fn apply_action(
+        &mut self,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        action: Self::Action,
+    ) -> Result<Option<Self::ActionResult>> {
+        if matches!(action, KeybindAction::Inner(ExitAction::Quit)) {
+            Ok(Some(Navigation::Exit))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn click(
+        &mut self,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _position: ratatui::prelude::Position,
+        _size: ratatui::prelude::Size,
+        _kind: MouseEventKind,
+        _modifier: jellyhaj_widgets_core::KeyModifiers,
+    ) -> Result<Option<Self::ActionResult>> {
+        Ok(None)
+    }
+
+    fn render_fallible_inner(
+        &mut self,
+        area: Rect,
+        buf: &mut ratatui::prelude::Buffer,
+        _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+    ) -> Result<()> {
+        Paragraph::new("stopping").centered().render(area, buf);
+        Ok(())
+    }
 }

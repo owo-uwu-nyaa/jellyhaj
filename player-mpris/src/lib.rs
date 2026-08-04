@@ -7,9 +7,9 @@ use std::{borrow::Cow, collections::HashMap};
 
 use color_eyre::eyre::{Context, OptionExt, Result, eyre};
 use jellyfin::JellyfinClient;
+use jellyhaj_core::state::NextScreen;
 use player_core::PlayerHandle;
-use tokio::sync::broadcast::error::RecvError;
-use tokio_util::sync::CancellationToken;
+use tokio::sync::{broadcast::error::RecvError, mpsc::UnboundedSender};
 use tracing::{info, warn};
 use zbus::{
     fdo::Properties,
@@ -64,14 +64,14 @@ async fn property_changed<I: Interface>(
 pub async fn run_mpris_service(
     handle: PlayerHandle,
     jellyfin: JellyfinClient,
-    stop: CancellationToken,
+    widget_sender: UnboundedSender<NextScreen>,
 ) -> color_eyre::Result<()> {
     let mut state = handle
         .get_state()
         .await
         .map_err(|_| eyre!("mpv handle is already closed"))?
         .with_shared_state();
-    let mp2 = MediaPlayer2::new(handle.clone(), state.clone(), stop);
+    let mp2 = MediaPlayer2::new(handle.clone(), state.clone(), widget_sender);
     let p = Player::new(handle.clone(), jellyfin.clone(), state.clone());
     let t = TrackList::new(handle.clone(), jellyfin.clone(), state.clone());
     let conn = zbus::connection::Builder::session()?

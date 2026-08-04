@@ -57,34 +57,34 @@ pub async fn render_widget<Res: 'static>(
         }
         let next = widget.next();
         select! {
-            () = sleep_until(last_render+duration), if !duration.is_zero() => {
-                render = true;
+        () = sleep_until(last_render+duration), if !duration.is_zero() => {
+            render = true;
+        }
+        nav = next => {
+            match nav{
+                Some(Some(WidgetResult::Exit))|
+                None => return WidgetResult::Exit,
+                Some(Some(nav)) => return nav,
+                Some(None) => {render = true;}
             }
-            nav = next => {
-                match nav{
-                    Some(Some(WidgetResult::Exit))|
-                    None => return WidgetResult::Exit,
-                    Some(Some(nav)) => return nav,
-                    Some(None) => {render = true;}
+        }
+        event = events.next() => {
+            match event{
+                None => return WidgetResult::Exit,
+                Some(Err(e)) => {
+                    tracing::error!("reading keyboard event failed:\n{e:?}");
+                    return WidgetResult::Exit;
                 }
-            }
-            event = events.next() => {
-                match event{
-                    None => return WidgetResult::Exit,
-                    Some(Err(e)) => {
-                        tracing::error!("reading keyboard event failed:\n{e:?}");
-                        return WidgetResult::Exit;
-                    }
-                    Some(Ok(event)) =>{
-                        let (res, r) = widget.submit_event(event, term.get_frame().area().as_size());
-                        render=r;
-                        if let Some(nav) = res{
-                            return nav
-                        }
+                Some(Ok(event)) =>{
+                    let (res, r) = widget.submit_event(event, term.get_frame().area().as_size());
+                    render=r;
+                    if let Some(nav) = res{
+                        return nav
                     }
                 }
             }
         }
+                }
     }
 }
 

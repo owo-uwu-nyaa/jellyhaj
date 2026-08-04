@@ -8,10 +8,12 @@ use color_eyre::eyre::{bail, eyre};
 use futures_util::Stream;
 use jellyfin::items::MediaItem;
 use jellyfin::{JellyfinClient, items::ItemType};
+use jellyhaj_core::state::NextScreen;
 use libmpv::Mpv;
 use libmpv::events::EventContextAsync;
 use libmpv::node::{BorrowingCPtr, MpvNode, MpvNodeMapRef, ToNode};
 use regex::Regex;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
     sync::{broadcast, mpsc},
     time::Interval,
@@ -56,17 +58,18 @@ pin_project_lite::pin_project! {
         pub(crate) playlist_id_gen: PlaylistItemIdGen,
         pub(crate) seeked: bool,
         pub(crate) send_events: broadcast::Sender<Events>,
+        pub(crate) widget_sender: UnboundedSender<NextScreen>
     }
 }
 
 trait ResExt {
-    fn trace_error(self) -> ();
+    fn trace_error(self, sender: &UnboundedSender<NextScreen>) -> ();
 }
 
 impl ResExt for Result<()> {
-    fn trace_error(self) {
+    fn trace_error(self, sender: &UnboundedSender<NextScreen>) {
         if let Err(e) = self {
-            warn!("Error handling mpv player: {e:?}");
+            sender.send(NextScreen::Error(e)).trace_send_error();
         }
     }
 }
@@ -142,14 +145,20 @@ impl Future for PollState {
         if !*this.closed {
             if this.stop.poll(cx).is_ready() {
                 info!("mpv stopped");
-                this.mpv.quit().context("quitting mpv").trace_error();
+                this.mpv
+                    .quit()
+                    .context("quitting mpv")
+                    .trace_error(this.widget_sender);
                 *this.closed = true;
             } else {
                 while let Poll::Ready(val) = this.commands.poll_recv(cx) {
                     match val {
                         None => {
                             info!("all senders are closed");
-                            this.mpv.quit().context("quitting mpv").trace_error();
+                            this.mpv
+                                .quit()
+                                .context("quitting mpv")
+                                .trace_error(this.widget_sender);
                             *this.closed = true;
                             break;
                         }
@@ -157,42 +166,45 @@ impl Future for PollState {
                             .mpv
                             .set_pause(pause)
                             .context("setting pause on mpv")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Fullscreen(fullscreen)) => this
                             .mpv
                             .set_fullscreen(fullscreen)
                             .context("setting fullscreen")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Minimized(minimized)) => this
                             .mpv
                             .set_minimized(minimized)
                             .context("setting window minimized")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Next) => this
                             .mpv
                             .playlist_next_force()
                             .context("skipping to next item")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Previous) => this
                             .mpv
                             .playlist_previous_weak()
                             .context("moving to previous item")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Seek(seek)) => this
                             .mpv
                             .seek_absolute(seek)
                             .context("seeking")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::SeekRelative(seek)) => this
                             .mpv
                             .seek(seek, c"relative")
                             .context("seeking relative")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::Play(id)) => {
                             if let Some(index) = index_of(this.playlist, id) {
                                 match i64::try_from(index).context("Index is an invalid index") {
                                     Err(e) => warn!("error converting {index}\n{e:?}"),
-                                    Ok(index) => play_index(&this.mpv, index).trace_error(),
+                                    Ok(index) => {
+                                        play_index(&this.mpv, index)
+                                            .trace_error(this.widget_sender);
+                                    }
                                 }
                             }
                         }
@@ -200,7 +212,7 @@ impl Future for PollState {
                             .mpv
                             .set_property(c"speed", speed)
                             .context("setting playback speed")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::AddTrack { item, after, play }) => {
                             insert_at(
                                 this.playlist,
@@ -213,12 +225,12 @@ impl Future for PollState {
                                 this.send_events,
                             )
                             .context("adding item to playlist")
-                            .trace_error();
+                            .trace_error(this.widget_sender);
                         }
                         Some(Command::Stop) => {
                             stop(&this.mpv, this.playlist, this.index, this.send_events)
                                 .context("stopping player")
-                                .trace_error();
+                                .trace_error(this.widget_sender);
                         }
                         Some(Command::ReplacePlaylist { items, first }) => {
                             replace_playlist(
@@ -231,7 +243,7 @@ impl Future for PollState {
                                 this.send_events,
                                 this.index,
                             )
-                            .trace_error();
+                            .trace_error(this.widget_sender);
                         }
                         Some(Command::Remove(id)) => {
                             remove_playlist_item(
@@ -241,19 +253,19 @@ impl Future for PollState {
                                 this.send_events,
                                 this.index,
                             )
-                            .trace_error();
+                            .trace_error(this.widget_sender);
                         }
                         Some(Command::TogglePause) => {
                             this.mpv
                                 .set_pause(!*this.paused)
                                 .context("toggle pause on player")
-                                .trace_error();
+                                .trace_error(this.widget_sender);
                         }
                         Some(Command::Volume(volume)) => this
                             .mpv
                             .set_property(c"volume", volume)
                             .context("setting volume")
-                            .trace_error(),
+                            .trace_error(this.widget_sender),
                         Some(Command::GetEventReceiver(sender)) => {
                             sender
                                 .send(EventReceiver {
@@ -286,7 +298,8 @@ impl Future for PollState {
                 }
                 Some(Err(e)) => warn!("Error form mpv: {e:?}"),
                 Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::PlaylistPos(position)))) => {
-                    assert_shadow_playlist_state(&this.mpv, this.playlist).trace_error();
+                    assert_shadow_playlist_state(&this.mpv, this.playlist)
+                        .trace_error(this.widget_sender);
                     *this.index = if position == -1 {
                         None
                     } else {
@@ -295,7 +308,7 @@ impl Future for PollState {
                         {
                             Ok(v) => Some(v),
                             Err(e) => {
-                                Err(e).trace_error();
+                                Err(e).trace_error(this.widget_sender);
                                 None
                             }
                         }
@@ -363,7 +376,7 @@ impl Future for PollState {
                 Some(Ok(MpvEvent::Command(ClientCommand::Stop))) => {
                     stop(&this.mpv, this.playlist, this.index, this.send_events)
                         .context("stopping player")
-                        .trace_error();
+                        .trace_error(this.widget_sender);
                 }
             }
         }

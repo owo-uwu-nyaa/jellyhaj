@@ -2,13 +2,15 @@ pub mod children;
 pub mod item_list_details;
 pub mod overview;
 
+use std::sync::Arc;
+
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
     Config,
-    context::{DB, JellyfinEventInterests, Spawner},
     state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
+use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
     JellyhajWidgetBase, JellyhajWidgetExt, WidgetContext, WidgetTreeVisitor, Wrapper,
@@ -17,9 +19,13 @@ use ratatui::{
     symbols::merge::MergeStrategy,
     widgets::{Block, Widget},
 };
+use spawn::Spawner;
+use sqlx::SqliteConnection;
 use valuable::Valuable;
 
 use crate::overview::{Overview, OverviewAction};
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum DisplayAction {

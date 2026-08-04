@@ -8,11 +8,8 @@ use jellyfin::{
     socket::ChangedUserData,
     user_views::UserView,
 };
-use jellyhaj_core::{
-    context::{DB, JellyfinEventInterests, Spawner},
-    keybinds::EntryCommand,
-    state::Navigation,
-};
+use jellyhaj_core::{keybinds::EntryCommand, state::Navigation};
+use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::{JellyfinImage, ParsedImage};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageCache};
 use jellyhaj_widgets_core::{
@@ -26,9 +23,12 @@ use ratatui::{
     text::Span,
     widgets::{Block, BorderType, Paragraph, Widget},
 };
-use std::{borrow::Cow, fmt::Debug};
+use spawn::Spawner;
+use std::{borrow::Cow, fmt::Debug, sync::Arc};
 use tracing::instrument;
 use valuable::Valuable;
+
+type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug, Clone, Valuable)]
 #[allow(clippy::large_enum_variant)]

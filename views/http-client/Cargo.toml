@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
+jellyhaj-context = { version = "0.1.0", path = "../../context" }
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
 jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }

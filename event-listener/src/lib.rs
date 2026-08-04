@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     pin::pin,
     sync::Arc,
-    task::{Poll, ready},
 };
 
 use color_eyre::Result;
@@ -11,36 +10,26 @@ use jellyfin::{
     JellyfinClient,
     socket::{ChangedUserData, JellyfinMessage, LibraryChanged, RefreshProgress, UserDataChanged},
 };
-use jellyhaj_async_task::{Cancellation, Stream, StreamExt, TaskSubmitterRef, Wrapper};
+use jellyhaj_async_task::{
+    Cancellation, Stream, StreamExt, TaskSubmitterRef, UnboundedSender, Wrapper,
+};
 use parking_lot::{Mutex, lock_api::MutexGuard};
 use spawn::Spawner;
 use sqlx::SqliteConnection;
 use tracing::{debug, info_span, instrument};
 
 trait InterestInner<T> {
-    fn poll_send(
-        &self,
-        cx: &mut std::task::Context<'_>,
-        val: &mut Option<T>,
-    ) -> std::task::Poll<()>;
+    fn send(&self, val: T);
 }
 
 struct InterestInnerImpl<T, W: Wrapper<T>> {
     wrapper: W,
-    sender: Mutex<futures_channel::mpsc::Sender<Result<W::F>>>,
+    sender: Mutex<UnboundedSender<Result<W::F>>>,
 }
 
 impl<T, W: Wrapper<T>> InterestInner<T> for InterestInnerImpl<T, W> {
-    fn poll_send(
-        &self,
-        cx: &mut std::task::Context<'_>,
-        val: &mut Option<T>,
-    ) -> std::task::Poll<()> {
-        let _ = ready!(self.sender.lock().poll_ready(cx));
-        let _ = self.sender.lock().start_send(Ok(self
-            .wrapper
-            .wrap(val.take().expect("should not be empty"))));
-        Poll::Ready(())
+    fn send(&self, val: T) {
+        let _ = self.sender.lock().send(Ok(self.wrapper.wrap(val)));
     }
 }
 
@@ -61,9 +50,8 @@ impl<T: Send + 'static> Interest<T> {
         }
     }
 
-    async fn send(&self, val: T) {
-        let mut val = Some(val);
-        std::future::poll_fn(|cx| self.inner.poll_send(cx, &mut val)).await;
+    fn send(&self, val: T) {
+        self.inner.send(val);
     }
 }
 
@@ -277,7 +265,7 @@ async fn jellyfin_poll_socket(
                 };
                 let message = RefrshProgressInterest { item_id, progress };
                 for i in vec {
-                    i.send(message.clone()).await;
+                    i.send(message.clone());
                 }
             }
             JellyfinMessage::UserDataChanged {
@@ -297,7 +285,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(change.clone()).await;
+                        i.send(change.clone());
                     }
                 }
             }
@@ -322,7 +310,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(folder.clone()).await;
+                        i.send(folder.clone());
                     }
                 }
                 for removed in items_removed {
@@ -335,7 +323,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(removed.clone()).await;
+                        i.send(removed.clone());
                     }
                 }
                 for updated in items_updated {
@@ -348,7 +336,7 @@ async fn jellyfin_poll_socket(
                         continue;
                     };
                     for i in vec {
-                        i.send(updated.clone()).await;
+                        i.send(updated.clone());
                     }
                 }
             }

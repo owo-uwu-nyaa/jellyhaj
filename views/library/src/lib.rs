@@ -3,8 +3,8 @@ use jellyfin::{
     JellyfinClient, JellyfinVec, connect::JsonResponseHelper, items::MediaItem,
     user_views::UserView,
 };
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    context::TuiContext,
     state::NextScreen,
     widgets::shaded::widget::{Erased, make_new_erased},
 };

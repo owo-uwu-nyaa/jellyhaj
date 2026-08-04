@@ -3,11 +3,11 @@ use std::cmp::min;
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
     Config,
-    context::{DB, JellyfinEventInterests, Spawner},
     keybinds::EntryCommand,
     state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache};
+use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::{Picker, Stats};
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
@@ -19,9 +19,13 @@ use ratatui::{
     symbols::merge::MergeStrategy,
     widgets::{Block, Padding, Widget},
 };
+use spawn::Spawner;
 use valuable::Valuable;
 
-use crate::overview::{Overview, OverviewAction};
+use crate::{
+    DB,
+    overview::{Overview, OverviewAction},
+};
 
 #[derive(Valuable)]
 pub struct Child {

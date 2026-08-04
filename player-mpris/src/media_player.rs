@@ -1,24 +1,25 @@
+use jellyhaj_core::state::NextScreen;
 use player_core::{Command, PlayerHandle, state::SharedPlayerState};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 use zbus::interface;
 
 pub struct MediaPlayer2 {
     player: PlayerHandle,
     state: SharedPlayerState,
-    stop: CancellationToken,
+    widget_sender: UnboundedSender<NextScreen>,
 }
 
 impl MediaPlayer2 {
     pub const fn new(
         player: PlayerHandle,
         state: SharedPlayerState,
-        stop: CancellationToken,
+        widget_sender: UnboundedSender<NextScreen>,
     ) -> Self {
         Self {
             player,
             state,
-            stop,
+            widget_sender,
         }
     }
 }
@@ -29,7 +30,7 @@ impl MediaPlayer2 {
     const fn raise(&self) {}
     fn quit(&self) {
         info!("mpris asked us to quit");
-        self.stop.cancel();
+        let _ = self.widget_sender.send(NextScreen::Exit);
     }
     #[zbus(property(emits_changed_signal = "const"))]
     const fn can_quit(&self) -> bool {

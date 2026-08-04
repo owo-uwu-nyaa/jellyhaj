@@ -2,7 +2,6 @@ use std::ops::ControlFlow;
 
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::Spawner,
     keybinds::InspectCommand,
     state::Navigation,
     widgets::{
@@ -16,6 +15,7 @@ use jellyhaj_widgets_core::{
     ContextRef, GetFromContext,
     outer::{Named, OuterWidget},
 };
+use spawn::Spawner;
 
 struct Mapper;
 impl CommandMapper<InspectCommand> for Mapper {

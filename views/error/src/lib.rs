@@ -3,7 +3,6 @@ use std::ops::ControlFlow;
 use color_eyre::eyre::Report;
 use jellyhaj_core::{
     CommandMapper, Config,
-    context::Spawner,
     keybinds::ErrorCommand,
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
@@ -14,6 +13,7 @@ use jellyhaj_widgets_core::{
     ContextRef, GetFromContext,
     outer::{Named, OuterWidget},
 };
+use spawn::Spawner;
 
 struct Mapper;
 

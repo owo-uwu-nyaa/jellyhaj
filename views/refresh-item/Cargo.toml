@@ -7,6 +7,7 @@ jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
 jellyhaj-refresh-item-widget = {path = "../../widgets/refresh-item", version = "0.1.0"}
 jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
 color-eyre.workspace = true
+jellyhaj-context = { version = "0.1.0", path = "../../context" }
 
 [package]
 edition = "2024"

@@ -138,6 +138,16 @@ pub enum NextScreen {
     HttpClientFetch {
         url: String,
     },
+    Exit,
+}
+
+impl From<Result<Self>> for NextScreen {
+    fn from(value: Result<Self>) -> Self {
+        match value {
+            Ok(v) => v,
+            Err(e) => Self::Error(e),
+        }
+    }
 }
 
 #[allow(clippy::large_enum_variant)]

@@ -43,7 +43,8 @@ impl<R: 'static, W: JellyhajWidget<R>> Stream for ErasedWidgetImpl<R, W> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        Poll::Ready(Some(match ready!(this.receiver.poll_next_unpin(cx)) {
+
+        Poll::Ready(Some(match ready!(this.receiver.poll_recv(cx)) {
             Some(Ok(action)) => match this.widget.apply_action(
                 WidgetContext {
                     refs: this.context,

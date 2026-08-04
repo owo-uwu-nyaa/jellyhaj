@@ -1,11 +1,19 @@
-use std::{cell::UnsafeCell, sync::Arc};
+use std::{
+    cell::UnsafeCell,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
-use futures_util::future::BoxFuture;
-use jellyhaj_widgets_core::Result;
+use futures_util::{FutureExt, future::BoxFuture};
+use jellyhaj_widgets_core::{
+    Result,
+    async_task::{UnboundedReceiver, UnboundedSender},
+};
 use keybinds::KeybindEvents;
 use parking_lot::RwLock;
 use ratatui::DefaultTerminal;
-use tracing::{debug, info, instrument};
+use tokio::select;
+use tracing::{debug, info, instrument, warn};
 
 use crate::{
     state::{Navigation, NextScreen},
@@ -147,6 +155,7 @@ pub async fn render_loop(
     state: &StateStack,
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
+    external: &mut UnboundedReceiver<NextScreen>,
 ) {
     let mut top = Some(initial);
     loop {
@@ -176,29 +185,60 @@ pub async fn render_loop(
                 }
             }
         };
-        match render_widget(widget.as_mut(), events, term).await.into() {
-            Navigation::Push(next) => {
-                state.push(widget, widget_creator.clone());
-                top = Some(next);
-            }
-            Navigation::PopContext => {
-                match render_widget_stop::<_>(widget.as_mut(), events, term).await {
-                    RenderStopRes::Ok => {}
-                    RenderStopRes::Exit => break,
+        select! {
+            nav = render_widget(widget.as_mut(), events, term).map(Navigation::from) => {
+                match nav
+                {
+                    Navigation::Push(next) => {
+                        state.push(widget, widget_creator.clone());
+                        top = Some(next);
+                    }
+                    Navigation::PopContext => {
+                        match render_widget_stop::<_>(widget.as_mut(), events, term).await {
+                            RenderStopRes::Ok => {}
+                            RenderStopRes::Exit => break,
+                        }
+                    }
+                    Navigation::Replace(next) => {
+                        match render_widget_stop(widget.as_mut(), events, term).await {
+                            RenderStopRes::Ok => top = Some(next),
+                            RenderStopRes::Exit => break,
+                        }
+                    }
+                    Navigation::Exit => break,
+                    Navigation::PushWithoutTui(without_tui) => {
+                        if let Err(e) = run_without(without_tui).await {
+                            top = Some(NextScreen::Error(e));
+                        }
+                    }
                 }
             }
-            Navigation::Replace(next) => {
-                match render_widget_stop(widget.as_mut(), events, term).await {
-                    RenderStopRes::Ok => top = Some(next),
-                    RenderStopRes::Exit => break,
-                }
-            }
-            Navigation::Exit => break,
-            Navigation::PushWithoutTui(without_tui) => {
-                if let Err(e) = run_without(without_tui).await {
-                    top = Some(NextScreen::Error(e));
+            next = external.recv() => {
+                if let Some(next) = next{
+                    state.push(widget, widget_creator.clone());
+                    top = Some(next);
+                }else{
+                    warn!("external widget queue is closed, exit");
+                    break
                 }
             }
         }
+    }
+}
+
+pub struct WidgetPusher {
+    inner: UnboundedSender<NextScreen>,
+}
+impl DerefMut for WidgetPusher {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl Deref for WidgetPusher {
+    type Target = UnboundedSender<NextScreen>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }

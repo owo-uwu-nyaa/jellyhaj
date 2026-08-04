@@ -13,6 +13,7 @@ use jellyfin::{
     JellyfinClient,
     items::{ItemType, MediaItem},
 };
+use jellyhaj_core::state::NextScreen;
 use libmpv::{
     Mpv, MpvProfile,
     events::EventContextAsync,
@@ -20,7 +21,10 @@ use libmpv::{
 };
 use spawn::Spawner;
 use tokio::{
-    sync::{broadcast, mpsc},
+    sync::{
+        broadcast,
+        mpsc::{self, UnboundedSender},
+    },
     time::{MissedTickBehavior, interval},
 };
 use tokio_util::sync::CancellationToken;
@@ -32,6 +36,7 @@ use crate::{
 };
 
 impl OwnedPlayerHandle {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         jellyfin: JellyfinClient,
         hwdec: &str,
@@ -40,6 +45,7 @@ impl OwnedPlayerHandle {
         mpv_config_file: Option<&Path>,
         minimized: bool,
         spawn: &Spawner,
+        widget_sender: UnboundedSender<NextScreen>,
     ) -> Result<Self> {
         let mpv = MpvStream::new(&jellyfin, hwdec, profile, log_level, minimized)?;
         if let Some(mpv_config_file) = mpv_config_file {
@@ -74,6 +80,7 @@ impl OwnedPlayerHandle {
                 minimized,
                 seeked: false,
                 send_events,
+                widget_sender,
             },
             error_span!("mpv-player"),
             "mpv-player",
