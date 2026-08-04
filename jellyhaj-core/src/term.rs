@@ -1,4 +1,8 @@
-use std::io::stdout;
+use std::{
+    io::stdout,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use color_eyre::Result;
 use futures_util::future::BoxFuture;
@@ -62,14 +66,30 @@ impl Drop for DisableTermGuard {
     }
 }
 
-pub async fn run_without(f: BoxFuture<'static, Result<()>>) -> Result<()> {
-    let g = DisableTermGuard;
-    execute!(stdout(), DisableBracketedPaste)?;
-    execute!(stdout(), DisableMouseCapture)?;
-    execute!(stdout(), PopKeyboardEnhancementFlags)?;
-    execute!(stdout(), LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-    f.await?;
-    drop(g);
-    Ok(())
+pub struct RunWithout {
+    guard: Option<DisableTermGuard>,
+    f: BoxFuture<'static, Result<()>>,
+}
+
+impl Future for RunWithout {
+    type Output = Result<()>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        if this.guard.is_none() {
+            let g = DisableTermGuard;
+            execute!(stdout(), DisableBracketedPaste)?;
+            execute!(stdout(), DisableMouseCapture)?;
+            execute!(stdout(), PopKeyboardEnhancementFlags)?;
+            execute!(stdout(), LeaveAlternateScreen)?;
+            disable_raw_mode()?;
+            this.guard = Some(g);
+        }
+        this.f.as_mut().poll(cx)
+    }
+}
+
+#[must_use]
+pub fn run_without(f: BoxFuture<'static, Result<()>>) -> RunWithout {
+    RunWithout { guard: None, f }
 }

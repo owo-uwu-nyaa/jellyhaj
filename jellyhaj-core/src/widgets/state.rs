@@ -1,7 +1,9 @@
 use std::{
     cell::UnsafeCell,
     ops::{Deref, DerefMut},
+    pin::Pin,
     sync::Arc,
+    task::{Context, Poll, ready},
 };
 
 use futures_util::{FutureExt, future::BoxFuture};
@@ -11,21 +13,24 @@ use jellyhaj_widgets_core::{
 };
 use keybinds::KeybindEvents;
 use parking_lot::RwLock;
+use pin_project_lite::pin_project;
 use ratatui::DefaultTerminal;
-use tokio::select;
+use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
     state::{Navigation, NextScreen},
-    term::run_without,
+    term::{RunWithout, run_without},
     widgets::{
         RunResult, WidgetCreator,
         list::{
             ListAccessToken, ListEntry, StateEntry, inspect_list, prepend_element, remove_element,
         },
         shaded::{
-            render::{RenderStopRes, render_widget, render_widget_stop},
-            widget::Erased,
+            render::{
+                RenderStopRes, RenderStopWidget, RenderWidget, render_widget, render_widget_stop,
+            },
+            widget::{Erased, ShadedWidget},
         },
         suspended::SuspendedInner,
     },
@@ -149,80 +154,176 @@ impl Default for StateStack {
     }
 }
 
-pub async fn render_loop(
+pin_project! {
+    pub struct RenderLoop<'l> {
+        widget_creator: WidgetCreator,
+        state: &'l StateStack,
+        term: &'l mut DefaultTerminal,
+        events: &'l mut KeybindEvents,
+        external: &'l mut UnboundedReceiver<NextScreen>,
+        external_closed_detected: bool,
+        #[pin]
+        loop_state: RenderLoopState,
+    }
+}
+
+pin_project! {
+    #[project = RenderLoopStateProj]
+    pub enum RenderLoopState {
+        WithoutTui{fut: RunWithout},
+        Render{ #[pin] state: RenderWidget, widget: Option<Box<ShadedWidget<Navigation>>>},
+        RenderStop{#[pin] state: RenderStopWidget, widget: Box<ShadedWidget<Navigation>>, next: Option<NextScreen>},
+        Suspended{handle: JoinHandle<RunResult>}
+
+    }
+}
+
+impl Future for RenderLoop<'_> {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+        loop {
+            let new_state = 'new_state: {
+                'pop_state: {
+                    match this.loop_state.as_mut().project() {
+                        RenderLoopStateProj::WithoutTui { fut } => {
+                            if let Err(e) = ready!(fut.poll_unpin(cx)) {
+                                break 'new_state make_render((this.widget_creator)(
+                                    NextScreen::Error(e),
+                                ));
+                            }
+                            break 'pop_state;
+                        }
+                        RenderLoopStateProj::Render { state, widget } => {
+                            if let Poll::Ready(res) = state.poll_render(
+                                widget.as_deref_mut().expect("polled after return?"),
+                                this.events,
+                                this.term,
+                                cx,
+                            ) {
+                                let widget = widget.take().expect("polled after return?");
+                                match Navigation::from(res) {
+                                    Navigation::PopContext => {
+                                        break 'new_state make_render_stop(widget, None);
+                                    }
+                                    Navigation::Push(next_screen) => {
+                                        this.state.push(widget, this.widget_creator.clone());
+                                        break 'new_state make_render((this.widget_creator)(
+                                            next_screen,
+                                        ));
+                                    }
+                                    Navigation::Replace(next_screen) => {
+                                        break 'new_state make_render_stop(
+                                            widget,
+                                            Some(next_screen),
+                                        );
+                                    }
+                                    Navigation::Exit => return Poll::Ready(()),
+                                    Navigation::PushWithoutTui(pin) => {
+                                        break 'new_state make_without_tui(pin);
+                                    }
+                                }
+                            } else if let Some(next) = ready!(this.external.poll_recv(cx)) {
+                                let widget = widget.take().expect("polled after return?");
+                                this.state.push(widget, this.widget_creator.clone());
+                                break 'new_state make_render((this.widget_creator)(next));
+                            }
+                            if !*this.external_closed_detected {
+                                *this.external_closed_detected = true;
+                                warn!("external widget queue is closed");
+                            }
+                            return Poll::Pending;
+                        }
+                        RenderLoopStateProj::RenderStop {
+                            state,
+                            widget,
+                            next,
+                        } => {
+                            match ready!(state.poll_render_stop(widget, this.events, this.term, cx))
+                            {
+                                RenderStopRes::Ok => {
+                                    if let Some(next) = next.take() {
+                                        break 'new_state make_render((this.widget_creator)(next));
+                                    }
+                                    break 'pop_state;
+                                }
+                                RenderStopRes::Exit => return Poll::Ready(()),
+                            }
+                        }
+                        RenderLoopStateProj::Suspended { handle } => {
+                            match ready!(handle.poll_unpin(cx)).expect("suspended widget paniced") {
+                                RunResult::Cont(widget) => break 'new_state make_render(widget),
+                                RunResult::Empty => {
+                                    break 'pop_state;
+                                }
+                                RunResult::Exit => return Poll::Ready(()),
+                            }
+                        }
+                    }
+                }
+                break 'new_state match this.state.pop() {
+                    StateValue::Suspended(suspended) => {
+                        debug!("resuming suspended widget: {}", suspended.name);
+                        RenderLoopState::Suspended {
+                            handle: suspended.get_widget(),
+                        }
+                    }
+                    StateValue::Empty => {
+                        info!("stack is now empty");
+                        return Poll::Ready(());
+                    }
+                    StateValue::WithoutTui(without_tui) => RenderLoopState::WithoutTui {
+                        fut: run_without(without_tui),
+                    },
+                };
+            };
+            this.loop_state.set(new_state);
+        }
+    }
+}
+
+fn make_without_tui(f: BoxFuture<'static, Result<()>>) -> RenderLoopState {
+    RenderLoopState::WithoutTui {
+        fut: run_without(f),
+    }
+}
+
+fn make_render(widget: Box<ShadedWidget<Navigation>>) -> RenderLoopState {
+    RenderLoopState::Render {
+        state: render_widget(),
+        widget: Some(widget),
+    }
+}
+
+fn make_render_stop(
+    widget: Box<ShadedWidget<Navigation>>,
+    next: Option<NextScreen>,
+) -> RenderLoopState {
+    RenderLoopState::RenderStop {
+        state: render_widget_stop(),
+        widget,
+        next,
+    }
+}
+
+pub fn render_loop<'e>(
     initial: NextScreen,
     widget_creator: WidgetCreator,
-    state: &StateStack,
-    term: &mut DefaultTerminal,
-    events: &mut KeybindEvents,
-    external: &mut UnboundedReceiver<NextScreen>,
-) {
-    let mut top = Some(initial);
-    loop {
-        let mut widget = if let Some(top) = top.take() {
-            debug!("running top next screen");
-            widget_creator(top)
-        } else {
-            match state.pop() {
-                StateValue::Suspended(suspended) => {
-                    debug!("resuming suspended widget: {}", suspended.name);
-                    match suspended.get_widget().await {
-                        RunResult::Cont(erased_widget) => erased_widget,
-                        RunResult::Empty => continue,
-                        RunResult::Exit => break,
-                    }
-                }
-                StateValue::Empty => {
-                    info!("stack is now empty");
-                    break;
-                }
-                StateValue::WithoutTui(without_tui) => {
-                    if let Err(e) = run_without(without_tui).await {
-                        widget_creator(NextScreen::Error(e))
-                    } else {
-                        continue;
-                    }
-                }
-            }
-        };
-        select! {
-            nav = render_widget(widget.as_mut(), events, term).map(Navigation::from) => {
-                match nav
-                {
-                    Navigation::Push(next) => {
-                        state.push(widget, widget_creator.clone());
-                        top = Some(next);
-                    }
-                    Navigation::PopContext => {
-                        match render_widget_stop::<_>(widget.as_mut(), events, term).await {
-                            RenderStopRes::Ok => {}
-                            RenderStopRes::Exit => break,
-                        }
-                    }
-                    Navigation::Replace(next) => {
-                        match render_widget_stop(widget.as_mut(), events, term).await {
-                            RenderStopRes::Ok => top = Some(next),
-                            RenderStopRes::Exit => break,
-                        }
-                    }
-                    Navigation::Exit => break,
-                    Navigation::PushWithoutTui(without_tui) => {
-                        if let Err(e) = run_without(without_tui).await {
-                            top = Some(NextScreen::Error(e));
-                        }
-                    }
-                }
-            }
-            next = external.recv() => {
-                if let Some(next) = next{
-                    state.push(widget, widget_creator.clone());
-                    top = Some(next);
-                }else{
-                    warn!("external widget queue is closed, exit");
-                    break
-                }
-            }
-        }
+    state: &'e StateStack,
+    term: &'e mut DefaultTerminal,
+    events: &'e mut KeybindEvents,
+    external: &'e mut UnboundedReceiver<NextScreen>,
+) -> RenderLoop<'e> {
+    let loop_state = make_render(widget_creator(initial));
+    RenderLoop {
+        widget_creator,
+        state,
+        term,
+        events,
+        external,
+        external_closed_detected: false,
+        loop_state,
     }
 }
 

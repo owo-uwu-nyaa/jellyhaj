@@ -119,10 +119,9 @@ async unsafe fn run_suspended(
 }
 
 impl SuspendedInner {
-    pub async fn get_widget(&self) -> RunResult {
+    pub fn get_widget(&self) -> JoinHandle<RunResult> {
         self.drop_guard.inner.set();
-        let handle = self.task.lock().take().expect("tried to get task twice");
-        handle.await.expect("polling state paniced")
+        self.task.lock().take().expect("tried to get task twice")
     }
 
     /**
