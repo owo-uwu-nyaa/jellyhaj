@@ -78,6 +78,7 @@ pub enum InspectCommand {
     Up,
     Down,
     Quit,
+    Copy,
     #[command(flatten)]
     Global(GlobalCommand),
 }

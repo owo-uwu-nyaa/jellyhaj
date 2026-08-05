@@ -29,6 +29,7 @@ impl CommandMapper<InspectCommand> for Mapper {
             InspectCommand::Close => InspectAction::Close,
             InspectCommand::Up => InspectAction::Up,
             InspectCommand::Down => InspectAction::Down,
+            InspectCommand::Copy => InspectAction::Copy,
             InspectCommand::Quit => return ControlFlow::Break(Navigation::PopContext),
             InspectCommand::Global(g) => return ControlFlow::Break(g.into()),
         };

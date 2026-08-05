@@ -38,11 +38,11 @@ q="quit"
 template = ["g", "ud"]
 enter = "toggle"
 left = "close-move-parent"
-c = "close"
+C = "close"
 o = "open"
 right = "open"
 q = "quit"
-
+c = "copy"
 
 [fetch]
 template = ["g"]

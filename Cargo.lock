@@ -2271,6 +2271,8 @@ dependencies = [
 name = "jellyhaj-inspect-widget"
 version = "0.1.0"
 dependencies = [
+ "color-eyre",
+ "crossterm",
  "jellyhaj-core",
  "jellyhaj-widgets-core",
  "serde_json",
