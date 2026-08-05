@@ -70,6 +70,7 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         | NextScreen::AuthFinished { .. } => {
             jellyhaj_error_view::render_error(cx, &eyre!("already logged in"))
         }
+        NextScreen::Logout => jellyhaj_login_view::render_logout(cx),
         NextScreen::Exit => jellyhaj_player_view::render_exit(cx),
     }
 }
@@ -165,7 +166,8 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::DoRefreshItem { .. }
         | NextScreen::QuickConnectAuth(_)
         | NextScreen::HttpClient
-        | NextScreen::HttpClientFetch { .. } => {
+        | NextScreen::HttpClientFetch { .. }
+        | NextScreen::Logout => {
             jellyhaj_error_view::render_error(cx, &eyre!("This requires beeing logged in"))
         }
         NextScreen::Exit => jellyhaj_player_view::render_exit(cx),

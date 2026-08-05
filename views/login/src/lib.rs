@@ -25,7 +25,7 @@ use jellyhaj_core::{
     },
 };
 use jellyhaj_fetch_view::make_nav_fetch;
-use jellyhaj_widgets_core::{ContextRef, async_task::UnboundedReceiver};
+use jellyhaj_widgets_core::{ContextRef, GetFromContext, async_task::UnboundedReceiver};
 use keybinds::KeybindEvents;
 use parking_lot::Mutex;
 use ratatui::DefaultTerminal;
@@ -206,4 +206,15 @@ pub fn render_auth_finished(
         cx.original_login_state.clone(),
     );
     make_nav_fetch(cx, "Storing login information", fut)
+}
+
+pub fn render_logout(
+    cx: impl ContextRef<JellyfinClient> + ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+) -> Erased {
+    let jellyfin = JellyfinClient::get_ref(&cx).clone();
+    let fut = async move {
+        jellyfin.delete_current_api_key().await?;
+        Ok(Navigation::Exit)
+    };
+    make_nav_fetch(cx, "Logout", fut)
 }

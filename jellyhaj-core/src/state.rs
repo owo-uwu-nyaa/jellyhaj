@@ -139,6 +139,7 @@ pub enum NextScreen {
         url: String,
     },
     Exit,
+    Logout,
 }
 
 impl From<Result<Self>> for NextScreen {
@@ -174,6 +175,7 @@ impl From<GlobalCommand> for Navigation {
             GlobalCommand::QuickConnect => NextScreen::QuickConnect,
             GlobalCommand::ShowHome => NextScreen::LoadHomeScreen,
             GlobalCommand::HttpClient => NextScreen::HttpClient,
+            GlobalCommand::Logout => NextScreen::Logout,
         })
     }
 }

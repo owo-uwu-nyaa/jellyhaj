@@ -128,6 +128,9 @@ u = "unset-watched"
 "C-i" = "copy-id"
 I = "inspect-data"
 
+[template.g]
+"C-A-l" = "logout"
+
 [template.g.s]
 name = "show-"
 s = "show-stats"

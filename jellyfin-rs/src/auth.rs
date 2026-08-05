@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use aws_lc_rs::digest;
+use color_eyre::Result as EyreResult;
 use color_eyre::eyre::eyre;
 use futures_util::future::try_join;
 use http::{HeaderValue, header::AUTHORIZATION};
@@ -102,6 +103,26 @@ impl JellyfinClient<NoAuth> {
             session_id: auth.session_info.id,
         };
         Ok(make_auth_or_return(self, auth))
+    }
+}
+
+impl<A: Authed> JellyfinClient<A> {
+    pub async fn delete_api_key(&self, key: &str) -> EyreResult<()> {
+        self.send_request(
+            self.delete(
+                |base: &mut String| {
+                    base.push_str("/Auth/Keys/");
+                    base.push_str(key);
+                },
+                NoQuery,
+            )?
+            .empty_body()?,
+        )
+        .await?;
+        Ok(())
+    }
+    pub fn delete_current_api_key(&self) -> impl Future<Output = EyreResult<()>> {
+        self.delete_api_key(self.get_auth().token())
     }
 }
 
