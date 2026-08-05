@@ -17,7 +17,7 @@ use config::{Config, init_config};
 use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
     state::NextScreen,
-    widgets::state::{StateStack, render_loop},
+    widgets::state::{StateStackHandle, render_loop},
 };
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::{Stats, cache::ImageCache};
@@ -113,7 +113,7 @@ async fn run_app_inner(
             error_span!("player_jellyfin"),
             "player_jellyfin",
         );
-
+        let state_stack = StateStackHandle::new();
         run_state(
             &mut term,
             &mut events,
@@ -127,7 +127,7 @@ async fn run_app_inner(
                 image_picker: Arc::new(image_picker),
                 stats,
                 spawn: spawner,
-                state: Arc::new(StateStack::new()),
+                state: state_stack.clone(),
             },
             &mut widget_receiver,
         )

@@ -12,6 +12,7 @@ use color_eyre::Report;
 use futures_intrusive::sync::ManualResetEvent;
 use jellyhaj_widgets_core::TreeVisitor;
 use ratatui::crossterm::event::KeyEvent;
+use tracing::debug;
 
 use crate::{
     state::{Navigation, NextScreen},
@@ -54,6 +55,7 @@ struct DropGuard {
 
 impl Drop for DropGuard {
     fn drop(&mut self) {
+        debug!("returning suspended widget");
         self.inner.set();
     }
 }

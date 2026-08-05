@@ -1,5 +1,6 @@
 use std::{
     cell::UnsafeCell,
+    convert::Infallible,
     ops::{Deref, DerefMut},
     pin::Pin,
     sync::Arc,
@@ -47,27 +48,46 @@ pub struct StateStack {
     list: Arc<StateEntry>,
 }
 
-impl Drop for StateStack {
+pub struct StateStackHandle {
+    inner: Arc<StateStack>,
+}
+
+impl Deref for StateStackHandle {
+    type Target = Arc<StateStack>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl Drop for StateStackHandle {
     // break reference cycles, isolate all entries
     #[instrument(skip_all, level = "trace", name = "StateStack::drop()")]
     fn drop(&mut self) {
-        let mut guard = self.lock.write();
-        let mut entry = self.list.clone();
-        unsafe { inspect_list(&entry, &guard) };
-        while let Some(new_entry) = {
-            let entry = unsafe { entry.get_list_mut(&mut guard) };
-            entry.prev = None;
-            entry.next.take()
-        } {
-            entry = new_entry;
+        debug!("dropping state stack");
+        self.inner.destroy();
+    }
+}
+
+impl StateStackHandle {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(StateStack::new()),
         }
+    }
+}
+
+impl Default for StateStackHandle {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl StateStack {
     #[instrument(skip_all, level = "trace", name = "StateStack::new()")]
-    pub fn new() -> Self {
-        tracing::trace!("new state stack");
+    fn new() -> Self {
+        debug!("new state stack");
         let list = Arc::new(StateEntry {
             list: UnsafeCell::new(ListEntry {
                 next: None,
@@ -89,6 +109,22 @@ impl StateStack {
             list,
         }
     }
+
+    #[instrument(skip_all, level = "trace")]
+    fn destroy(&self) {
+        debug!("destroying state stack");
+        let mut guard = self.lock.write();
+        let mut entry = self.list.clone();
+        unsafe { inspect_list(&entry, &guard) };
+        while let Some(new_entry) = {
+            let entry = unsafe { entry.get_list_mut(&mut guard) };
+            entry.prev = None;
+            entry.next.take()
+        } {
+            entry = new_entry;
+        }
+    }
+
     pub fn push(&self, widget: Erased, widget_creator: WidgetCreator) {
         let mut token = self.lock.write();
         unsafe {
@@ -186,7 +222,7 @@ impl Future for RenderLoop<'_> {
         loop {
             let new_state = 'new_state: {
                 'pop_state: {
-                    match this.loop_state.as_mut().project() {
+                    let _: Infallible = match this.loop_state.as_mut().project() {
                         RenderLoopStateProj::WithoutTui { fut } => {
                             if let Err(e) = ready!(fut.poll_unpin(cx)) {
                                 break 'new_state make_render((this.widget_creator)(
@@ -260,7 +296,7 @@ impl Future for RenderLoop<'_> {
                                 RunResult::Exit => return Poll::Ready(()),
                             }
                         }
-                    }
+                    };
                 }
                 break 'new_state match this.state.pop() {
                     StateValue::Suspended(suspended) => {
@@ -279,6 +315,7 @@ impl Future for RenderLoop<'_> {
                 };
             };
             this.loop_state.set(new_state);
+            //ensure this future participates in tokio cooperative scheduling
             ready!(poll_proceed(cx)).made_progress();
         }
     }

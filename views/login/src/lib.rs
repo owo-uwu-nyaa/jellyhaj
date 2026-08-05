@@ -21,7 +21,7 @@ use jellyhaj_core::{
     state::{ClientOut, LoginState, Navigation, NextScreen},
     widgets::{
         shaded::widget::Erased,
-        state::{StateStack, render_loop},
+        state::{StateStack, StateStackHandle, render_loop},
     },
 };
 use jellyhaj_fetch_view::make_nav_fetch;
@@ -90,12 +90,13 @@ pub async fn login(
         Ok(v) => (v, None),
         Err(e) => (LoginState::default(), Some(e)),
     };
+    let state_stack = StateStackHandle::new();
     let cx = LoginContext {
         config,
         cache: db,
         spawner,
         stats,
-        state: Arc::new(StateStack::new()),
+        state: state_stack.clone(),
         original_login_state: original_state,
     };
     let widget_creator = {
