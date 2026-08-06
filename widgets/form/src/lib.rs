@@ -39,11 +39,14 @@ pub enum FormAction<A: Debug + Send + 'static> {
 }
 
 pub trait FormItemBase<AR>: Valuable {
-    const HEIGHT: u16;
-    const HEIGHT_BUF: u16;
     type SelectionInner: Default + Debug + Valuable;
     type Ret: Into<AR>;
     type Action: Debug + Send + 'static;
+
+    /// Height of the widget
+    fn height(&self) -> u16;
+    /// Required minimal space below the widget
+    fn height_buf(&self) -> u16;
 
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false

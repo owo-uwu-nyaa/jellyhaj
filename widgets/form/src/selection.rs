@@ -42,10 +42,6 @@ fn selection_prev<S: Selection>(cur: S) -> S {
 }
 
 impl<S: Selection, AR: From<Infallible>> FormItemBase<AR> for S {
-    const HEIGHT: u16 = 3;
-
-    const HEIGHT_BUF: u16 = 4;
-
     type SelectionInner = Option<S>;
 
     type Ret = Infallible;
@@ -81,6 +77,14 @@ impl<S: Selection, AR: From<Infallible>> FormItemBase<AR> for S {
                 height: 0,
             }
         }
+    }
+
+    fn height(&self) -> u16 {
+        3
+    }
+
+    fn height_buf(&self) -> u16 {
+        4
     }
 }
 

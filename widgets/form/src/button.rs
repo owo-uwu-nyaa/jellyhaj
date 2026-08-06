@@ -74,10 +74,6 @@ const fn center(full: u16, requested: u16) -> Centered {
 }
 
 impl<C: ActionCreator, AR: From<C::T>> FormItemBase<AR> for Button<C> {
-    const HEIGHT: u16 = 3;
-
-    const HEIGHT_BUF: u16 = 0;
-
     type SelectionInner = ();
 
     type Ret = C::T;
@@ -95,6 +91,14 @@ impl<C: ActionCreator, AR: From<C::T>> FormItemBase<AR> for Button<C> {
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
         Rect::ZERO
+    }
+
+    fn height(&self) -> u16 {
+        3
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 

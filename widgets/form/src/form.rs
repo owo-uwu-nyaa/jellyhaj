@@ -623,7 +623,7 @@ impl<R: 'static, const TOTAL_SIZE: usize, AR>
             x: 0,
             y: self.store[INDEX] - self.offset,
             width: self.size.width,
-            height: I::HEIGHT,
+            height: state.height(),
         };
         let active = I::popup_area(state, sel, this_area, self.size);
         if (active.height - active.y > self.pos.y) && (active.width - active.x > self.pos.x) {
@@ -670,13 +670,13 @@ impl<R: 'static, const TOTAL_SIZE: usize, AR> WithIndexMut<R, AR>
         name: &'static str,
     ) -> Result<I::SelectionInner> {
         let base = self.pos.y - self.store[INDEX];
-        if base < I::HEIGHT {
+        if base < state.height() {
             let (s, res) = I::apply_click_inactive(
                 state,
                 cx,
                 Size {
                     width: self.size.width,
-                    height: I::HEIGHT,
+                    height: state.height(),
                 },
                 Position {
                     x: self.pos.x,
@@ -717,17 +717,17 @@ impl<const TOTAL_SIZE: usize, R: 'static, S: FormData<{ TOTAL_SIZE }>> WithIterI
             if self.first {
                 self.first = false;
                 self.store[INDEX] = self.height;
-                self.height = I::HEIGHT;
-                self.height_buf = I::HEIGHT_BUF;
+                self.height = state.height();
+                self.height_buf = state.height_buf();
             } else {
                 self.height = self.height.strict_add(1);
                 self.store[INDEX] = self.height;
-                self.height = self.height.strict_add(I::HEIGHT);
+                self.height = self.height.strict_add(state.height());
                 self.height_buf = self
                     .height_buf
                     .saturating_sub(1)
-                    .saturating_sub(I::HEIGHT)
-                    .strict_add(I::HEIGHT_BUF);
+                    .saturating_sub(state.height())
+                    .strict_add(state.height_buf());
             }
         } else {
             self.store[INDEX] = self.height;
@@ -755,7 +755,7 @@ impl<const TOTAL_SIZE: usize, R: 'static, AR> WithIterItemsMut<R, AR>
     ) -> Result<()> {
         if *self.show_if.index(INDEX) {
             let mut this_area = self.area;
-            this_area.height = I::HEIGHT;
+            this_area.height = state.height();
             this_area.y += self.store[INDEX];
             I::render_pass_main(state, cx, this_area, self.buf, self.cur == INDEX, name)?;
         }
@@ -781,7 +781,7 @@ impl<const TOTAL_SIZE: usize, R: 'static, AR> WithSelectionMutCX<R, AR, Result<(
         name: &'static str,
     ) -> Result<()> {
         let mut this_area = self.area;
-        this_area.height = I::HEIGHT;
+        this_area.height = state.height();
         this_area.y += self.store[INDEX] - self.offset;
         I::render_pass_popup(state, cx, this_area, self.area, self.buf, name, sel)
     }

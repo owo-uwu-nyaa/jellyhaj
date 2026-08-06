@@ -11,10 +11,6 @@ use crate::{FormItem, FormItemBase};
 pub struct Label;
 
 impl<AR: From<Infallible>> FormItemBase<AR> for Label {
-    const HEIGHT: u16 = 1;
-
-    const HEIGHT_BUF: u16 = 0;
-
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -31,6 +27,14 @@ impl<AR: From<Infallible>> FormItemBase<AR> for Label {
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
         Rect::ZERO
+    }
+
+    fn height(&self) -> u16 {
+        1
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 
@@ -121,10 +125,6 @@ impl DynamicLabel {
     }
 }
 impl<AR: From<Infallible>> FormItemBase<AR> for DynamicLabel {
-    const HEIGHT: u16 = 1;
-
-    const HEIGHT_BUF: u16 = 0;
-
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -141,6 +141,14 @@ impl<AR: From<Infallible>> FormItemBase<AR> for DynamicLabel {
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
         Rect::ZERO
+    }
+
+    fn height(&self) -> u16 {
+        1
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for DynamicLabel {

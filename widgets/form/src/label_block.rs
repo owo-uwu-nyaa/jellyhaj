@@ -56,10 +56,6 @@ impl From<Position> for Pos {
 }
 
 impl<AR: From<Infallible>> FormItemBase<AR> for LabelBlock {
-    const HEIGHT: u16 = 10;
-
-    const HEIGHT_BUF: u16 = 0;
-
     type SelectionInner = Option<Pos>;
 
     type Ret = Infallible;
@@ -81,6 +77,14 @@ impl<AR: From<Infallible>> FormItemBase<AR> for LabelBlock {
         } else {
             Rect::ZERO
         }
+    }
+
+    fn height(&self) -> u16 {
+        10
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 

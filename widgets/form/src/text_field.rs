@@ -44,10 +44,6 @@ mod s {
 }
 
 impl<AR: From<Infallible>> FormItemBase<AR> for TextField {
-    const HEIGHT: u16 = 3;
-
-    const HEIGHT_BUF: u16 = 0;
-
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -74,6 +70,14 @@ impl<AR: From<Infallible>> FormItemBase<AR> for TextField {
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
         Rect::ZERO
+    }
+
+    fn height(&self) -> u16 {
+        3
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 

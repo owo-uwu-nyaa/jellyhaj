@@ -7,8 +7,6 @@ use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 use crate::{FormAction, FormItem, FormItemBase};
 
 impl<AR: From<Infallible>> FormItemBase<AR> for bool {
-    const HEIGHT: u16 = 1;
-    const HEIGHT_BUF: u16 = 0;
     type SelectionInner = ();
     type Ret = Infallible;
     type Action = Infallible;
@@ -24,6 +22,14 @@ impl<AR: From<Infallible>> FormItemBase<AR> for bool {
         full_area: ratatui::prelude::Size,
     ) -> ratatui::prelude::Rect {
         Rect::ZERO
+    }
+
+    fn height(&self) -> u16 {
+        1
+    }
+
+    fn height_buf(&self) -> u16 {
+        0
     }
 }
 
