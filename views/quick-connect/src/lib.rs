@@ -9,12 +9,13 @@ use jellyhaj_core::{
 use jellyhaj_fetch_view::make_nav_fetch;
 use jellyhaj_form_widget::{
     button::Button,
-    form::{FormCommandMapper, FormData, FormResultMapper},
+    form::{FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
     form_widget,
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
+    WidgetContext, Wrapper,
     outer::{Named, OuterWidget, UnwrapWidget},
     valuable::Valuable,
 };
@@ -37,13 +38,11 @@ impl FormResultMapper<QuickConnect> for Mapper {
 
     fn map(
         state: &QuickConnect,
-        form_result: <QuickConnect as jellyhaj_form_widget::form::FormDataTypes>::AR,
-        _cx: jellyhaj_widgets_core::WidgetContext<
+        form_result: <QuickConnect as FormComponent>::AR,
+        _cx: WidgetContext<
             '_,
-            <QuickConnect as jellyhaj_form_widget::form::FormDataTypes>::Action,
-            impl jellyhaj_widgets_core::Wrapper<
-                <QuickConnect as jellyhaj_form_widget::form::FormDataTypes>::Action,
-            >,
+            <QuickConnect as FormComponent>::Action,
+            impl Wrapper<<QuickConnect as FormComponent>::Action>,
             (),
         >,
     ) -> jellyhaj_widgets_core::Result<Option<Self::Res>> {
@@ -57,9 +56,9 @@ impl FormResultMapper<QuickConnect> for Mapper {
 #[derive(Debug, Default, Valuable)]
 #[form_widget("Authorize with Quick Connect", Action, Mapper)]
 struct QuickConnect {
-    #[descr("Code")]
+    #[form(descr = "Code")]
     code: TextField,
-    #[descr("Authenticate")]
+    #[form(descr = "Authenticate")]
     auth: Button<Action>,
 }
 
@@ -71,7 +70,7 @@ impl Named for Name {
 #[must_use]
 pub fn make_quick_connect(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
-        UnwrapWidget::new(QuickConnect::default().make_with(QuickConnectSelection::Code(()))),
+        UnwrapWidget::new(QuickConnect::default().make_with_default()),
         cx.config.keybinds.form.clone(),
         FormCommandMapper::default(),
     ));

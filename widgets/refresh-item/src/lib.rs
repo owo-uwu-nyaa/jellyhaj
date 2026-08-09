@@ -5,7 +5,7 @@ use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_form_widget::{
     Selection,
     button::{ActionCreator, Button},
-    form::{FormDataTypes, FormResultMapper},
+    form::{FormResultMapper, component::FormComponent},
     form_widget,
 };
 use jellyhaj_widgets_core::{Result, WidgetContext, Wrapper};
@@ -50,11 +50,11 @@ impl FormResultMapper<RefreshItem> for RefreshItemResultMapper {
 
     fn map(
         state: &RefreshItem,
-        form_result: <RefreshItem as FormDataTypes>::AR,
+        form_result: <RefreshItem as FormComponent>::AR,
         _cx: WidgetContext<
             '_,
-            <RefreshItem as FormDataTypes>::Action,
-            impl Wrapper<<RefreshItem as FormDataTypes>::Action>,
+            <RefreshItem as FormComponent>::Action,
+            impl Wrapper<<RefreshItem as FormComponent>::Action>,
             (),
         >,
     ) -> Result<Option<Self::Res>> {
@@ -69,24 +69,18 @@ impl FormResultMapper<RefreshItem> for RefreshItemResultMapper {
 #[derive(Default, Debug, Valuable)]
 #[form_widget("Refresh Metadata", FormResult, RefreshItemResultMapper)]
 pub struct RefreshItem {
-    #[skip]
+    #[form(skip)]
     id: String,
-    #[descr("Refresh mode")]
+    #[form(descr = "Refresh mode")]
     action: Action,
-    #[descr("Replace existing images")]
-    #[show_if(self.action != Action::NewUpdated)]
+    #[form(descr = "Replace existing images")]
+    #[form(show_if(self.action != Action::NewUpdated))]
     replace_images: bool,
-    #[descr("Replace existing trickplay images")]
-    #[show_if(self.action != Action::NewUpdated)]
+    #[form(descr = "Replace existing trickplay images")]
+    #[form(show_if(self.action != Action::NewUpdated))]
     replace_trickplay: bool,
-    #[descr("Refresh Now!")]
+    #[form(descr = "Refresh Now!")]
     refresh: Button<AC>,
-}
-
-impl Default for RefreshItemSelection {
-    fn default() -> Self {
-        Self::Action(None)
-    }
 }
 
 impl RefreshItem {

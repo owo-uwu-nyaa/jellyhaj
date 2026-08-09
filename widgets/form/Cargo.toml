@@ -1,7 +1,7 @@
 [dependencies]
 crossterm = {features = ["osc52"], workspace = true}
 jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-form-derive = {path = "../form-derive", version = "0.1.0"}
+jellyhaj-form-derive = {path = "../form-derive", version = "0.1.0", optional = true}
 jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
 serde = {optional = true, workspace = true}
 tui-scrollview = "0.6.2"
@@ -12,6 +12,8 @@ valuable.workspace = true
 
 [features]
 serde = ["dep:serde"]
+macro = ["dep:jellyhaj-form-derive"]
+default = ["macro"]
 
 [package]
 edition = "2024"

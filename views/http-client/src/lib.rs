@@ -8,7 +8,7 @@ use jellyhaj_core::{
     state::NextScreen,
     widgets::shaded::widget::{Erased, make_new_erased},
 };
-use jellyhaj_form_widget::form::{FormCommandMapper, FormDataDefaultExt};
+use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_http_client_widget::HttpClientData;
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::outer::{Named, OuterWidget, UnwrapWidget};

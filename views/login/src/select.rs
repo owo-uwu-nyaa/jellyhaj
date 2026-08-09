@@ -3,11 +3,9 @@ use jellyhaj_core::{
     state::{ClientOut, LoginState},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
-use jellyhaj_form_widget::form::{FormCommandMapper, FormData};
+use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_login_widget::select::{
-    SelectData, SelectDataAction, SelectDataSelection, SelectWidget,
-};
+use jellyhaj_login_widget::select::{SelectData, SelectDataAction, SelectWidget};
 
 use crate::LoginContext;
 
@@ -19,8 +17,7 @@ pub fn render_select_auth_method(
     quick_connect_available: bool,
     server_id: String,
 ) -> Erased {
-    let widget =
-        SelectData::new(quick_connect_available).make_with(SelectDataSelection::Passwort(()));
+    let widget = SelectData::new(quick_connect_available).make_with_default();
     let widget = KeybindWidget::new(
         widget,
         cx.config.keybinds.form.clone(),

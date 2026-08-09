@@ -1,344 +1,140 @@
-use proc_macro2::{Literal, Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{Expr, Ident, ItemStruct, LitStr, Path, Result, Type, parse_quote, spanned::Spanned};
+use proc_macro2::TokenStream;
+pub use quote::ToTokens;
+use quote::{TokenStreamExt, format_ident, quote};
+use syn::{Expr, Ident, ItemStruct, LitStr, Path, Type, parse_quote};
 
+mod action;
+mod component;
 mod parse;
+mod selection;
+mod show_if;
+mod type_assertions;
 
-struct FormItem {
+struct Paths {
+    exports: Path,
+    form_component: Path,
+    form_data: Path,
+    form_item_base: Type,
+    with_selection: Path,
+    with_selection_mut: Path,
+    with_selection_mut_cx: Path,
+    with_index_mut: Path,
+    with_iter_items: Path,
+    with_iter_items_mut: Path,
+    with_action_mut: Path,
+    form: Path,
+}
+
+impl Paths {
+    pub fn new(action_result: &Type) -> Self {
+        Self {
+            exports: parse_quote!(::jellyhaj_form_widget::macro_impl::exports),
+            form_component: parse_quote!(::jellyhaj_form_widget::form::component::FormComponent),
+            form_data: parse_quote!(::jellyhaj_form_widget::form::FormData),
+            form_item_base: parse_quote!(::jellyhaj_form_widget::FormItemBase<#action_result>),
+            with_selection: parse_quote!(::jellyhaj_form_widget::form::helpers::WithSelection),
+            with_selection_mut: parse_quote!(
+                ::jellyhaj_form_widget::form::helpers::WithSelectionMut
+            ),
+            with_selection_mut_cx: parse_quote!(
+                ::jellyhaj_form_widget::form::helpers::WithSelectionMutCX
+            ),
+            with_index_mut: parse_quote!(::jellyhaj_form_widget::form::helpers::WithIndexMut),
+            with_iter_items: parse_quote!(::jellyhaj_form_widget::form::helpers::WithIterItems),
+            with_iter_items_mut: parse_quote!(
+                ::jellyhaj_form_widget::form::helpers::WithIterItemsMut
+            ),
+            with_action_mut: parse_quote!(::jellyhaj_form_widget::form::helpers::WithActionMut),
+            form: parse_quote!(::jellyhaj_form_widget::form::Form),
+        }
+    }
+}
+
+struct ShowIf {
+    expr: Expr,
+    fun: Ident,
+}
+
+enum FieldKind {
+    Item { descr: LitStr },
+    Flatten,
+}
+
+struct FormField {
     pub name: Ident,
     pub ty: Type,
-    pub descr: LitStr,
+    pub show_if: Option<ShowIf>,
     pub selection: Path,
     pub action: Path,
     pub enum_id: Ident,
-    pub show_if: Option<Expr>,
-    pub show_if_fun: Option<Ident>,
+    pub kind: FieldKind,
 }
 
-struct ParseResult {
-    fields: Vec<FormItem>,
-    name: LitStr,
-    action_result: Type,
-    data_ty: Ident,
-    selection_ty: Ident,
-    action_ty: Ident,
-    result_mapper_ty: Type,
-    full: ItemStruct,
-    size_ident: Ident,
-    state_name: Ident,
-    widget_name: Ident,
-}
-
-pub fn form(args: TokenStream, input: TokenStream) -> Result<TokenStream> {
-    let ParseResult {
-        fields,
-        name,
-        action_result,
-        data_ty,
-        selection_ty,
-        action_ty,
-        full,
-        size_ident,
-        state_name,
-        widget_name,
-        result_mapper_ty,
-    } = parse::parse(args, input)?;
-    let private_mod: Ident = Ident::new(
-        &("form_impl_".to_string() + &state_name.to_string()),
-        Span::mixed_site(),
-    );
-    let exports: Path = parse_quote!(::jellyhaj_form_widget::macro_impl::exports);
-    let form_item_base_tr: Type =
-        parse_quote!(::jellyhaj_form_widget::FormItemBase<#action_result>);
-    let form_data_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormData);
-    let form_data_types_tr: Path = parse_quote!(::jellyhaj_form_widget::form::FormDataTypes);
-    let with_selection_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelection);
-    let with_selection_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithSelectionMut);
-    let with_selection_mut_cx_tr: Path =
-        parse_quote!(::jellyhaj_form_widget::form::WithSelectionMutCX);
-    let with_index_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIndexMut);
-    let with_iter_items_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItems);
-    let with_iter_items_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithIterItemsMut);
-    let with_action_mut_tr: Path = parse_quote!(::jellyhaj_form_widget::form::WithActionMut);
-    let form: Path = parse_quote!(::jellyhaj_form_widget::form::Form);
-    let total_size = Literal::usize_suffixed(fields.len());
-    let show_if_fns = fields.iter().filter_map(|item| {
-        if let (Some(name), Some(expr)) = (item.show_if_fun.as_ref(), item.show_if.as_ref()) {
-            let span = expr.span();
-            Some(quote_spanned! {span=>
-            #[must_use]
-            pub fn #name(&self)->#exports::bool{
-                #expr
-            }})
+impl FormField {
+    const fn is_item(&self) -> bool {
+        matches!(self.kind, FieldKind::Item { descr: _ })
+    }
+    const fn get_descr(&self) -> Option<&LitStr> {
+        if let FieldKind::Item { descr } = &self.kind {
+            Some(descr)
         } else {
             None
         }
-    });
-    let selection_items = fields.iter().map(|item| {
-        let name = &item.enum_id;
-        let ty = &item.ty;
-        quote! {#name(<#ty as #form_item_base_tr>::SelectionInner)}
-    });
+    }
+}
 
-    let selection_variant_defs = fields.iter().map(|item| {
-        let name = LitStr::new(&item.enum_id.to_string(), item.enum_id.span());
-        quote! {#exports::VariantDef::new(#name, #exports::Fields::Unnamed(1))}
-    });
+pub struct Component {
+    fields: Vec<FormField>,
+    action_result: Type,
+    data: Ident,
+    selection: Ident,
+    action: Ident,
+    original: ItemStruct,
+    paths: Paths,
+}
 
-    let selection_variant_pats = fields.iter().enumerate().map(|(i, item)| {
-        let sel = &item.selection;
-        let i = Literal::usize_suffixed(i);
-        quote! {super::#sel(_) => #exports::Variant::Static(&DEFS[#i])}
-    });
+impl ToTokens for Component {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all([&self.original]);
+        tokens.append_all(self.make_show_if_impls());
+        tokens.append_all(self.make_type_assertions());
+        tokens.append_all(self.make_selection_ty());
+        tokens.append_all(self.make_selection_default());
+        tokens.append_all(self.make_selection_valuable());
+        tokens.append_all(self.make_action());
+        self.make_impl_component(tokens);
+    }
+}
 
-    let selection_value_pats = fields.iter().map(|item| {
-        let sel = &item.selection;
-        quote! {super::#sel(v) => #exports::Valuable::as_value(v)}
-    });
+pub struct Form {
+    name: LitStr,
+    result_mapper: Type,
+    component: Component,
+}
 
-    let action_items = fields.iter().map(|item| {
-        let name = &item.enum_id;
-        let ty = &item.ty;
-        quote! {#name(<#ty as #form_item_base_tr>::Action)}
-    });
-    let with_selection_pats = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let sel = &item.selection;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
+impl Form {
+    fn make_form_data_impl(&self) -> TokenStream {
+        let data = &self.component.paths.form_data;
+        let exports = &self.component.paths.exports;
+        let mapper = &self.result_mapper;
+        let title = &self.name;
+        let ty = &self.component.data;
+        let widget_name = format_ident!("{}Widget", &ty);
+        let form_wrapper = &self.component.paths.form;
+        let vis = &self.component.original.vis;
         quote! {
-            #sel(s) => W::with::<#index, #ty >(
-                with, s, &state.#name, #descr
-            )
-        }
-    });
-    let with_selection_mut_pats = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let sel = &item.selection;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            #sel(s) => W::with_mut::<#index, #ty>(
-                with, s, &mut state.#name, #descr
-            )
-        }
-    });
-    let with_selection_mut_cx_pats = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let sel = &item.selection;
-        let ac = &item.action;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            #sel(s) => W::with_mut::<#index, #ty>(
-                with, s, cx.wrap_with(#ac), &mut state.#name, #descr
-            )
-        }
-    });
-    let with_index_mut_pats = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let sel = &item.selection;
-        let ac = &item.action;
-        let ty = &item.ty;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            #index => {
-                *this = #sel(W::with_mut::<#index, #ty>(
-                    with, cx.wrap_with(#ac), &mut state.#name, #descr
-                )?)
+            impl #data for #ty{
+                type Mapper = #mapper;
+                const TITLE: &#exports::str = #title;
             }
+            #vis type #widget_name = #form_wrapper<#ty>;
         }
-    });
-    let with_iter_items = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            W::with::<#index, #ty>(
-                with, &state.#name, #descr
-            )?;
-        }
-    });
-    let with_iter_items_mut = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let ac = &item.action;
-        let descr = &item.descr;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            W::with_mut::<#index, #ty>(
-                with, cx.wrap_with(#ac), &mut state.#name, #descr
-            )?;
-        }
-    });
-    let with_action_mut_pats = fields.iter().enumerate().map(|(i, item)| {
-        let name = &item.name;
-        let ty = &item.ty;
-        let ac = &item.action;
-        let index = Literal::usize_suffixed(i);
-        quote! {
-            #ac(action) =>  W::with_mut::<#index, #ty>(
-                with, action, cx.wrap_with(#ac), &mut state.#name
-            )
-        }
-    });
-    let show_if_items = fields.iter().map(|item| {
-        if let Some(show_if) = item.show_if_fun.as_ref() {
-            quote! {state.#show_if()}
-        } else {
-            quote! {true}
-        }
-    });
-    let index_pats = fields.iter().enumerate().map(|(i, item)| {
-        let pat = &item.selection;
-        let index = Literal::usize_suffixed(i);
-        quote! {#pat(_) => #index }
-    });
-    let vis = full.vis.clone();
-    Ok(quote! {
-        #full
-        impl #data_ty {
-            #(#show_if_fns)*
-        }
-        #[derive(Debug)]
-        #vis enum #selection_ty {
-            #(#selection_items),*
-        }
+    }
+}
 
-        mod #private_mod{
-
-            static DEFS: &[#exports::VariantDef] = &[
-                #(#selection_variant_defs),*
-            ];
-
-            impl #exports::Valuable for super::#selection_ty{
-                fn as_value(&self) -> #exports::Value<'_>{
-                    #exports::Value::Enumerable(self)
-                }
-                fn visit(&self, visit: &mut dyn #exports::Visit){
-                    let val = match self{
-                        #(#selection_value_pats),*
-                    };
-                    visit.visit_unnamed_fields(&[val])
-                }
-            }
-
-            impl #exports::Enumerable for super::#selection_ty{
-                fn definition(&self) -> #exports::EnumDef<'_>{
-                    #exports::EnumDef::new_static(
-                        #name, DEFS
-                    )
-                }
-                fn variant(&self) -> #exports::Variant<'_>{
-                    match self{
-                        #(#selection_variant_pats),*
-                    }
-                }
-            }
-        }
-
-        #[derive(Debug)]
-        #vis enum #action_ty {
-            #(#action_items),*
-        }
-        #vis const #size_ident: #exports::usize = #total_size;
-
-        impl #form_data_types_tr for #data_ty{
-            type Selector = #selection_ty;
-            type AR = #action_result;
-            type Action = #action_ty;
-            type Mapper = #result_mapper_ty;
-        }
-
-        impl #form_data_tr<#total_size> for #data_ty{
-            const TITLE: &#exports::str = #name;
-
-            fn with_selection<T, W: #with_selection_tr<Self::AR, T>>(
-                this: &Self::Selector,
-                state: &Self,
-                with: W,
-            ) -> T {
-                match this {
-                    #(#with_selection_pats),*
-                }
-            }
-
-            fn with_selection_mut<T, W: #with_selection_mut_tr<Self::AR, T>>(
-                this: &mut Self::Selector,
-                state: &mut Self,
-                with: W,
-            ) -> T {
-                match this {
-                    #(#with_selection_mut_pats),*
-                }
-            }
-
-            fn with_selection_mut_cx<R: 'static, T, W: #with_selection_mut_cx_tr<R, Self::AR, T>>(
-                this: &mut Self::Selector,
-                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
-                state: &mut Self,
-                with: W,
-            ) -> T {
-                match this {
-                    #(#with_selection_mut_cx_pats),*
-                }
-            }
-
-            fn with_index_mut<R: 'static, W: #with_index_mut_tr<R, Self::AR>>(
-                this: &mut Self::Selector,
-                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
-                state: &mut Self,
-                index: #exports::usize,
-                with: W,
-            ) -> #exports::Result<()>{
-                match index {
-                    #(#with_index_mut_pats)*
-                    v => {#exports::panic!("{v} is out of bounds.")}
-                }
-                #exports::Result::Ok(())
-            }
-
-            fn with_iter<R: 'static, W: #with_iter_items_tr<R, Self::AR>>(
-                state: &Self,
-                with: &mut W
-            ) -> #exports::Result<()>{
-                #(#with_iter_items)*
-                #exports::Result::Ok(())
-            }
-
-            fn with_iter_mut<R: 'static, W: #with_iter_items_mut_tr<R, Self::AR>>(
-                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
-                state: &mut Self,
-                with: &mut W,
-            ) -> #exports::Result<()>{
-                #(#with_iter_items_mut)*
-                #exports::Result::Ok(())
-            }
-
-            fn with_action_mut<R: 'static, T, W: #with_action_mut_tr<R, Self::AR, T>>(
-                action: Self::Action,
-                cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
-                state: &mut Self,
-                with: W,
-            ) -> T {
-                match action {
-                    #(#with_action_mut_pats),*
-                }
-            }
-
-            fn show_if(state: &Self) -> [#exports::bool; #total_size]{
-                [#(#show_if_items),*]
-            }
-            fn index(sel: &Self::Selector) -> #exports::usize {
-                match sel {#(#index_pats),*}
-            }
-
-        }
-        #vis type #widget_name = #form<{#total_size}, #data_ty>;
-    })
+impl ToTokens for Form {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.component.to_tokens(tokens);
+        tokens.append_all(self.make_form_data_impl());
+    }
 }

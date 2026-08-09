@@ -35,15 +35,15 @@ impl From<Infallible> for Selection {
 #[form_widget("Select login method", Selection, IdFormResultMapper)]
 #[derive(Debug, Valuable)]
 pub struct SelectData {
-    #[descr("Quick Connect")]
-    #[show_if(self.quick_connect_status)]
+    #[form(descr = "Quick Connect")]
+    #[form(show_if(self.quick_connect_status))]
     quick_connect: Button<Selection>,
-    #[descr("Quick Connect is disabled")]
-    #[show_if(!self.quick_connect_status)]
+    #[form(descr = "Quick Connect is disabled")]
+    #[form(show_if(!self.quick_connect_status))]
     quick_connect_disabled: Label,
-    #[descr("Passwort")]
+    #[form(descr = "Passwort")]
     passwort: Button<Selection>,
-    #[skip]
+    #[form(skip)]
     quick_connect_status: bool,
 }
 

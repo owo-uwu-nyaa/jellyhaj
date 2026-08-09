@@ -5,11 +5,9 @@ use jellyhaj_core::{
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_form_widget::form::{FormCommandMapper, FormData};
+use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_login_widget::password::{
-    PasswordData, PasswordDataAction, PasswordDataSelection, PasswordWidget,
-};
+use jellyhaj_login_widget::password::{PasswordData, PasswordDataAction, PasswordWidget};
 use jellyhaj_widgets_core::Result;
 use tokio::process::Command;
 
@@ -27,7 +25,7 @@ pub fn render_password(
         state.password.clone(),
         &state.passwort_cmd,
     )
-    .make_with(PasswordDataSelection::Username(()));
+    .make_with_default();
     let widget = KeybindWidget::new(
         widget,
         cx.config.keybinds.form.clone(),

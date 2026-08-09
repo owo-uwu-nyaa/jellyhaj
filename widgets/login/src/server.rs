@@ -9,7 +9,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{FormCommandMapper, FormDataTypes, FormResultMapper},
+    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     text_field::TextField,
 };
@@ -34,11 +34,11 @@ impl FormResultMapper<ServerData> for ServerResultMapper {
 
     fn map(
         state: &ServerData,
-        _form_result: <ServerData as FormDataTypes>::AR,
+        _form_result: <ServerData as FormComponent>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            <ServerData as FormDataTypes>::Action,
-            impl Wrapper<<ServerData as FormDataTypes>::Action>,
+            <ServerData as FormComponent>::Action,
+            impl Wrapper<<ServerData as FormComponent>::Action>,
             (),
         >,
     ) -> Result<Option<Self::Res>> {
@@ -49,9 +49,9 @@ impl FormResultMapper<ServerData> for ServerResultMapper {
 #[form_widget("Connect to Jellyfin Server", Connect, ServerResultMapper)]
 #[derive(Debug, Valuable)]
 pub struct ServerData {
-    #[descr("Jellyfin URL")]
+    #[form(descr = "Jellyfin URL")]
     server_url: TextField,
-    #[descr("Connect")]
+    #[form(descr = "Connect")]
     connect: Button<Connect>,
 }
 

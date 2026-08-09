@@ -5,7 +5,24 @@ pub mod exports {
         valuable::{EnumDef, Enumerable, Fields, Valuable, Value, Variant, VariantDef, Visit},
     };
     pub use std::{
+        default::Default,
+        fmt::Debug,
         panic,
         primitive::{bool, str, usize},
     };
+
+    use crate::{FormItemBase, form::component::FormComponent};
+    use std::{convert::Infallible, marker::PhantomData};
+
+    pub struct TypeCheck<AR: Debug + From<Infallible>> {
+        _ar: PhantomData<AR>,
+    }
+    impl<AR: Debug + From<Infallible>> TypeCheck<AR> {
+        pub const fn is_form_component<F: FormComponent>()
+        where
+            AR: From<F::AR>,
+        {
+        }
+        pub const fn is_form_item<I: FormItemBase<AR>>() {}
+    }
 }

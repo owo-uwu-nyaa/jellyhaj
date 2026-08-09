@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_form_widget::{
     button::Button,
-    form::{FormDataTypes, FormResultMapper},
+    form::{FormResultMapper, component::FormComponent},
     form_widget,
     label::DynamicLabel,
     text_field::TextField,
@@ -17,18 +17,17 @@ impl From<Infallible> for Get {
         unreachable!()
     }
 }
-
 pub struct RequestMapper;
 impl FormResultMapper<HttpClientData> for RequestMapper {
     type Res = Navigation;
 
     fn map(
         state: &HttpClientData,
-        _form_result: <HttpClientData as FormDataTypes>::AR,
+        _form_result: <HttpClientData as FormComponent>::AR,
         _cx: WidgetContext<
             '_,
-            <HttpClientData as FormDataTypes>::Action,
-            impl Wrapper<<HttpClientData as FormDataTypes>::Action>,
+            <HttpClientData as FormComponent>::Action,
+            impl Wrapper<<HttpClientData as FormComponent>::Action>,
             (),
         >,
     ) -> Result<Option<Self::Res>> {
@@ -39,20 +38,14 @@ impl FormResultMapper<HttpClientData> for RequestMapper {
 }
 
 #[derive(Valuable)]
-#[form_widget("Http Client", Get, RequestMapper)]
+#[form_widget("http client", Get, RequestMapper)]
 pub struct HttpClientData {
-    #[descr("Url")]
+    #[form(descr = "Url")]
     url: TextField,
-    #[descr("GET")]
+    #[form(descr = "GET")]
     get: Button<Get>,
-    #[descr("Device ID:")]
+    #[form(descr = "Device ID:")]
     device_id: DynamicLabel,
-}
-
-impl Default for HttpClientDataSelection {
-    fn default() -> Self {
-        Self::Url(())
-    }
 }
 
 impl HttpClientData {

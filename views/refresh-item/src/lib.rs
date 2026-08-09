@@ -5,7 +5,7 @@ use jellyhaj_core::{
     state::Navigation,
     widgets::shaded::widget::{Erased, make_new_erased},
 };
-use jellyhaj_form_widget::form::{FormCommandMapper, FormDataDefaultExt};
+use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_refresh_item_widget::RefreshItem;
 use jellyhaj_widgets_core::outer::{Named, OuterWidget, UnwrapWidget};

@@ -11,19 +11,16 @@ use jellyhaj_core::{
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_form_widget::form::{FormCommandMapper, FormData};
+use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_login_widget::server::{
-    ServerData, ServerDataAction, ServerDataSelection, ServerWidget,
-};
+use jellyhaj_login_widget::server::{ServerData, ServerDataAction, ServerWidget};
 use jellyhaj_widgets_core::Result;
 use ratatui::crossterm::style::Stylize;
 use sqlx::SqliteConnection;
 
 use crate::{DB, LoginContext};
 pub fn render_select_server(cx: LoginContext, state: LoginState, out: ClientOut) -> Erased {
-    let widget =
-        ServerData::new(state.server_url.clone()).make_with(ServerDataSelection::ServerUrl(()));
+    let widget = ServerData::new(state.server_url.clone()).make_with_default();
     let widget = KeybindWidget::new(
         widget,
         cx.config.keybinds.form.clone(),

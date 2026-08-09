@@ -11,7 +11,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{FormCommandMapper, FormResultMapper},
+    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     secret_field::SecretField,
     text_field::TextField,
@@ -49,11 +49,11 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
 
     fn map(
         state: &PasswordData,
-        _: <PasswordData as jellyhaj_form_widget::form::FormDataTypes>::AR,
+        _: <PasswordData as FormComponent>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            <PasswordData as jellyhaj_form_widget::form::FormDataTypes>::Action,
-            impl Wrapper<<PasswordData as jellyhaj_form_widget::form::FormDataTypes>::Action>,
+            <PasswordData as FormComponent>::Action,
+            impl Wrapper<<PasswordData as FormComponent>::Action>,
             (),
         >,
     ) -> Result<Option<Self::Res>> {
@@ -71,17 +71,15 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
 #[derive(Debug, Valuable)]
 #[form_widget("Login", Login, PasswordResultMapper)]
 pub struct PasswordData {
-    #[descr("Username")]
+    #[form(descr = "Username")]
     username: TextField,
-    #[descr("Use password cmd")]
+    #[form(descr = "Use password cmd")]
     use_password_cmd: bool,
-    #[descr("Password")]
-    #[show_if(!self.use_password_cmd)]
+    #[form(descr = "Password", show_if(!self.use_password_cmd))]
     password: SecretField,
-    #[show_if(self.use_password_cmd)]
-    #[descr("Password cmd (JSON array)")]
+    #[form(descr = "Password cmd (JSON array)", show_if(self.use_password_cmd))]
     password_cmd: TextField,
-    #[descr("Login")]
+    #[form(descr = "Login")]
     login: Button<Login>,
 }
 

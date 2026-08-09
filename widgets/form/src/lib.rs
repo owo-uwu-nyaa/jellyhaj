@@ -16,7 +16,8 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
-pub use jellyhaj_form_derive::{Selection, form_widget};
+#[cfg(feature = "macro")]
+pub use jellyhaj_form_derive::{Selection, form_component, form_widget};
 use jellyhaj_widgets_core::{
     KeyModifiers, MouseEventKind, Size, WidgetContext, Wrapper, valuable::Valuable,
 };
