@@ -89,7 +89,7 @@
                   pkgs.sqlite
                   pkgs.chafa
                   pkgs.glib
-                  #pkgs.aws-lc.dev
+                  pkgs.aws-lc.dev
                 ];
                 DATABASE_URL = "sqlite://db.sqlite";
               };
