@@ -139,7 +139,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible>> FormItem<R, AR> for S {
             outer = outer.border_type(BorderType::Double);
         }
         let main = outer.inner(area);
-        name.render(main, buf);
+        self.descr().render(main, buf);
         outer.render(area, buf);
         buf[Position {
             x: area.x + area.width - 2,
