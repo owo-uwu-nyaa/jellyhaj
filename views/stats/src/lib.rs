@@ -32,7 +32,6 @@ impl Named for Name {
     const NAME: &str = "stats";
 }
 
-#[must_use]
 pub fn render_stats(
     cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StatsData> + Send + 'static,
 ) -> Erased {

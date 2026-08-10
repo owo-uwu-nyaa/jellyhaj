@@ -42,7 +42,6 @@ impl Named for Name {
     const NAME: &str = "inspect";
 }
 
-#[must_use]
 pub fn render_inspect(
     cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
 ) -> Erased {
@@ -54,7 +53,6 @@ pub fn render_inspect(
     ));
     make_new_erased(cx, widget)
 }
-#[must_use]
 pub fn render_inspect_value(
     cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
     value: &serde_json::Value,

@@ -211,7 +211,9 @@ impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for DynamicLabel {
         }
         name.render(area, buf);
         let name_width = name.cell_width();
-        area.x += name_width + 1;
+        if name_width > 0 {
+            area.x += name_width + 1;
+        }
         if let Some(w) = area.width.checked_sub(name_width + 1) {
             area.width = w;
             self.val.as_str().render(area, buf);

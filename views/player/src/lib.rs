@@ -48,7 +48,6 @@ impl Named for Name {
     const NAME: &str = "player";
 }
 
-#[must_use]
 pub fn render_play(cx: TuiContext, items: Vec<MediaItem>, index: usize) -> Erased {
     cx.mpv_handle.send(Command::Minimized(false));
     cx.mpv_handle.send(Command::Fullscreen(true));
@@ -64,7 +63,6 @@ pub fn render_play(cx: TuiContext, items: Vec<MediaItem>, index: usize) -> Erase
     make_new_erased(cx, widget)
 }
 
-#[must_use]
 pub fn render_fetch_play(cx: TuiContext, item: LoadPlay) -> Erased {
     let fut = fetch_items(cx.jellyfin.clone(), item);
     jellyhaj_fetch_view::make_fetch(cx, "Loading related items for playlist", fut)

@@ -3,7 +3,6 @@ use jellyhaj_context::TuiContext;
 use jellyhaj_core::{state::NextScreen, widgets::shaded::widget::Erased};
 use jellyhaj_login_view::LoginContext;
 
-#[must_use]
 pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
     match screen {
         NextScreen::LoadHomeScreen => jellyhaj_home_screen_view::make_fetch_home_screen(cx),
@@ -75,7 +74,6 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
     }
 }
 
-#[must_use]
 pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
     match screen {
         NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, &report),

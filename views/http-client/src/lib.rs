@@ -17,7 +17,6 @@ impl Named for Name {
     const NAME: &str = "http-client";
 }
 
-#[must_use]
 pub fn render_http_client(cx: TuiContext) -> Erased {
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         UnwrapWidget::new(
@@ -29,7 +28,6 @@ pub fn render_http_client(cx: TuiContext) -> Erased {
     make_new_erased(cx, widget)
 }
 
-#[must_use]
 pub fn render_http_client_fetch(cx: TuiContext, url: String) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {

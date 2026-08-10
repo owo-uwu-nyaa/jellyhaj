@@ -36,14 +36,12 @@ async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Resul
     })
 }
 
-#[must_use]
 pub fn render_fetch_user_view(cx: TuiContext, view: Box<UserView>) -> Erased {
     let title = format!("Loading user view {}", view.name);
     let inner = fetch_user_view(cx.jellyfin.clone(), view);
     make_fetch(cx, title, inner)
 }
 
-#[must_use]
 pub fn render_user_view(
     cx: TuiContext,
     view: Box<UserView>,
