@@ -7,7 +7,7 @@ use color_eyre::{
 use futures_util::FutureExt;
 use jellyfin::{
     self, JellyfinClient, JellyfinVec,
-    items::{GetItemsQuery, MediaItem},
+    items::{ALL_FIELDS, GetItemsQuery, MediaItem},
 };
 use jellyhaj_core::{
     CommandMapper, Config,
@@ -78,33 +78,6 @@ pub async fn query_item(jellyfin: &JellyfinClient, query: &GetItemsQuery<'_>) ->
 }
 
 #[instrument(skip(jellyfin))]
-pub async fn fetch_child_of_type(
-    jellyfin: &JellyfinClient,
-    t: &str,
-    id: &str,
-) -> Result<MediaItem> {
-    let user_id = jellyfin.get_auth().user.id.as_str();
-    query_item(
-        jellyfin,
-        &GetItemsQuery {
-            user_id: user_id.into(),
-            start_index: Some(0),
-            limit: Some(1),
-            parent_id: Some(id),
-            include_item_types: Some(t),
-            enable_images: true.into(),
-            enable_image_types: "Primary, Backdrop, Thumb".into(),
-            image_type_limit: 1.into(),
-            enable_user_data: true.into(),
-            recursive: true.into(),
-            fields: "Overview".into(),
-            ..Default::default()
-        },
-    )
-    .await
-}
-
-#[instrument(skip(jellyfin))]
 pub async fn fetch_item(jellyfin: &JellyfinClient, id: &str) -> Result<MediaItem> {
     let user_id = jellyfin.get_auth().user.id.as_str();
     jellyfin
@@ -129,7 +102,7 @@ pub async fn fetch_all_children(jellyfin: &JellyfinClient, id: &str) -> Result<V
                 enable_image_types: "Thumb, Backdrop, Primary".into(),
                 image_type_limit: 1.into(),
                 enable_user_data: true.into(),
-                fields: "Overview".into(),
+                fields: ALL_FIELDS.into(),
                 ..Default::default()
             })
             .await

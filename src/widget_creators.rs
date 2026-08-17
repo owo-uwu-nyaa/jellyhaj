@@ -40,7 +40,7 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
             jellyhaj_item_details_view::render_fetch_item_list_ref(cx, id)
         }
         NextScreen::FetchItemDetails(item) => {
-            jellyhaj_item_details_view::render_fetch_episode(cx, item)
+            jellyhaj_item_details_view::render_fetch_item(cx, item)
         }
         NextScreen::RefreshItem(id) => jellyhaj_refresh_item_view::render_refresh_item_form(cx, id),
         NextScreen::DoRefreshItem { id, query } => {

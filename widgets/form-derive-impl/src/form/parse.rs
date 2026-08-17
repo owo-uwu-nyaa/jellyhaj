@@ -87,7 +87,7 @@ fn parse_field(
             parenthesized!(content in meta.input);
             show_if = Some(content.parse()?);
         } else if meta.path.is_ident("flatten") {
-            if meta.input.is_empty() {
+            if meta.input.is_empty() || meta.input.peek(Token![,]) {
                 flatten = true;
             } else {
                 return Err(meta.error("`flatten` has no parameters"));

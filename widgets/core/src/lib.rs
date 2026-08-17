@@ -4,6 +4,8 @@ mod jellyhaj;
 pub mod mapper;
 pub mod outer;
 
+use std::ops::Deref;
+
 pub use color_eyre::Result;
 pub use config::Config;
 pub use item::{ItemWidget, ItemWidgetBase, ItemWidgetExt};
@@ -82,5 +84,29 @@ impl<'p, A, W: Wrapper<A>, R> WidgetContext<'p, A, W, R> {
             refs: r,
             submitter: self.submitter,
         }
+    }
+}
+
+pub struct RenderFlag {
+    should_render: bool,
+}
+
+impl RenderFlag {
+    pub fn new() -> Self {
+        Self {
+            should_render: false,
+        }
+    }
+
+    pub fn set(&mut self) {
+        self.should_render = true;
+    }
+}
+
+impl Deref for RenderFlag {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.should_render
     }
 }

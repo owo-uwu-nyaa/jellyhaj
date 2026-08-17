@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result, WidgetContext, Wrapper};
@@ -6,7 +6,7 @@ use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
 use crate::{FormAction, FormItem, FormItemBase};
 
-impl<AR: From<Infallible>> FormItemBase<AR> for bool {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for bool {
     type SelectionInner = ();
     type Ret = Infallible;
     type Action = Infallible;
@@ -33,7 +33,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for bool {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for bool {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
     fn render_pass_main(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,

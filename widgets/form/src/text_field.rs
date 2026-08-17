@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::{convert::Infallible, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
@@ -42,7 +43,7 @@ impl Serialize for TextField {
     }
 }
 
-impl<AR: From<Infallible>> FormItemBase<AR> for TextField {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextField {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -80,7 +81,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for TextField {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextField {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -195,7 +196,7 @@ impl Serialize for TextFieldDynamic {
     }
 }
 
-impl<AR: From<Infallible>> FormItemBase<AR> for TextFieldDynamic {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextFieldDynamic {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -233,7 +234,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for TextFieldDynamic {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for TextFieldDynamic {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDynamic {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

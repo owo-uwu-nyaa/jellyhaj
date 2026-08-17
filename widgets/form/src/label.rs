@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
@@ -10,7 +10,7 @@ use crate::{FormItem, FormItemBase};
 #[derive(Debug, Default, Valuable)]
 pub struct Label;
 
-impl<AR: From<Infallible>> FormItemBase<AR> for Label {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for Label {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -38,7 +38,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for Label {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for Label {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -124,7 +124,7 @@ impl DynamicLabel {
         Self { val }
     }
 }
-impl<AR: From<Infallible>> FormItemBase<AR> for DynamicLabel {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for DynamicLabel {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -151,7 +151,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for DynamicLabel {
         0
     }
 }
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for DynamicLabel {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

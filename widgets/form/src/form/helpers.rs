@@ -1,10 +1,12 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
     Buffer, KeyModifiers, MouseEventKind, Position, Rect, Size, WidgetContext, Wrapper,
+    spawn::tracing::trace,
 };
+use tracing::{Span, field, instrument};
 
 use crate::{
     FormAction, FormItem, FormItemBase,
@@ -26,7 +28,7 @@ impl<Data: FormData> Form<Data> {
     }
 }
 
-pub trait WithSelection<AR, T> {
+pub trait WithSelection<AR: Debug, T> {
     fn with<I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
@@ -36,7 +38,7 @@ pub trait WithSelection<AR, T> {
     ) -> T;
 }
 
-pub trait WithSelectionMut<AR, T> {
+pub trait WithSelectionMut<AR: Debug, T> {
     fn with_mut<I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -46,7 +48,7 @@ pub trait WithSelectionMut<AR, T> {
     ) -> T;
 }
 
-pub trait WithSelectionMutCX<R: 'static, AR, T> {
+pub trait WithSelectionMutCX<R: 'static, AR: Debug, T> {
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -57,7 +59,7 @@ pub trait WithSelectionMutCX<R: 'static, AR, T> {
     ) -> T;
 }
 
-pub trait WithIterItems<R: 'static, AR> {
+pub trait WithIterItems<R: 'static, AR: Debug> {
     fn with<I: FormItem<R, AR>>(
         &mut self,
         state: &I,
@@ -66,7 +68,7 @@ pub trait WithIterItems<R: 'static, AR> {
     ) -> Result<()>;
 }
 
-pub trait WithIterItemsMut<R: 'static, AR> {
+pub trait WithIterItemsMut<R: 'static, AR: Debug> {
     fn with_mut<I: FormItem<R, AR>>(
         &mut self,
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
@@ -77,7 +79,7 @@ pub trait WithIterItemsMut<R: 'static, AR> {
     ) -> Result<()>;
 }
 
-pub trait WithIndexMut<R: 'static, AR> {
+pub trait WithIndexMut<R: 'static, AR: Debug> {
     fn with_mut<I: FormItem<R, AR>>(
         self,
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
@@ -87,7 +89,7 @@ pub trait WithIndexMut<R: 'static, AR> {
     ) -> Result<I::SelectionInner>;
 }
 
-pub trait WithActionMut<R: 'static, AR, T> {
+pub trait WithActionMut<R: 'static, AR: Debug, T> {
     fn with_mut<I: FormItem<R, AR>>(
         self,
         action: I::Action,
@@ -99,7 +101,8 @@ pub trait WithActionMut<R: 'static, AR, T> {
 
 pub(crate) struct AcceptsTextInput;
 
-impl<AR> WithSelection<AR, bool> for AcceptsTextInput {
+impl<AR: Debug> WithSelection<AR, bool> for AcceptsTextInput {
+    #[instrument(skip(self, state), name = "accepts_text_input", level = "trace", ret)]
     fn with<I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
@@ -113,7 +116,13 @@ impl<AR> WithSelection<AR, bool> for AcceptsTextInput {
 
 pub(crate) struct ApplyChar(pub(crate) char);
 
-impl<AR> WithSelectionMut<AR, ()> for ApplyChar {
+impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyChar {
+    #[instrument(
+        skip(self, sel, state),
+        name = "apply_char",
+        level = "trace",
+        fields(val)
+    )]
     fn with_mut<I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -121,13 +130,17 @@ impl<AR> WithSelectionMut<AR, ()> for ApplyChar {
         name: &'static str,
         index: usize,
     ) {
+        let mut val = [0u8; 4];
+        let val = self.0.encode_utf8(&mut val);
+        trace!(val, "apply char");
         state.apply_char(sel, self.0);
     }
 }
 
 pub(crate) struct ApplyText(pub(crate) String);
 
-impl<AR> WithSelectionMut<AR, ()> for ApplyText {
+impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyText {
+    #[instrument(skip(self, sel, state), name = "apply_text", level = "trace", fields(val = self.0.as_str()))]
     fn with_mut<I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -135,15 +148,17 @@ impl<AR> WithSelectionMut<AR, ()> for ApplyText {
         name: &'static str,
         index: usize,
     ) {
+        trace!("apply text");
         state.apply_text(sel, self.0);
     }
 }
 
 pub(crate) struct ApplyMovement(pub(crate) FormAction<Infallible>);
 
-impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
     for ApplyMovement
 {
+    #[instrument(skip(self, cx, state), name = "apply_movement", level = "trace", fields(val = ?self.0), ret, err)]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -152,18 +167,26 @@ impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigat
         name: &'static str,
         index: usize,
     ) -> Result<Option<ControlFlow<Navigation, AR>>> {
-        Ok(state.apply_movement(sel, cx, self.0)?.map(|cf| match cf {
+        let res = state.apply_movement(sel, cx, self.0)?.map(|cf| match cf {
             ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
             ControlFlow::Break(n) => ControlFlow::Break(n),
-        }))
+        });
+        Ok(res)
     }
 }
 
 pub(crate) struct ApplyAction;
 
-impl<R: 'static, AR> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
+impl<R: 'static, AR: Debug> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
     for ApplyAction
 {
+    #[instrument(
+        skip(self, cx, state),
+        name = "apply_action",
+        level = "trace",
+        ret,
+        err
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         action: I::Action,
@@ -171,16 +194,23 @@ impl<R: 'static, AR> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, 
         state: &mut I,
         index: usize,
     ) -> Result<Option<ControlFlow<Navigation, AR>>> {
-        Ok(state.apply_action(cx, action)?.map(|cf| match cf {
+        let res = state.apply_action(cx, action)?.map(|cf| match cf {
             ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
             ControlFlow::Break(n) => ControlFlow::Break(n),
-        }))
+        });
+        Ok(res)
     }
 }
 
 pub(crate) struct AcceptsMovementAction;
 
-impl<AR> WithSelection<AR, bool> for AcceptsMovementAction {
+impl<AR: Debug> WithSelection<AR, bool> for AcceptsMovementAction {
+    #[instrument(
+        skip(self, state),
+        name = "accepts_movement_action",
+        level = "trace",
+        ret
+    )]
     fn with<I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
@@ -194,7 +224,13 @@ impl<AR> WithSelection<AR, bool> for AcceptsMovementAction {
 
 pub(crate) struct SelectionDefault;
 
-impl<R: 'static, AR> WithIndexMut<R, AR> for SelectionDefault {
+impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for SelectionDefault {
+    #[instrument(
+        skip(self, cx, state),
+        name = "selection_default",
+        level = "trace",
+        ret
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
@@ -216,9 +252,16 @@ pub(crate) struct ClickCurrent<'s> {
     pub(crate) offset: u16,
 }
 
-impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
     for &mut ClickCurrent<'_>
 {
+    #[instrument(
+        skip(self, cx, state),
+        name = "click_current",
+        level = "trace",
+        fields(kind = ?self.kind, modifier = ?self.modifier, pos = ?self.pos, size = ?self.size, offset = self.offset, this_area, active),
+        ret, err
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -233,8 +276,12 @@ impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigat
             width: self.size.width,
             height: state.height(),
         };
+        let span = Span::current();
+        span.record("this_area", field::debug(&this_area));
         let active = I::popup_area(state, sel, this_area, self.size);
+        span.record("active", field::debug(&active));
         if (active.height - active.y > self.pos.y) && (active.width - active.x > self.pos.x) {
+            trace!("dispatch apply click active");
             let res = I::apply_click_active(
                 state,
                 cx,
@@ -268,7 +315,14 @@ pub(crate) struct ClickItem<'s, AR> {
     pub(crate) modifier: KeyModifiers,
 }
 
-impl<R: 'static, AR> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
+impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
+    #[instrument(
+        skip(self, cx, state),
+        name = "click_item",
+        level = "trace",
+        fields(kind = ?self.kind, modifier = ?self.modifier, pos = ?self.pos, size = ?self.size, base),
+        ret, err
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
@@ -277,6 +331,7 @@ impl<R: 'static, AR> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
         index: usize,
     ) -> Result<I::SelectionInner> {
         let base = self.pos.y - self.store[index];
+        Span::current().record("base", base);
         if base < state.height() {
             let (s, res) = I::apply_click_inactive(
                 state,
@@ -311,31 +366,48 @@ pub(crate) struct CalcHeight<'s, S: FormComponent> {
 }
 
 impl<R: 'static, S: FormData> WithIterItems<R, S::AR> for CalcHeight<'_, S> {
+    #[instrument(
+        skip(self, state),
+        name = "calc_height",
+        level = "trace",
+        fields(height = self.height, height_buf = self.height_buf , show_if ),
+        err
+    )]
     fn with<I: FormItem<R, S::AR>>(
         &mut self,
         state: &I,
         name: &'static str,
         index: usize,
     ) -> Result<()> {
-        if self.data.show_if(index) {
+        let span = Span::current();
+        let show_if = self.data.show_if(index);
+        span.record("show_if", show_if);
+        let pos = if show_if {
             if index == 0 {
                 self.store.clear();
+                span.record("pos", 0);
                 self.store.push(0);
                 self.height = state.height();
                 self.height_buf = state.height_buf();
+                0
             } else {
                 self.height = self.height.strict_add(1);
+                span.record("pos", self.height);
                 self.store.push(self.height);
+                let pos = self.height;
                 self.height = self.height.strict_add(state.height());
                 self.height_buf = self
                     .height_buf
                     .saturating_sub(1)
                     .saturating_sub(state.height())
                     .strict_add(state.height_buf());
+                pos
             }
         } else {
-            self.store.push(self.height);
-        }
+            self.height
+        };
+        self.store.push(pos);
+        trace!(pos, "height result");
         Ok(())
     }
 }
@@ -347,7 +419,14 @@ pub(crate) struct Pass1<'s> {
     pub(crate) cur: usize,
 }
 
-impl<R: 'static, AR> WithIterItemsMut<R, AR> for Pass1<'_> {
+impl<R: 'static, AR: Debug> WithIterItemsMut<R, AR> for Pass1<'_> {
+    #[instrument(
+        skip(self, cx, state),
+        name = "pass1",
+        level = "trace",
+        fields(area = ?self.area, cur = self.cur, this_area),
+        err
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         &mut self,
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
@@ -360,7 +439,11 @@ impl<R: 'static, AR> WithIterItemsMut<R, AR> for Pass1<'_> {
             let mut this_area = self.area;
             this_area.height = state.height();
             this_area.y += self.store[index];
+            Span::current().record("this_area", field::debug(&this_area));
+            trace!("render pass 1");
             I::render_pass_main(state, cx, this_area, self.buf, self.cur == index, name)?;
+        } else {
+            trace!("render skipped");
         }
         Ok(())
     }
@@ -373,7 +456,14 @@ pub(crate) struct Pass2<'s> {
     pub(crate) offset: u16,
 }
 
-impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<()>> for Pass2<'_> {
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<()>> for Pass2<'_> {
+    #[instrument(
+        skip(self, cx, state),
+        name = "pass2",
+        level = "trace",
+        fields(area = ?self.area, offset = self.offset, this_area),
+        err
+    )]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -385,6 +475,8 @@ impl<R: 'static, AR> WithSelectionMutCX<R, AR, Result<()>> for Pass2<'_> {
         let mut this_area = self.area;
         this_area.height = state.height();
         this_area.y += self.store[index] - self.offset;
+        Span::current().record("this_area", field::debug(&this_area));
+        trace!("render pass 2");
         I::render_pass_popup(state, cx, this_area, self.area, self.buf, name, sel)
     }
 }

@@ -9,6 +9,7 @@ ansi-to-tui.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 valuable.workspace = true
+tracing.workspace = true
 
 [features]
 serde = ["dep:serde"]

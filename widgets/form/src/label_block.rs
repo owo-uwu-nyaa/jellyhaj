@@ -1,4 +1,4 @@
-use std::{convert::Infallible, io::stdout, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, io::stdout, ops::ControlFlow};
 
 use crossterm::clipboard::CopyToClipboard;
 use jellyhaj_core::state::Navigation;
@@ -55,7 +55,7 @@ impl From<Position> for Pos {
     }
 }
 
-impl<AR: From<Infallible>> FormItemBase<AR> for LabelBlock {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for LabelBlock {
     type SelectionInner = Option<Pos>;
 
     type Ret = Infallible;
@@ -88,7 +88,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for LabelBlock {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for LabelBlock {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

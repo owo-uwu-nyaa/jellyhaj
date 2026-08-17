@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
@@ -9,7 +9,7 @@ use crate::{FormItem, FormItemBase};
 
 #[derive(Debug, Default, Valuable)]
 pub struct Seperator;
-impl<AR: From<Infallible>> FormItemBase<AR> for Seperator {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for Seperator {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -37,7 +37,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for Seperator {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for Seperator {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Seperator {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

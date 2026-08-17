@@ -18,11 +18,7 @@ pub mod exports {
         _ar: PhantomData<AR>,
     }
     impl<AR: Debug + From<Infallible>> TypeCheck<AR> {
-        pub const fn is_form_component<F: FormComponent>()
-        where
-            AR: From<F::AR>,
-        {
-        }
+        pub const fn is_form_component<F: FormComponent<AR = AR>>() {}
         pub const fn is_form_item<I: FormItemBase<AR>>() {}
     }
 }

@@ -405,6 +405,60 @@ pub struct PlaybackInfo {
     pub play_session_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct RatingScore {
+    pub score: u16,
+    pub sub_score: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct ParentalRatingOption {
+    pub name: String,
+    pub value: Option<u16>,
+    pub rating_score: Option<RatingScore>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct Country {
+    pub name: String,
+    pub display_name: String,
+    pub two_letter_isoregion_name: String,
+    #[serde(rename = "ThreeLetterISORegionName")]
+    pub three_letter_iso_region_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct Culture {
+    pub name: String,
+    pub display_name: String,
+    #[serde(rename = "TwoLetterISOLanguageName")]
+    pub two_letter_iso_language_name: String,
+    #[serde(rename = "ThreeLetterISOLanguageName")]
+    pub three_letter_iso_language_name: String,
+    #[serde(rename = "ThreeLetterISOLanguageNames")]
+    pub three_letter_iso_language_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+pub struct MetadataEditor {
+    #[serde(default)]
+    parental_rating_options: Vec<ParentalRatingOption>,
+    #[serde(default)]
+    countries: Vec<Country>,
+    #[serde(default)]
+    cultures: Vec<Culture>,
+}
+
 impl JellyfinClient {
     #[instrument(skip(self))]
     pub async fn get_user_items_resume(
@@ -598,6 +652,20 @@ impl JellyfinClient {
                     prefix.push_str("/Items/");
                     prefix.push_str(item_id);
                     prefix.push_str("/PlaybackInfo");
+                },
+                NoQuery,
+            )?
+            .empty_body()?,
+        )
+        .await
+    }
+    pub async fn metadata_editor(&self, item_id: &str) -> Result<JsonResponse<MetadataEditor>> {
+        self.send_request_json(
+            self.get(
+                |prefix: &mut String| {
+                    prefix.push_str("/Items/");
+                    prefix.push_str(item_id);
+                    prefix.push_str("/MetadataEditor");
                 },
                 NoQuery,
             )?

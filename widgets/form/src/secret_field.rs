@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
@@ -64,7 +64,7 @@ mod s {
     }
 }
 
-impl<AR: From<Infallible>> FormItemBase<AR> for SecretField {
+impl<AR: From<Infallible> + Debug> FormItemBase<AR> for SecretField {
     type SelectionInner = ();
 
     type Ret = Infallible;
@@ -102,7 +102,7 @@ impl<AR: From<Infallible>> FormItemBase<AR> for SecretField {
     }
 }
 
-impl<R: 'static, AR: From<Infallible>> FormItem<R, AR> for SecretField {
+impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

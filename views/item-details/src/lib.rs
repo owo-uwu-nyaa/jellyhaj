@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 
 use color_eyre::eyre::Context;
-use jellyfin::items::MediaItem;
+use jellyfin::{connect::JsonResponseHelper, items::MediaItem};
 use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
     CommandMapper,
@@ -10,7 +10,7 @@ use jellyhaj_core::{
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_entry_widget::EntryAction;
-use jellyhaj_fetch_view::{fetch_all_children, fetch_child_of_type, fetch_item, make_fetch};
+use jellyhaj_fetch_view::{fetch_all_children, fetch_item, make_fetch};
 use jellyhaj_item_details_widget::{
     DisplayAction, ItemDetails,
     item_list_details::{ItemListDetailsAction, ItemListDetailsCommom},
@@ -22,10 +22,12 @@ use tokio::try_join;
 use tracing::instrument;
 
 #[instrument(skip_all)]
-pub fn render_fetch_episode(cx: TuiContext, parent: String) -> Erased {
+pub fn render_fetch_item(cx: TuiContext, id: String) -> Erased {
     let jellyfin = cx.jellyfin.clone();
     let fut = async move {
-        let item = fetch_child_of_type(&jellyfin, "Episode, Movie, Music", &parent)
+        let item = jellyfin
+            .get_item(&id, None)
+            .deserialize()
             .await
             .context("fetching episode")?;
         Ok(NextScreen::ItemDetails(Box::new(item)))

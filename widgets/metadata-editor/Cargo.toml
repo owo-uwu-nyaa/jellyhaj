@@ -1,0 +1,13 @@
+[package]
+name = "metadata-editor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
+jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
+jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+valuable.workspace = true
+
+[lints]
+workspace = true

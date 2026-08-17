@@ -10,6 +10,7 @@ use jellyhaj_widgets_core::{
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
+use tracing::{instrument, trace};
 use tui_scrollview::{ScrollView, ScrollViewState};
 
 use crate::{
@@ -227,6 +228,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         })
     }
 
+    #[instrument(skip(self, cx), name = "click_form")]
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -263,23 +265,28 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                 if cur.cought {
                     break 'res res;
                 }
-                let mut cur = ClickItem::<Data::AR> {
-                    pos: position,
-                    res: None,
-                    size,
-                    store: &self.store,
-                    kind,
-                    modifier,
-                };
-                let index = find_index(&self.store, position);
-                self.data.with_index_mut(
-                    0,
-                    &mut self.sel,
-                    cx.wrap_with(FormAction::Inner),
-                    index,
-                    &mut cur,
-                )?;
-                cur.res
+
+                if kind.is_down() {
+                    let mut cur = ClickItem::<Data::AR> {
+                        pos: position,
+                        res: None,
+                        size,
+                        store: &self.store,
+                        kind,
+                        modifier,
+                    };
+                    let index = find_index(&self.store, position);
+                    self.data.with_index_mut(
+                        0,
+                        &mut self.sel,
+                        cx.wrap_with(FormAction::Inner),
+                        index,
+                        &mut cur,
+                    )?;
+                    cur.res
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -294,6 +301,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         })
     }
 
+    #[instrument(skip_all, name = "render_form")]
     fn render_fallible_inner(
         &mut self,
         area: Rect,
@@ -313,6 +321,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         };
         self.data.with_iter::<R, _>(0, &mut cur)?;
         let height = cur.height.strict_add(cur.height_buf);
+        trace!(height, "calculated total required height");
         if main.height < height {
             let mut scroll_view = ScrollView::new((main.width, height).into());
             let area = scroll_view.area();

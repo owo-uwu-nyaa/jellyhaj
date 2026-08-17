@@ -17,11 +17,11 @@ pub trait ActionCreator: Debug {
     fn make_action(&self) -> Self::T;
 }
 
-impl<C: Copy + Debug> ActionCreator for C {
+impl<C: Clone + Debug> ActionCreator for C {
     type T = Self;
 
     fn make_action(&self) -> Self::T {
-        *self
+        self.clone()
     }
 }
 
@@ -73,7 +73,7 @@ const fn center(full: u16, requested: u16) -> Centered {
     }
 }
 
-impl<C: ActionCreator, AR: From<C::T>> FormItemBase<AR> for Button<C> {
+impl<C: ActionCreator, AR: From<C::T> + Debug> FormItemBase<AR> for Button<C> {
     type SelectionInner = ();
 
     type Ret = C::T;
@@ -102,7 +102,7 @@ impl<C: ActionCreator, AR: From<C::T>> FormItemBase<AR> for Button<C> {
     }
 }
 
-impl<R: 'static, C: ActionCreator, AR: From<C::T>> FormItem<R, AR> for Button<C> {
+impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for Button<C> {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

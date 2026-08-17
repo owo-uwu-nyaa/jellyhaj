@@ -7,6 +7,7 @@ pub mod label;
 pub mod label_block;
 #[doc(hidden)]
 pub mod macro_impl;
+pub mod mapper;
 mod offset;
 pub mod secret_field;
 pub mod selection;
@@ -28,7 +29,7 @@ use ratatui::{
 };
 pub use selection::Selection;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum FormAction<A: Debug + Send + 'static> {
     Quit,
     Up,
@@ -40,7 +41,7 @@ pub enum FormAction<A: Debug + Send + 'static> {
     Inner(A),
 }
 
-pub trait FormItemBase<AR>: Valuable {
+pub trait FormItemBase<AR: Debug>: Valuable {
     type SelectionInner: Default + Debug + Valuable;
     type Ret: Into<AR>;
     type Action: Debug + Send + 'static;
@@ -65,7 +66,7 @@ pub trait FormItemBase<AR>: Valuable {
     fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
 }
 
-pub trait FormItem<R: 'static, AR>: FormItemBase<AR> {
+pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,

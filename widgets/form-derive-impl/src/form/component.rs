@@ -252,9 +252,9 @@ impl Component {
                         let mut res = #exports::Default::default();
                         #component::with_index_mut(
                             &mut self.#name,
-                            base_index
+                            base_index,
                             &mut res,
-                            cx: cx.wrap_with(#action),
+                            cx.wrap_with(#action),
                             index,
                             with,
                         )?;
@@ -297,7 +297,7 @@ impl Component {
                 FieldKind::Flatten => {
                     quote! {
                         #component::with_iter(
-                            &self.name,
+                            &self.#name,
                             base_index,
                             with,
                         )?;
@@ -336,29 +336,33 @@ impl Component {
             match &item.kind {
                 FieldKind::Item { descr } => {
                     quote! {
-                        let show = #show;
-                        W::with_mut(
-                            with,
-                            cx.wrap_with(#action),
-                            &mut self.#name,
-                            #descr,
-                            base_index,
-                            show,
-                        )?;
-                        base_index += 1;
+                        {
+                            let show = #show;
+                            W::with_mut(
+                                with,
+                                cx.wrap_with(#action),
+                                &mut self.#name,
+                                #descr,
+                                base_index,
+                                show,
+                            )?;
+                            base_index += 1;
+                        }
                     }
                 }
                 FieldKind::Flatten => {
                     quote! {
-                        let show = #show;
-                        #component::with_iter_mut(
-                            &mut self.name,
-                            base_index,
-                            cx.wrap_with(#action),
-                            with,
-                            show
-                        )?;
-                        base_index += #component::total_size(&self.#name);
+                        {
+                            let show = #show;
+                            #component::with_iter_mut(
+                                &mut self.#name,
+                                base_index,
+                                cx.wrap_with(#action),
+                                with,
+                                show
+                            )?;
+                            base_index += #component::total_size(&self.#name);
+                        }
                     }
                 }
             }
@@ -405,6 +409,7 @@ impl Component {
                         #action(a) => #component::with_action_mut(
                             &mut self.#name,
                             #index + base_index,
+                            a,
                             cx.wrap_with(#action),
                             with
                         )
@@ -458,12 +463,14 @@ impl Component {
                 }
                 processed += 1;
             }
-            if !{ match_body.is_empty() && always_show.is_empty() } {
+            if !always_show.is_empty() {
                 match_body.append_separated(
                     always_show.iter().copied().map(Literal::usize_suffixed),
                     <Token![|]>::default(),
                 );
                 match_body.append_all(quote! {=> return true,});
+            }
+            if !match_body.is_empty() {
                 match_body.append_all(quote! {_ => {}});
 
                 body.append_all(quote! {match index});
@@ -473,7 +480,7 @@ impl Component {
             if let Some(item) = fields.next() {
                 if processed > 0 {
                     let processed = Literal::usize_suffixed(processed);
-                    body.append_all(quote! {index -= #processed});
+                    body.append_all(quote! {index -= #processed;});
                 }
                 let name = &item.name;
                 let and = if let Some(fun) = item.show_if.as_ref().map(|s| &s.fun) {
@@ -510,7 +517,12 @@ impl Component {
             } else {
                 let name = &item.name;
                 quote! {
-                    #sel(sel) => #index + #component::index(&self.#name, sel),
+                    #sel(sel) => {
+                        (
+                            #index
+                            + #component::index(&self.#name, sel)
+                        )
+                    },
                 }
             }
         });
