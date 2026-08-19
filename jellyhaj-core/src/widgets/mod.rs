@@ -4,14 +4,13 @@ pub mod shaded;
 pub mod state;
 pub mod suspended;
 
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
 pub use erased::*;
 
 use color_eyre::Report;
 use futures_intrusive::sync::ManualResetEvent;
 use jellyhaj_widgets_core::TreeVisitor;
-use ratatui::crossterm::event::KeyEvent;
 use tracing::debug;
 
 use crate::{
@@ -19,11 +18,7 @@ use crate::{
     widgets::shaded::widget::Erased,
 };
 
-#[derive(Debug)]
-pub enum KeybindAction<A: Debug + Send + 'static> {
-    Inner(A),
-    Key(KeyEvent),
-}
+pub use jellyhaj_widgets_core::KeybindAction;
 
 pub enum WidgetResult<T> {
     Ok(T),

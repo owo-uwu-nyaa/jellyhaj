@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow, sync::Arc};
+use std::{convert::Infallible, sync::Arc};
 
 use color_eyre::Result;
 use color_eyre::eyre::Report;
@@ -12,16 +12,6 @@ use jellyfin::{
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use valuable::Valuable;
-
-pub fn flatten_control_flow(
-    v: Result<Option<ControlFlow<Navigation, Navigation>>>,
-) -> Result<Option<Navigation>> {
-    match v {
-        Err(e) => Err(e),
-        Ok(None) => Ok(None),
-        Ok(Some(ControlFlow::Continue(v) | ControlFlow::Break(v))) => Ok(Some(v)),
-    }
-}
 
 #[derive(Debug, Valuable, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 pub struct LoginState {

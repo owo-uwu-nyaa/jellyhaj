@@ -7,7 +7,6 @@ pub mod label;
 pub mod label_block;
 #[doc(hidden)]
 pub mod macro_impl;
-pub mod mapper;
 mod offset;
 pub mod secret_field;
 pub mod selection;
@@ -21,7 +20,7 @@ use jellyhaj_core::state::Navigation;
 #[cfg(feature = "macro")]
 pub use jellyhaj_form_derive::{Selection, form_component, form_widget};
 use jellyhaj_widgets_core::{
-    KeyModifiers, MouseEventKind, Size, WidgetContext, Wrapper, valuable::Valuable,
+    KeyModifiers, MouseEventKind, RenderFlag, Size, WidgetContext, Wrapper, valuable::Valuable,
 };
 use ratatui::{
     buffer::Buffer,
@@ -54,10 +53,20 @@ pub trait FormItemBase<AR: Debug>: Valuable {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         false
     }
-    fn apply_char(&mut self, _sel: &mut Self::SelectionInner, _text: char) {
+    fn apply_char(
+        &mut self,
+        _sel: &mut Self::SelectionInner,
+        _text: char,
+        _render_flag: &mut RenderFlag,
+    ) {
         unimplemented!()
     }
-    fn apply_text(&mut self, _sel: &mut Self::SelectionInner, _text: String) {
+    fn apply_text(
+        &mut self,
+        _sel: &mut Self::SelectionInner,
+        _text: String,
+        _render_flag: &mut RenderFlag,
+    ) {
         unimplemented!()
     }
 
@@ -72,12 +81,14 @@ pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
 
     fn apply_action(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
 
     #[allow(clippy::too_many_arguments)]
@@ -90,6 +101,7 @@ pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>>;
 
     #[allow(clippy::type_complexity)]
@@ -100,6 +112,7 @@ pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
         pos: Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Self::Ret>>,

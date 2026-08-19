@@ -2,7 +2,7 @@ use std::{mem, ops::ControlFlow};
 
 use color_eyre::Result;
 use jellyhaj_core::{Config, state::Navigation};
-use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, RenderFlag, WidgetContext, Wrapper};
 use keybinds::{Command, Key, KeyBinding};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tracing::{debug, warn};
@@ -18,13 +18,19 @@ pub fn apply_key_event<
     this: &mut KeybindWidget<T, W, M>,
     cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
     action: KeybindAction<W::Action>,
+    render_flag: &mut RenderFlag,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     match action {
-        KeybindAction::Inner(a) => match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
-            Ok(None) => Ok(None),
-            Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
-            Err(e) => Err(e),
-        },
+        KeybindAction::Inner(a) => {
+            match this
+                .inner
+                .apply_action(cx.wrap_with(KeybindWrapper), a, render_flag)
+            {
+                Ok(None) => Ok(None),
+                Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
+                Err(e) => Err(e),
+            }
+        }
         KeybindAction::Key(key_event) => match key_event {
             KeyEvent {
                 code: KeyCode::Right,
@@ -34,6 +40,7 @@ pub fn apply_key_event<
             } => {
                 debug!("moving keybind help page");
                 this.current_view = this.current_view.saturating_add(1);
+                render_flag.set();
                 Ok(None)
             }
             KeyEvent {
@@ -44,6 +51,7 @@ pub fn apply_key_event<
             } => {
                 debug!("moving keybind help page");
                 this.current_view = this.current_view.saturating_add(1);
+                render_flag.set();
                 Ok(None)
             }
             KeyEvent {
@@ -66,9 +74,10 @@ pub fn apply_key_event<
                         .is_empty()
                 {
                     debug!("keyboard press in text field");
-                    this.inner.accept_char(c);
+                    this.inner.accept_char(c, render_flag);
                 } else {
                     let current_map = mem::take(&mut this.current_map);
+                    let map_filled = current_map.is_some();
                     debug!(?current_map, "matching on active keymaps");
                     match current_map.as_ref().unwrap_or(&this.top_map).get(&Key {
                         inner: code,
@@ -77,14 +86,21 @@ pub fn apply_key_event<
                     }) {
                         Some(KeyBinding::Command(c)) => {
                             debug!("found matching command");
-                            this.current_map = None;
+                            if map_filled {
+                                this.current_map = None;
+                                render_flag.set();
+                            }
                             debug!("executing command {c:?}");
                             let mapped = this.mapper.map(*c);
                             debug!("triggering action {mapped:?}");
                             return match mapped {
                                 ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
                                 ControlFlow::Continue(a) => {
-                                    match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
+                                    match this.inner.apply_action(
+                                        cx.wrap_with(KeybindWrapper),
+                                        a,
+                                        render_flag,
+                                    ) {
                                         Ok(None) => Ok(None),
                                         Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
                                         Err(e) => Err(e),
@@ -94,11 +110,15 @@ pub fn apply_key_event<
                         }
                         Some(KeyBinding::Group { map, name }) => {
                             debug!(name, "found matching group");
+                            render_flag.set();
                             this.current_map = Some(map.clone());
                         }
                         Some(KeyBinding::Invalid(name)) => {
+                            if map_filled {
+                                this.current_map = None;
+                                render_flag.set();
+                            }
                             warn!("'{name}' is an invalid command");
-                            this.current_map = None;
                         }
                         None => {}
                     }

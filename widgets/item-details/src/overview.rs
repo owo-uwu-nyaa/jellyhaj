@@ -1,7 +1,7 @@
 use std::{cmp::min, convert::Infallible};
 
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetBase, Rect, WidgetContext, WidgetTreeVisitor, Wrapper,
+    JellyhajWidget, JellyhajWidgetBase, Rect, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper,
 };
 use ratatui::{
     layout::Margin,
@@ -64,6 +64,7 @@ impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> fo
         &mut self,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        _render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             OverviewAction::Up => self.scroll = self.scroll.saturating_sub(1),
@@ -79,6 +80,7 @@ impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> fo
         _size: jellyhaj_widgets_core::Size,
         _kind: jellyhaj_widgets_core::MouseEventKind,
         _modifier: jellyhaj_widgets_core::KeyModifiers,
+        _render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

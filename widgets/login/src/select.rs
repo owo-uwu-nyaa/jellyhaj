@@ -1,22 +1,24 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::convert::Infallible;
 
 use jellyfin::{JellyfinClient, NoAuth};
 use jellyhaj_core::{
     Config,
     keybinds::FormCommand,
     state::{ClientOut, LoginState, Navigation, NextScreen},
-    widgets::KeybindAction,
 };
 use jellyhaj_form_widget::{
-    FormAction,
     button::Button,
-    form::{FormCommandMapper, IdFormResultMapper},
+    form::{
+        FormCommandMapper, FormResultMapper, component::FormComponent,
+    },
     form_widget,
     label::Label,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
+    outer::{Named, UnwrapWidget},
 };
 use valuable::Valuable;
 
@@ -32,7 +34,40 @@ impl From<Infallible> for Selection {
     }
 }
 
-#[form_widget("Select login method", Selection, IdFormResultMapper)]
+pub struct SelectResultMapper;
+
+impl FormResultMapper<SelectData> for SelectResultMapper {
+    type Res = Navigation;
+
+    fn map(
+        state: &SelectData,
+        form_result: <SelectData as FormComponent>::AR,
+        _cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <SelectData as FormComponent>::Action,
+            impl Wrapper<<SelectData as FormComponent>::Action>,
+            (),
+        >,
+    ) -> Result<Option<Self::Res>> {
+        let screen = match form_result {
+            Selection::QuickConnect => NextScreen::AuthQuickConnectFetch {
+                state: state.state.clone(),
+                out: state.client_out.clone(),
+                client: state.client.clone(),
+                server_id: state.server_id.clone(),
+            },
+            Selection::Password => NextScreen::AuthPassword {
+                state: state.state.clone(),
+                out: state.client_out.clone(),
+                client: state.client.clone(),
+                server_id: state.server_id.clone(),
+            },
+        };
+        Ok(Some(Navigation::Push(screen)))
+    }
+}
+
+#[form_widget("Select login method", Selection, SelectResultMapper)]
 #[derive(Debug, Valuable)]
 pub struct SelectData {
     #[form(descr = "Quick Connect")]
@@ -45,42 +80,32 @@ pub struct SelectData {
     passwort: Button<Selection>,
     #[form(skip)]
     quick_connect_status: bool,
+    #[form(skip)]
+    #[valuable(skip)]
+    client_out: ClientOut,
+    #[form(skip)]
+    state: LoginState,
+    #[form(skip)]
+    server_id: String,
+    #[form(skip)]
+    #[valuable(skip)]
+    client: JellyfinClient<NoAuth>,
 }
 
 impl SelectData {
     #[must_use]
-    pub const fn new(quick_connect_status: bool) -> Self {
+    pub const fn new(
+        client_out: ClientOut,
+        state: LoginState,
+        client: JellyfinClient<NoAuth>,
+        quick_connect_status: bool,
+        server_id: String,
+    ) -> Self {
         Self {
             quick_connect: Button::new(Selection::QuickConnect),
             quick_connect_disabled: Label,
             passwort: Button::new(Selection::Password),
             quick_connect_status,
-        }
-    }
-}
-
-#[derive(Valuable)]
-pub struct SelectWidget {
-    #[valuable(skip)]
-    inner: KeybindWidget<FormCommand, SelectDataWidget, FormCommandMapper<SelectDataAction>>,
-    #[valuable(skip)]
-    client_out: ClientOut,
-    state: LoginState,
-    server_id: String,
-    #[valuable(skip)]
-    client: JellyfinClient<NoAuth>,
-}
-
-impl SelectWidget {
-    pub const fn new(
-        inner: KeybindWidget<FormCommand, SelectDataWidget, FormCommandMapper<SelectDataAction>>,
-        client_out: ClientOut,
-        state: LoginState,
-        client: JellyfinClient<NoAuth>,
-        server_id: String,
-    ) -> Self {
-        Self {
-            inner,
             client_out,
             state,
             server_id,
@@ -89,139 +114,67 @@ impl SelectWidget {
     }
 }
 
+type InnerWidget = UnwrapWidget<
+    KeybindWidget<FormCommand, UnwrapWidget<SelectDataWidget>, FormCommandMapper<SelectDataAction>>,
+>;
+
+#[derive(Valuable)]
+pub struct SelectActionMapper;
+
 #[derive(Debug)]
-pub enum SelectAction {
-    Inner(FormAction<SelectDataAction>),
-    Initial,
+pub struct Initial;
+
+impl ActionMapperBase<InnerWidget> for SelectActionMapper {
+    type Action = Initial;
 }
 
-impl JellyhajWidgetBase for SelectWidget {
-    type Action = KeybindAction<SelectAction>;
-
-    type ActionResult = Navigation;
-
-    const NAME: &str = "login-select-method";
-
-    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit(&self.inner);
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        None
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        None
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Wrap;
-impl Wrapper<KeybindAction<FormAction<SelectDataAction>>> for Wrap {
-    type F = KeybindAction<SelectAction>;
-
-    fn wrap(&self, val: KeybindAction<FormAction<SelectDataAction>>) -> Self::F {
-        match val {
-            KeybindAction::Inner(v) => KeybindAction::Inner(SelectAction::Inner(v)),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        }
-    }
-}
-
-fn map(
-    v: Result<Option<ControlFlow<Navigation, ControlFlow<Navigation, Selection>>>>,
-    client_out: &ClientOut,
-    state: &LoginState,
-    client: &JellyfinClient<NoAuth>,
-    server_id: &str,
-) -> Result<Option<Navigation>> {
-    v.map(|v| {
-        v.map(|v| match v {
-            ControlFlow::Break(n) | ControlFlow::Continue(ControlFlow::Break(n)) => n,
-            ControlFlow::Continue(ControlFlow::Continue(Selection::QuickConnect)) => {
-                Navigation::Push(NextScreen::AuthQuickConnectFetch {
-                    state: state.clone(),
-                    out: client_out.clone(),
-                    client: client.clone(),
-                    server_id: server_id.to_owned(),
-                })
-            }
-            ControlFlow::Continue(ControlFlow::Continue(Selection::Password)) => {
-                Navigation::Push(NextScreen::AuthPassword {
-                    state: state.clone(),
-                    out: client_out.clone(),
-                    client: client.clone(),
-                    server_id: server_id.to_owned(),
-                })
-            }
-        })
-    })
-}
-impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for SelectWidget {
+impl<R: ContextRef<Config> + 'static> ActionMapper<R, InnerWidget> for SelectActionMapper {
     fn init(
         &mut self,
+        this: &mut InnerWidget,
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
     ) {
-        if !(self.state.username.is_empty()
-            || (self.state.password.is_empty() && self.state.passwort_cmd.is_empty()))
+        let this = &mut this.inner.inner.inner;
+        if !(this.data.state.username.is_empty()
+            || (this.data.state.password.is_empty() && this.data.state.passwort_cmd.is_empty()))
         {
-            self.inner.inner.sel = SelectDataSelection::Passwort(());
-            cx.submitter
-                .spawn_value_infallible(KeybindAction::Inner(SelectAction::Initial));
+            this.sel = SelectDataSelection::Passwort(());
+            cx.submitter.spawn_value_infallible(Initial);
         }
-        self.inner.init(cx.wrap_with(Wrap));
     }
 
-    fn apply_action(
+    fn map_action(
         &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        let inner = match action {
-            KeybindAction::Inner(SelectAction::Initial) => {
-                return Ok(Some(Navigation::Push(NextScreen::AuthPassword {
-                    state: self.state.clone(),
-                    out: self.client_out.clone(),
-                    client: self.client.clone(),
-                    server_id: self.server_id.clone(),
-                })));
-            }
-            KeybindAction::Inner(SelectAction::Inner(v)) => KeybindAction::Inner(v),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        };
-        map(
-            self.inner.apply_action(cx.wrap_with(Wrap), inner),
-            &self.client_out,
-            &self.state,
-            &self.client,
-            &self.server_id,
-        )
-    }
-
-    fn click(
-        &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: ratatui::prelude::Position,
-        size: ratatui::prelude::Size,
-        kind: jellyhaj_widgets_core::MouseEventKind,
-        modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> Result<Option<Self::ActionResult>> {
-        map(
-            self.inner
-                .click(cx.wrap_with(Wrap), position, size, kind, modifier),
-            &self.client_out,
-            &self.state,
-            &self.client,
-            &self.server_id,
-        )
-    }
-
-    fn render_fallible_inner(
-        &mut self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        self.inner.render_fallible(area, buf, cx.wrap_with(Wrap))
+        this: &mut InnerWidget,
+        _cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
+        _action: Self::Action,
+        _render_flag: &mut jellyhaj_widgets_core::RenderFlag,
+    ) -> Result<Option<<InnerWidget as JellyhajWidgetBase>::ActionResult>> {
+        let state = &this.inner.inner.inner.data;
+        Ok(Some(Navigation::Push(NextScreen::AuthPassword {
+            state: state.state.clone(),
+            out: state.client_out.clone(),
+            client: state.client.clone(),
+            server_id: state.server_id.clone(),
+        })))
     }
 }
+
+pub struct Name;
+impl Named for Name {
+    const NAME: &str = "login-select-method";
+}
+
+pub type SelectWidget = ActionMapperWidget<Name, InnerWidget, SelectActionMapper>;

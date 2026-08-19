@@ -2,7 +2,9 @@ use color_eyre::eyre::{Context, bail};
 use futures_util::stream::unfold;
 use jellyfin::items::ItemType;
 use jellyhaj_core::{state::Navigation, widgets::KeybindAction};
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result, WidgetContext, Wrapper,
+};
 use player_core::{
     Command, Events, PlayerHandle, PlayerState,
     state::{EventReceiver, SharedPlayerState},
@@ -156,6 +158,7 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             PlayerAction::Quit => Ok(Some(Navigation::PopContext)),
@@ -182,12 +185,14 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
             PlayerAction::Update => {
                 if let Some(state) = self.state.as_ref() {
                     self.labels = make_lables(&state.lock())?;
+                    render_flag.set();
                 }
                 Ok(None)
             }
             PlayerAction::Events(event_receiver) => {
                 let receiver = event_receiver.with_shared_state();
                 self.state = Some(SharedPlayerState::clone(&receiver));
+                render_flag.set();
                 cx.submitter.spawn_stream(
                     unfold(receiver, |mut receiver| async {
                         loop {
@@ -240,6 +245,7 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
         size: ratatui::prelude::Size,
         kind: MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if kind.is_down()
             && let Some(state) = self.state.as_ref()
@@ -368,6 +374,7 @@ impl<R: 'static> JellyhajWidget<R> for ExitWidget {
         &mut self,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if matches!(action, KeybindAction::Inner(ExitAction::Quit)) {
             Ok(Some(Navigation::Exit))
@@ -383,6 +390,7 @@ impl<R: 'static> JellyhajWidget<R> for ExitWidget {
         _size: ratatui::prelude::Size,
         _kind: MouseEventKind,
         _modifier: jellyhaj_widgets_core::KeyModifiers,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         Ok(None)
     }

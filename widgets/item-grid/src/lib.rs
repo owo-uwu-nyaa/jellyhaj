@@ -5,8 +5,8 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
-    Wrapper,
+    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, RenderFlag,
+    WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -149,19 +149,19 @@ impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemGrid<T> {
             .is_some_and(ItemWidgetBase::accepts_text_input)
     }
 
-    fn accept_char(&mut self, text: char) {
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
         if let Some(i) = self.get_mut(self.current)
             && i.accepts_text_input()
         {
-            i.accept_char(text);
+            i.accept_char(text, render_flag);
         }
     }
 
-    fn accept_text(&mut self, text: String) {
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
         if let Some(i) = self.get_mut(self.current)
             && i.accepts_text_input()
         {
-            i.accept_text(text);
+            i.accept_text(text, render_flag);
         }
     }
 }
@@ -177,13 +177,14 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             ItemGridAction::SpecificInner(index, action) => self
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    v.item_apply_action(cx.wrap_with(GridWrapper { index }), action)
+                    v.item_apply_action(cx.wrap_with(GridWrapper { index }), action, render_flag)
                         .transpose()
                 })
                 .transpose(),
@@ -196,20 +197,24 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                             index: self.current,
                         }),
                         action,
+                        render_flag,
                     )
                     .transpose()
                 })
                 .transpose(),
             ItemGridAction::Up => {
                 self.current = self.current.saturating_sub(self.width as usize);
+                render_flag.set();
                 Ok(None)
             }
             ItemGridAction::Left => {
                 self.current = self.current.saturating_sub(1);
+                render_flag.set();
                 Ok(None)
             }
             ItemGridAction::Right => {
                 self.current = min(self.items.len().saturating_sub(1), self.current + 1);
+                render_flag.set();
                 Ok(None)
             }
             ItemGridAction::Down => {
@@ -217,6 +222,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                     self.items.len().saturating_sub(1),
                     self.current + self.width as usize,
                 );
+                render_flag.set();
                 Ok(None)
             }
         }
@@ -229,6 +235,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
         size: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         if position.x < 2
             || position.y < 2
@@ -249,6 +256,10 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                 && y_position < self.item_size.height
                 && let Some(item) = self.items.get_mut(index)
             {
+                if self.current != index {
+                    self.current = index;
+                    render_flag.set();
+                }
                 item.item_click(
                     cx.wrap_with(GridWrapper { index }),
                     Position {
@@ -258,6 +269,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                     self.item_size,
                     kind,
                     modifier,
+                    render_flag,
                 )
             } else {
                 Ok(None)

@@ -2,7 +2,9 @@ use std::{cmp::min, convert::Infallible};
 
 use ansi_to_tui::IntoText;
 use color_eyre::eyre::Context;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext, Wrapper,
+};
 use ratatui::{
     layout::Margin,
     widgets::{
@@ -55,16 +57,6 @@ impl JellyhajWidgetBase for ErrorWidget {
     fn min_height(&self) -> Option<u16> {
         Some(5)
     }
-
-    fn accepts_text_input(&self) -> bool {
-        false
-    }
-    fn accept_char(&mut self, _: char) {
-        unimplemented!()
-    }
-    fn accept_text(&mut self, _: String) {
-        unimplemented!()
-    }
 }
 
 impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
@@ -74,6 +66,7 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
         &mut self,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             ErrorAction::Up => self.pos_y = self.pos_y.saturating_sub(1),
@@ -81,6 +74,7 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
             ErrorAction::Left => self.pos_x = self.pos_x.saturating_sub(1),
             ErrorAction::Right => self.pos_x = self.pos_x.saturating_add(1),
         }
+        render_flag.set();
         Ok(None)
     }
 
@@ -91,6 +85,7 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
         _: jellyhaj_widgets_core::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

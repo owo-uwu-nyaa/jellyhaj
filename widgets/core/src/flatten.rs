@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::ControlFlow};
 use color_eyre::eyre::Result;
 
 use crate::{
-    mapper::{MapperWidget, ResultMapper},
+    mapper::{ResultMapper, ResultMapperWidget},
     outer::Named,
 };
 
@@ -27,4 +27,4 @@ impl Named for Name {
     const NAME: &str = "flatten";
 }
 
-pub type FlattenWidget<W> = MapperWidget<Name, W, Mapper>;
+pub type FlattenWidget<W> = ResultMapperWidget<Name, W, Mapper>;

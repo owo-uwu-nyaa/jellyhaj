@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Debug, io::stdout, ops::ControlFlow};
 
 use crossterm::clipboard::CopyToClipboard;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Position, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Position, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::{
     crossterm::execute,
     prelude::Rect,
@@ -94,19 +94,33 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         if let Some(pos) = sel {
             match action {
-                FormAction::Left => pos.y = pos.y.saturating_sub(1),
-                FormAction::Right => pos.y = pos.y.saturating_add(1),
-                FormAction::Up => pos.x = pos.x.saturating_sub(1),
-                FormAction::Down => pos.x = pos.x.saturating_add(1),
+                FormAction::Left => {
+                    render_flag.set();
+                    pos.y = pos.y.saturating_sub(1);
+                }
+                FormAction::Right => {
+                    render_flag.set();
+                    pos.y = pos.y.saturating_add(1);
+                }
+                FormAction::Up => {
+                    render_flag.set();
+                    pos.x = pos.x.saturating_sub(1);
+                }
+                FormAction::Down => {
+                    render_flag.set();
+                    pos.x = pos.x.saturating_add(1);
+                }
                 FormAction::Delete => {}
                 FormAction::Enter => {
                     if sel.is_some() {
                         let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
                     } else {
                         *sel = Some(Position::ORIGIN.into());
+                        render_flag.set();
                     }
                 }
                 FormAction::Quit => *sel = None,
@@ -119,6 +133,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -132,6 +147,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         pos: Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         Ok(None)
     }
@@ -143,11 +159,13 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         pos: Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Self::Ret>>,
     )> {
         if kind.is_down() {
+            render_flag.set();
             Ok((Some(Some(Position::ORIGIN.into())), None))
         } else {
             Ok((None, None))

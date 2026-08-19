@@ -14,7 +14,7 @@ use jellyhaj_image::{JellyfinImage, ParsedImage};
 pub use jellyhaj_image::{Picker, SqliteConnection, Stats, cache::ImageCache};
 use jellyhaj_widgets_core::{
     Config, ContextRef, FontSize, GetFromContext, ItemWidget, ItemWidgetBase, JellyhajWidget,
-    JellyhajWidgetExt, WidgetContext, Wrapper,
+    JellyhajWidgetExt, RenderFlag, WidgetContext, Wrapper,
 };
 use ratatui::{
     crossterm::event::{MouseButton, MouseEventKind},
@@ -224,17 +224,20 @@ impl<
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         Ok(match action {
             EntryAction::Inner(action) => {
                 if let Some(image) = self.image.as_mut() {
-                    let None = image.apply_action(cx.wrap_with(EntryWrapper), action)?;
+                    let None =
+                        image.apply_action(cx.wrap_with(EntryWrapper), action, render_flag)?;
                 }
                 None
             }
             EntryAction::Command(entry_command) => self.inner.apply_command(entry_command, cx.refs),
             EntryAction::UpdatedUserData(user_data) => {
                 updated_user_data(user_data, &mut self.inner, &mut self.watch_status);
+                render_flag.set();
                 return Ok(None);
             }
         })
@@ -246,6 +249,7 @@ impl<
         _: Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
             Ok(self.inner.apply_command(EntryCommand::Activate, cx.refs))

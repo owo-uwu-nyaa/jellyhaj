@@ -126,22 +126,21 @@ impl RenderWidgetProj<'_> {
                         return Poll::Ready(WidgetResult::Exit);
                     }
                     Some(Ok(event)) => {
-                        let (res, r) =
-                            widget.submit_event(event, term.get_frame().area().as_size());
-                        *self.render |= r;
+                        let res = widget.submit_event(event, term.get_frame().area().as_size());
+                        *self.render |= widget.reset_render_flag();
                         if let Some(nav) = res {
                             return Poll::Ready(nav);
                         }
                     }
                 }
-            } else if let Poll::Ready(nav) = widget.poll_next_unpin(cx) {
+            } else if let Poll::Ready(nav) = widget.poll_next(cx) {
                 trace!("task based render wakeup");
                 consume_budget.made_progress();
                 match nav {
                     None => return Poll::Ready(WidgetResult::Exit),
                     Some(Some(nav)) => return Poll::Ready(nav),
                     Some(None) => {
-                        *self.render = true;
+                        *self.render |= widget.reset_render_flag();
                     }
                 }
             } else {
@@ -260,17 +259,17 @@ impl RenderStopWidgetProj<'_> {
                         return Poll::Ready(RenderStopRes::Exit);
                     }
                     Some(Ok(event)) => {
-                        let (_, r) = widget.submit_event(event, term.get_frame().area().as_size());
-                        *self.render |= r;
+                        let _ = widget.submit_event(event, term.get_frame().area().as_size());
+                        *self.render |= widget.reset_render_flag();
                     }
                 }
-            } else if let Poll::Ready(nav) = widget.poll_next_unpin(cx) {
+            } else if let Poll::Ready(nav) = widget.poll_next(cx) {
                 trace!("task based render wakeup");
                 consume_budget.made_progress();
                 match nav {
                     None => return Poll::Ready(RenderStopRes::Exit),
                     Some(Some(_) | None) => {
-                        *self.render = true;
+                        *self.render |= widget.reset_render_flag();
                     }
                 }
             } else {

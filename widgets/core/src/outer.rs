@@ -13,13 +13,13 @@ impl<T: Debug + 'static, A: Debug + 'static + Into<T>> ResultMapper<ControlFlow<
 }
 
 pub use crate::mapper::Named;
-use crate::mapper::{MapperWidget, ResultMapper};
+use crate::mapper::{ResultMapper, ResultMapperWidget};
 
-pub type OuterWidget<N, W> = MapperWidget<N, W, Mapper>;
+pub type OuterWidget<N, W> = ResultMapperWidget<N, W, Mapper>;
 
 pub struct UnwrapName;
 impl Named for UnwrapName {
     const NAME: &str = "unwrap";
 }
 
-pub type UnwrapWidget<W> = MapperWidget<UnwrapName, W, Mapper>;
+pub type UnwrapWidget<W> = ResultMapperWidget<UnwrapName, W, Mapper>;

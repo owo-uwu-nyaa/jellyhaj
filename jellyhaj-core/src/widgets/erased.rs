@@ -6,13 +6,12 @@ use std::{
 
 use crate::widgets::{KeybindAction, WidgetResult};
 use color_eyre::Result;
-use futures_util::{Stream, StreamExt};
+use futures_util::Stream;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetExt, Position, Size, TreeVisitor, WidgetContext,
-    WidgetTreeVisitor,
+    ContextRef, JellyhajWidget, JellyhajWidgetExt, Position, RenderFlag, Size, TreeVisitor,
+    WidgetContext, WidgetTreeVisitor,
     async_task::{EventReceiver, IdWrapper, TaskSubmitter, new_task_pair},
 };
-use pin_project_lite::pin_project;
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{Event, MouseEvent},
@@ -20,46 +19,21 @@ use ratatui::{
 };
 use spawn::Spawner;
 
-pub trait ErasedWidget<Res>:
-    Stream<Item = Option<WidgetResult<Res>>> + Send + 'static + Unpin
-{
+pub trait ErasedWidget<Res: 'static>: Send + 'static {
     fn name(&self) -> &'static str;
-    fn submit_event(&mut self, event: Event, size: Size) -> (Option<WidgetResult<Res>>, bool);
+    fn submit_event(&mut self, event: Event, size: Size) -> Option<WidgetResult<Res>>;
     fn render(&mut self, area: Rect, buffer: &mut Buffer) -> Result<()>;
     fn visit(&self, visitor: &mut dyn TreeVisitor);
+    fn reset_render_flag(&mut self) -> bool;
+    fn poll_next(&mut self, cx: &mut Context<'_>) -> Poll<Option<Option<WidgetResult<Res>>>>;
 }
 
-pin_project! {
-    struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
-        widget: W,
-        submitter: TaskSubmitter<W::Action, IdWrapper>,
-        receiver: EventReceiver<W::Action>,
-        context: R,
-    }
-}
-
-impl<R: 'static, W: JellyhajWidget<R>> Stream for ErasedWidgetImpl<R, W> {
-    type Item = Option<WidgetResult<W::ActionResult>>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-
-        Poll::Ready(Some(match ready!(this.receiver.poll_recv(cx)) {
-            Some(Ok(action)) => match this.widget.apply_action(
-                WidgetContext {
-                    refs: this.context,
-                    submitter: this.submitter.as_ref(),
-                },
-                action,
-            ) {
-                Ok(Some(n)) => Some(WidgetResult::Ok(n)),
-                Ok(None) => None,
-                Err(e) => Some(WidgetResult::Err(e)),
-            },
-            Some(Err(e)) => Some(WidgetResult::Err(e)),
-            None => Some(WidgetResult::Pop),
-        }))
-    }
+struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
+    widget: W,
+    submitter: TaskSubmitter<W::Action, IdWrapper>,
+    receiver: EventReceiver<W::Action>,
+    context: R,
+    render_flag: RenderFlag,
 }
 
 impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = KeybindAction<A>>>
@@ -77,7 +51,7 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
         &mut self,
         event: Event,
         frame_size: Size,
-    ) -> (Option<WidgetResult<W::ActionResult>>, bool) {
+    ) -> Option<WidgetResult<W::ActionResult>> {
         let res = match event {
             Event::Key(key) => self.widget.apply_action(
                 WidgetContext {
@@ -85,6 +59,7 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
                     submitter: self.submitter.as_ref(),
                 },
                 KeybindAction::Key(key),
+                &mut self.render_flag,
             ),
             Event::Mouse(MouseEvent {
                 kind,
@@ -100,23 +75,25 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
                 frame_size,
                 kind,
                 modifiers,
+                &mut self.render_flag,
             ),
             Event::Paste(v) => {
                 if self.widget.accepts_text_input() {
-                    self.widget.accept_text(v);
-                    return (None, true);
+                    self.widget.accept_text(v, &mut self.render_flag);
                 }
-                return (None, false);
+                return None;
             }
-            Event::Resize(_, _) => return (None, true),
-            _ => return (None, false),
+            Event::Resize(_, _) => {
+                self.render_flag.set();
+                return None;
+            }
+            _ => return None,
         };
-        let res = match res {
+        match res {
             Ok(None) => None,
             Ok(Some(v)) => Some(WidgetResult::Ok(v)),
             Err(e) => Some(WidgetResult::Err(e)),
-        };
-        (res, true)
+        }
     }
 
     fn render(&mut self, area: Rect, buffer: &mut Buffer) -> Result<()> {
@@ -128,6 +105,34 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
                 submitter: self.submitter.as_ref(),
             },
         )
+    }
+
+    fn reset_render_flag(&mut self) -> bool {
+        self.render_flag.reset()
+    }
+
+    fn poll_next(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Option<WidgetResult<W::ActionResult>>>> {
+        let this = self;
+
+        Poll::Ready(Some(match ready!(this.receiver.poll_recv(cx)) {
+            Some(Ok(action)) => match this.widget.apply_action(
+                WidgetContext {
+                    refs: &mut this.context,
+                    submitter: this.submitter.as_ref(),
+                },
+                action,
+                &mut this.render_flag,
+            ) {
+                Ok(Some(n)) => Some(WidgetResult::Ok(n)),
+                Ok(None) => None,
+                Err(e) => Some(WidgetResult::Err(e)),
+            },
+            Some(Err(e)) => Some(WidgetResult::Err(e)),
+            None => Some(WidgetResult::Pop),
+        }))
     }
 }
 
@@ -149,6 +154,7 @@ pub(super) fn make_new_erased<
         context: cx,
         submitter,
         receiver,
+        render_flag: RenderFlag::default(),
     }
 }
 
@@ -157,12 +163,12 @@ pub trait ErasedWidgetExt<'w, Res> {
     fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send;
 }
 
-fn filtered_poll<Res>(
+fn filtered_poll<Res: 'static>(
     erased: &mut dyn ErasedWidget<Res>,
     cx: &mut Context<'_>,
 ) -> Poll<Option<WidgetResult<Res>>> {
     loop {
-        break match erased.poll_next_unpin(cx) {
+        break match erased.poll_next(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Ready(Some(None)) => continue,
@@ -171,7 +177,7 @@ fn filtered_poll<Res>(
     }
 }
 
-impl<'w, Res> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res> {
+impl<'w, Res: 'static> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res> {
     fn filtered_events(self) -> WidgetEventStream<'w, Res> {
         WidgetEventStream { inner: self }
     }
@@ -185,7 +191,7 @@ pub struct WidgetEventStream<'w, Res> {
     inner: &'w mut dyn ErasedWidget<Res>,
 }
 
-impl<Res> Stream for WidgetEventStream<'_, Res> {
+impl<Res: 'static> Stream for WidgetEventStream<'_, Res> {
     type Item = WidgetResult<Res>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

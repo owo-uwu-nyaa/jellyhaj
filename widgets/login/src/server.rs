@@ -1,13 +1,11 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::convert::Infallible;
 
 use jellyhaj_core::{
     Config,
     keybinds::FormCommand,
     state::{ClientOut, LoginState, Navigation, NextScreen},
-    widgets::KeybindAction,
 };
 use jellyhaj_form_widget::{
-    FormAction,
     button::Button,
     form::{FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
@@ -15,7 +13,9 @@ use jellyhaj_form_widget::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
+    outer::{Named, UnwrapWidget},
 };
 use valuable::Valuable;
 
@@ -30,7 +30,7 @@ impl From<Infallible> for Connect {
 
 pub struct ServerResultMapper;
 impl FormResultMapper<ServerData> for ServerResultMapper {
-    type Res = String;
+    type Res = Navigation;
 
     fn map(
         state: &ServerData,
@@ -42,7 +42,15 @@ impl FormResultMapper<ServerData> for ServerResultMapper {
             (),
         >,
     ) -> Result<Option<Self::Res>> {
-        Ok(Some(state.server_url.text.clone()))
+        Ok(Some(Navigation::Push(NextScreen::ConnectToServer {
+            state: LoginState {
+                server_url: state.server_url.text.clone(),
+                username: state.state.username.clone(),
+                password: state.state.password.clone(),
+                passwort_cmd: state.state.passwort_cmd.clone(),
+            },
+            out: state.client_out.clone(),
+        })))
     }
 }
 
@@ -53,159 +61,79 @@ pub struct ServerData {
     server_url: TextField,
     #[form(descr = "Connect")]
     connect: Button<Connect>,
+    #[form(skip)]
+    state: LoginState,
+    #[valuable(skip)]
+    #[form(skip)]
+    client_out: ClientOut,
 }
 
 impl ServerData {
     #[must_use]
-    pub const fn new(url: String) -> Self {
+    pub fn new(state: LoginState, client_out: ClientOut) -> Self {
+        let server_url = state.server_url.clone();
         Self {
-            server_url: TextField::new(url),
+            server_url: TextField::new(server_url),
             connect: Button::new(Connect),
+            state,
+            client_out,
         }
     }
 }
+
+type InnerWidget = UnwrapWidget<
+    KeybindWidget<FormCommand, UnwrapWidget<ServerDataWidget>, FormCommandMapper<ServerDataAction>>,
+>;
 
 #[derive(Valuable)]
-pub struct ServerWidget {
-    #[valuable(skip)]
-    inner: KeybindWidget<FormCommand, ServerDataWidget, FormCommandMapper<ServerDataAction>>,
-    #[valuable(skip)]
-    client_out: ClientOut,
-    state: LoginState,
-}
-
-impl ServerWidget {
-    pub const fn new(
-        inner: KeybindWidget<FormCommand, ServerDataWidget, FormCommandMapper<ServerDataAction>>,
-        client_out: ClientOut,
-        state: LoginState,
-    ) -> Self {
-        Self {
-            inner,
-            client_out,
-            state,
-        }
-    }
-}
-
+pub struct ServerMapper;
 #[derive(Debug)]
-pub enum ServerAction {
-    Inner(FormAction<ServerDataAction>),
-    Initial,
+pub struct Initial;
+
+impl ActionMapperBase<InnerWidget> for ServerMapper {
+    type Action = Initial;
 }
 
-impl JellyhajWidgetBase for ServerWidget {
-    type Action = KeybindAction<ServerAction>;
-
-    type ActionResult = Navigation;
-
-    const NAME: &str = "server-url";
-
-    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit(&self.inner);
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        None
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        None
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Wrap;
-impl Wrapper<KeybindAction<FormAction<ServerDataAction>>> for Wrap {
-    type F = KeybindAction<ServerAction>;
-
-    fn wrap(&self, val: KeybindAction<FormAction<ServerDataAction>>) -> Self::F {
-        match val {
-            KeybindAction::Inner(v) => KeybindAction::Inner(ServerAction::Inner(v)),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        }
-    }
-}
-
-fn map(
-    v: Result<Option<ControlFlow<Navigation, ControlFlow<Navigation, String>>>>,
-    client_out: &ClientOut,
-    state: &LoginState,
-) -> Result<Option<Navigation>> {
-    v.map(|v| {
-        v.map(|v| match v {
-            ControlFlow::Break(n) | ControlFlow::Continue(ControlFlow::Break(n)) => n,
-            ControlFlow::Continue(ControlFlow::Continue(server)) => {
-                Navigation::Push(NextScreen::ConnectToServer {
-                    state: LoginState {
-                        server_url: server,
-                        username: state.username.clone(),
-                        password: state.password.clone(),
-                        passwort_cmd: state.passwort_cmd.clone(),
-                    },
-                    out: client_out.clone(),
-                })
-            }
-        })
-    })
-}
-impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for ServerWidget {
+impl<R: ContextRef<Config> + 'static> ActionMapper<R, InnerWidget> for ServerMapper {
     fn init(
         &mut self,
+        this: &mut InnerWidget,
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
     ) {
-        if !self.state.server_url.is_empty() {
-            self.inner.inner.sel = ServerDataSelection::Connect(());
-            cx.submitter
-                .spawn_value_infallible(KeybindAction::Inner(ServerAction::Initial));
+        if !this.inner.inner.inner.data.server_url.text.is_empty() {
+            this.inner.inner.inner.sel = ServerDataSelection::Connect(());
+            cx.submitter.spawn_value_infallible(Initial);
         }
-        self.inner.init(cx.wrap_with(Wrap));
     }
-
-    fn apply_action(
+    fn map_action(
         &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        let inner = match action {
-            KeybindAction::Inner(ServerAction::Initial) => {
-                return Ok(Some(Navigation::Push(NextScreen::ConnectToServer {
-                    state: self.state.clone(),
-                    out: self.client_out.clone(),
-                })));
-            }
-            KeybindAction::Inner(ServerAction::Inner(v)) => KeybindAction::Inner(v),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        };
-        map(
-            self.inner.apply_action(cx.wrap_with(Wrap), inner),
-            &self.client_out,
-            &self.state,
-        )
-    }
-
-    fn click(
-        &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: ratatui::prelude::Position,
-        size: ratatui::prelude::Size,
-        kind: jellyhaj_widgets_core::MouseEventKind,
-        modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> Result<Option<Self::ActionResult>> {
-        map(
-            self.inner
-                .click(cx.wrap_with(Wrap), position, size, kind, modifier),
-            &self.client_out,
-            &self.state,
-        )
-    }
-
-    fn render_fallible_inner(
-        &mut self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        self.inner.render_fallible(area, buf, cx.wrap_with(Wrap))
+        this: &mut InnerWidget,
+        _cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
+        _action: Self::Action,
+        _render_flag: &mut jellyhaj_widgets_core::RenderFlag,
+    ) -> Result<Option<<InnerWidget as JellyhajWidgetBase>::ActionResult>> {
+        Ok(Some(Navigation::Push(NextScreen::ConnectToServer {
+            state: this.inner.inner.inner.data.state.clone(),
+            out: this.inner.inner.inner.data.client_out.clone(),
+        })))
     }
 }
+
+pub struct Name;
+impl Named for Name {
+    const NAME: &str = "server-url";
+}
+
+pub type ServerWidget = ActionMapperWidget<Name, InnerWidget, ServerMapper>;

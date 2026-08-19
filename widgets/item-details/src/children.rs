@@ -11,8 +11,8 @@ use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_image::{Picker, Stats};
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
-    JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers, MouseEventKind, Result, WidgetContext,
-    Wrapper,
+    JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers, MouseEventKind, RenderFlag, Result,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     prelude::{Buffer, Position, Rect, Size},
@@ -160,14 +160,17 @@ impl<
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             ChildAction::Up => {
                 self.current = self.current.saturating_sub(1);
+                render_flag.set();
                 Ok(None)
             }
             ChildAction::Down => {
                 self.current = min(self.current + 1, self.items.len().saturating_sub(1));
+                render_flag.set();
                 Ok(None)
             }
             ChildAction::ScrollUp => {
@@ -183,6 +186,7 @@ impl<
                             action,
                         }),
                         OverviewAction::Up,
+                        render_flag,
                     )?;
                 }
                 Ok(None)
@@ -200,6 +204,7 @@ impl<
                             action,
                         }),
                         OverviewAction::Down,
+                        render_flag,
                     )?;
                 }
                 Ok(None)
@@ -209,6 +214,7 @@ impl<
                     child.entry.item_apply_action(
                         cx.wrap_with(move |action| ChildAction::Entry { index, action }),
                         action,
+                        render_flag,
                     )
                 } else {
                     Ok(None)
@@ -220,6 +226,7 @@ impl<
                     child.entry.item_apply_action(
                         cx.wrap_with(move |action| ChildAction::Entry { index, action }),
                         EntryAction::Command(action),
+                        render_flag,
                     )
                 } else {
                     Ok(None)
@@ -231,6 +238,7 @@ impl<
                     overview.apply_action(
                         cx.wrap_with(move |action| ChildAction::Overview { index, action }),
                         action,
+                        render_flag,
                     )?;
                 }
                 Ok(None)
@@ -316,6 +324,7 @@ impl<
         outer.render(area, buf);
         Ok(())
     }
+
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -323,6 +332,7 @@ impl<
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if let Some(dim) = self.items.first().map(|c| c.entry.dimensions())
             && position.x > 1
@@ -343,6 +353,7 @@ impl<
             {
                 if let MouseEventKind::Down(_) = kind {
                     self.current = index;
+                    render_flag.set();
                 }
                 if position.x > 1
                     && position.y > 1
@@ -357,6 +368,7 @@ impl<
                         dim,
                         kind,
                         modifier,
+                        render_flag,
                     );
                 }
             }

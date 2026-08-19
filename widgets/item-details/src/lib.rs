@@ -13,7 +13,7 @@ use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget,
-    JellyhajWidgetBase, JellyhajWidgetExt, WidgetContext, WidgetTreeVisitor, Wrapper,
+    JellyhajWidgetBase, JellyhajWidgetExt, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper,
 };
 use ratatui::{
     symbols::merge::MergeStrategy,
@@ -96,12 +96,14 @@ impl<
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             DisplayAction::Inner(action) => ItemWidget::<R>::item_apply_action(
                 &mut self.entry,
                 cx.wrap_with(DisplayAction::Inner),
                 action,
+                render_flag,
             ),
             DisplayAction::Up => {
                 if let Some(o) = self.overview.as_mut() {
@@ -109,6 +111,7 @@ impl<
                         o,
                         cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Up,
+                        render_flag,
                     )?;
                 }
                 Ok(None)
@@ -119,6 +122,7 @@ impl<
                         o,
                         cx.wrap_with(|_| unreachable!()),
                         OverviewAction::Down,
+                        render_flag,
                     )?;
                 }
                 Ok(None)
@@ -137,6 +141,7 @@ impl<
         _: ratatui::prelude::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
         _: jellyhaj_widgets_core::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

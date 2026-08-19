@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ops::ControlFlow};
+use std::convert::Infallible;
 
 use color_eyre::eyre::Report;
 use jellyfin::{JellyfinClient, NoAuth};
@@ -6,10 +6,8 @@ use jellyhaj_core::{
     Config,
     keybinds::FormCommand,
     state::{ClientOut, LoginState, Navigation, NextScreen},
-    widgets::KeybindAction,
 };
 use jellyhaj_form_widget::{
-    FormAction,
     button::Button,
     form::{FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
@@ -18,7 +16,9 @@ use jellyhaj_form_widget::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
+    outer::{Named, UnwrapWidget},
 };
 use valuable::Valuable;
 
@@ -31,21 +31,9 @@ impl From<Infallible> for Login {
     }
 }
 
-#[derive(Debug)]
-pub enum PasswordUsage {
-    Password(String),
-    PasswordCmd(String),
-}
-
-#[derive(Debug)]
-pub struct LoginResult {
-    password: PasswordUsage,
-    username: String,
-}
-
 pub struct PasswordResultMapper;
 impl FormResultMapper<PasswordData> for PasswordResultMapper {
-    type Res = LoginResult;
+    type Res = Navigation;
 
     fn map(
         state: &PasswordData,
@@ -57,14 +45,30 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
             (),
         >,
     ) -> Result<Option<Self::Res>> {
-        Ok(Some(LoginResult {
-            password: if state.use_password_cmd {
-                PasswordUsage::PasswordCmd(state.password_cmd.text.clone())
-            } else {
-                PasswordUsage::Password(state.password.secret.clone())
-            },
+        let mut login_state = LoginState {
+            server_url: state.server_url.clone(),
             username: state.username.text.clone(),
-        }))
+            password: String::new(),
+            passwort_cmd: Vec::new(),
+        };
+        if state.use_password_cmd {
+            match serde_json::from_str(&state.password_cmd.text) {
+                Ok(v) => login_state.passwort_cmd = v,
+                Err(e) => {
+                    return Ok(Some(Navigation::Push(NextScreen::Error(
+                        Report::new(e).wrap_err("While parsing password cmd array"),
+                    ))));
+                }
+            }
+        } else {
+            login_state.password.clone_from(&state.password.secret);
+        }
+        Ok(Some(Navigation::Push(NextScreen::AuthPasswordFetch {
+            state: login_state,
+            out: state.client_out.clone(),
+            client: state.client.clone(),
+            server_id: state.server_id.clone(),
+        })))
     }
 }
 
@@ -81,206 +85,134 @@ pub struct PasswordData {
     password_cmd: TextField,
     #[form(descr = "Login")]
     login: Button<Login>,
-}
-
-impl PasswordData {
-    #[must_use]
-    pub fn new(username: String, password: String, password_cmd_vec: &Vec<String>) -> Self {
-        let (use_password_cmd, password_cmd) = if password_cmd_vec.is_empty() {
-            (false, "[\"\"]".to_string())
-        } else {
-            (
-                true,
-                serde_json::to_string(&password_cmd_vec)
-                    .expect("deserializing string vec should never fail!"),
-            )
-        };
-        Self {
-            username: TextField::new(username),
-            use_password_cmd,
-            password: SecretField::new(password),
-            password_cmd: TextField::new(password_cmd),
-            login: Button::new(Login),
-        }
-    }
-}
-
-#[derive(Valuable)]
-pub struct PasswordWidget {
-    #[valuable(skip)]
-    inner: KeybindWidget<FormCommand, PasswordDataWidget, FormCommandMapper<PasswordDataAction>>,
+    #[form(skip)]
     #[valuable(skip)]
     client_out: ClientOut,
-    state: LoginState,
+    #[form(skip)]
+    server_url: String,
+    #[form(skip)]
     server_id: String,
+    #[form(skip)]
+    password_cmd_vec: Vec<String>,
+    #[form(skip)]
     #[valuable(skip)]
     client: JellyfinClient<NoAuth>,
 }
 
-impl PasswordWidget {
-    pub const fn new(
-        inner: KeybindWidget<
-            FormCommand,
-            PasswordDataWidget,
-            FormCommandMapper<PasswordDataAction>,
-        >,
-        client_out: ClientOut,
+impl PasswordData {
+    #[must_use]
+    pub fn new(
         state: LoginState,
-        client: JellyfinClient<NoAuth>,
         server_id: String,
+        client_out: ClientOut,
+        client: JellyfinClient<NoAuth>,
     ) -> Self {
+        let (use_password_cmd, password_cmd) = if state.passwort_cmd.is_empty() {
+            (false, "[\"\"]".to_string())
+        } else {
+            (
+                true,
+                serde_json::to_string(&state.passwort_cmd)
+                    .expect("deserializing string vec should never fail!"),
+            )
+        };
         Self {
-            inner,
+            username: TextField::new(state.username),
+            use_password_cmd,
+            password: SecretField::new(state.password),
+            password_cmd: TextField::new(password_cmd),
+            login: Button::new(Login),
+            server_url: state.server_url,
             client_out,
-            state,
             server_id,
+            password_cmd_vec: state.passwort_cmd,
             client,
         }
     }
 }
 
-#[derive(Debug)]
-pub enum PasswordAction {
-    Inner(FormAction<PasswordDataAction>),
-    Initial,
-}
+type InnerWidget = UnwrapWidget<
+    KeybindWidget<
+        FormCommand,
+        UnwrapWidget<PasswordDataWidget>,
+        FormCommandMapper<PasswordDataAction>,
+    >,
+>;
 
-impl JellyhajWidgetBase for PasswordWidget {
-    type Action = KeybindAction<PasswordAction>;
-
-    type ActionResult = Navigation;
-
+pub struct Name;
+impl Named for Name {
     const NAME: &str = "login-password";
-
-    fn visit_children(&self, visitor: &mut impl jellyhaj_widgets_core::WidgetTreeVisitor) {
-        visitor.visit(&self.inner);
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        None
-    }
-
-    fn min_height(&self) -> Option<u16> {
-        None
-    }
 }
 
-#[derive(Clone, Copy)]
-struct Wrap;
-impl Wrapper<KeybindAction<FormAction<PasswordDataAction>>> for Wrap {
-    type F = KeybindAction<PasswordAction>;
+#[derive(Debug)]
+pub struct Initial;
+#[derive(Valuable)]
+pub struct PasswordActionMapper;
 
-    fn wrap(&self, val: KeybindAction<FormAction<PasswordDataAction>>) -> Self::F {
-        match val {
-            KeybindAction::Inner(v) => KeybindAction::Inner(PasswordAction::Inner(v)),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        }
-    }
+impl ActionMapperBase<InnerWidget> for PasswordActionMapper {
+    type Action = Initial;
 }
 
-fn map(
-    v: Result<Option<ControlFlow<Navigation, ControlFlow<Navigation, LoginResult>>>>,
-    client_out: &ClientOut,
-    state: &LoginState,
-    client: &JellyfinClient<NoAuth>,
-    server_id: &str,
-) -> Result<Option<Navigation>> {
-    v.map(|v| {
-        v.map(|v| match v {
-            ControlFlow::Break(n) | ControlFlow::Continue(ControlFlow::Break(n)) => n,
-            ControlFlow::Continue(ControlFlow::Continue(LoginResult { password, username })) => {
-                let mut state = LoginState {
-                    server_url: state.server_url.clone(),
-                    username,
-                    password: String::new(),
-                    passwort_cmd: Vec::new(),
-                };
-                match password {
-                    PasswordUsage::Password(p) => state.password = p,
-                    PasswordUsage::PasswordCmd(cmd) => match serde_json::from_str(&cmd) {
-                        Ok(v) => state.passwort_cmd = v,
-                        Err(e) => {
-                            return Navigation::Push(NextScreen::Error(
-                                Report::new(e).wrap_err("While parsing password cmd array"),
-                            ));
-                        }
-                    },
-                }
-                Navigation::Push(NextScreen::AuthPasswordFetch {
-                    state,
-                    out: client_out.clone(),
-                    client: client.clone(),
-                    server_id: server_id.to_owned(),
-                })
-            }
-        })
-    })
-}
-impl<R: 'static + ContextRef<Config>> JellyhajWidget<R> for PasswordWidget {
+impl<R: ContextRef<Config> + 'static> ActionMapper<R, InnerWidget> for PasswordActionMapper {
     fn init(
         &mut self,
+        this: &mut InnerWidget,
         cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
     ) {
-        if !(self.state.username.is_empty()
-            || (self.state.password.is_empty() && self.state.passwort_cmd.is_empty()))
+        let this = &mut this.inner.inner.inner;
+        if !(this.data.username.text.is_empty()
+            || (this.data.password.secret.is_empty() && this.data.password_cmd_vec.is_empty()))
         {
-            self.inner.inner.sel = PasswordDataSelection::Login(());
-            cx.submitter
-                .spawn_value_infallible(KeybindAction::Inner(PasswordAction::Initial));
+            this.sel = PasswordDataSelection::Login(());
+            cx.submitter.spawn_value_infallible(Initial);
         }
-        self.inner.init(cx.wrap_with(Wrap));
     }
 
-    fn apply_action(
+    fn map_action(
         &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        let inner = match action {
-            KeybindAction::Inner(PasswordAction::Initial) => {
-                return Ok(Some(Navigation::Push(NextScreen::AuthPasswordFetch {
-                    state: self.state.clone(),
-                    out: self.client_out.clone(),
-                    client: self.client.clone(),
-                    server_id: self.server_id.clone(),
-                })));
-            }
-            KeybindAction::Inner(PasswordAction::Inner(v)) => KeybindAction::Inner(v),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
+        this: &mut InnerWidget,
+        _cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _this_cx: jellyhaj_widgets_core::WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
+        _action: Self::Action,
+        _render_flag: &mut jellyhaj_widgets_core::RenderFlag,
+    ) -> Result<Option<<InnerWidget as JellyhajWidgetBase>::ActionResult>> {
+        let state = &this.inner.inner.inner.data;
+        let mut login_state = LoginState {
+            server_url: state.server_url.clone(),
+            username: state.username.text.clone(),
+            password: String::new(),
+            passwort_cmd: Vec::new(),
         };
-        map(
-            self.inner.apply_action(cx.wrap_with(Wrap), inner),
-            &self.client_out,
-            &self.state,
-            &self.client,
-            &self.server_id,
-        )
-    }
-
-    fn click(
-        &mut self,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: ratatui::prelude::Position,
-        size: ratatui::prelude::Size,
-        kind: jellyhaj_widgets_core::MouseEventKind,
-        modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> Result<Option<Self::ActionResult>> {
-        map(
-            self.inner
-                .click(cx.wrap_with(Wrap), position, size, kind, modifier),
-            &self.client_out,
-            &self.state,
-            &self.client,
-            &self.server_id,
-        )
-    }
-
-    fn render_fallible_inner(
-        &mut self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        cx: jellyhaj_widgets_core::WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        self.inner.render_fallible(area, buf, cx.wrap_with(Wrap))
+        if state.use_password_cmd {
+            match serde_json::from_str(&state.password_cmd.text) {
+                Ok(v) => login_state.passwort_cmd = v,
+                Err(e) => {
+                    return Ok(Some(Navigation::Push(NextScreen::Error(
+                        Report::new(e).wrap_err("While parsing password cmd array"),
+                    ))));
+                }
+            }
+        } else {
+            login_state.password.clone_from(&state.password.secret);
+        }
+        Ok(Some(Navigation::Push(NextScreen::AuthPasswordFetch {
+            state: login_state,
+            out: state.client_out.clone(),
+            client: state.client.clone(),
+            server_id: state.server_id.clone(),
+        })))
     }
 }
+
+pub type PasswordWidget = ActionMapperWidget<Name, InnerWidget, PasswordActionMapper>;

@@ -8,7 +8,7 @@ use color_eyre::eyre::Context;
 use crossterm::{clipboard::CopyToClipboard, execute};
 use jellyhaj_core::widgets::state::{StateStack, StateValue};
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, MouseEventKind, TreeVisitor,
+    ContextRef, JellyhajWidget, JellyhajWidgetBase, MouseEventKind, RenderFlag, TreeVisitor,
     ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::StatefulWidget},
     spawn::tracing::{self, info_span, instrument},
 };
@@ -723,6 +723,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             R,
         >,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         match action {
             InspectAction::Content(items, values) => {
@@ -730,25 +731,32 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
                 self.values = values;
                 self.state = TreeState::default();
                 self.state.select_first();
+                render_flag.set();
             }
             InspectAction::Toggle => {
                 self.state.toggle_selected();
+                render_flag.set();
             }
             InspectAction::Open => {
                 self.state.key_right();
+                render_flag.set();
             }
             InspectAction::CloseMoveParent => {
                 self.state.key_left();
+                render_flag.set();
             }
             InspectAction::Close => {
                 let selection = self.state.selected().to_vec();
                 self.state.close(&selection);
+                render_flag.set();
             }
             InspectAction::Up => {
                 self.state.key_up();
+                render_flag.set();
             }
             InspectAction::Down => {
                 self.state.key_down();
+                render_flag.set();
             }
             InspectAction::Copy => {
                 if let Some(val) = find_value_tree(&self.values, self.state.selected())
@@ -775,6 +783,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
         _size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         _modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         if kind == MouseEventKind::Down(MouseButton::Left)
             && let Some(at) = self.state.rendered_at(position)
@@ -785,6 +794,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             } else {
                 self.state.select(at.to_vec());
             }
+            render_flag.set();
         }
         Ok(None)
     }

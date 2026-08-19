@@ -10,7 +10,7 @@ use std::any::type_name;
 use std::fmt::Debug;
 use tracing::warn;
 
-use crate::WidgetContext;
+use crate::{RenderFlag, WidgetContext};
 use valuable::Valuable;
 
 pub trait TreeVisitor {
@@ -48,10 +48,10 @@ pub trait JellyhajWidgetBase: Valuable + Send + Sized + 'static {
     fn accepts_text_input(&self) -> bool {
         false
     }
-    fn accept_char(&mut self, _text: char) {
+    fn accept_char(&mut self, _text: char, _render_flag: &mut RenderFlag) {
         unimplemented!()
     }
-    fn accept_text(&mut self, _text: String) {
+    fn accept_text(&mut self, _text: String, _render_flag: &mut RenderFlag) {
         unimplemented!()
     }
 }
@@ -63,6 +63,7 @@ pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn click(
@@ -72,6 +73,7 @@ pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn render_fallible_inner(

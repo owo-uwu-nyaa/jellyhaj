@@ -1,7 +1,9 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{KeyModifiers, MouseEventKind, Rect, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    KeyModifiers, MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
+};
 use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
 use crate::{FormAction, FormItem, FormItemBase};
@@ -61,8 +63,10 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         if matches!(action, FormAction::Enter) {
+            render_flag.set();
             *self ^= true;
         }
         Ok(None)
@@ -72,6 +76,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -97,6 +102,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unreachable!()
     }
@@ -108,11 +114,13 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
         if kind == MouseEventKind::Down(MouseButton::Left) && pos.x < 3 {
+            render_flag.set();
             *self ^= true;
         }
         Ok((None, None))

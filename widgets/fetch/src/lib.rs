@@ -6,8 +6,8 @@ use jellyhaj_core::{
 };
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, Wrapper,
-    valuable::Valuable,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result,
+    WidgetContext, Wrapper, valuable::Valuable,
 };
 use tracing::info_span;
 
@@ -60,12 +60,12 @@ impl<F: Future<Output = Result<Navigation>> + Send + 'static> JellyhajWidgetBase
         self.inner.accepts_text_input()
     }
 
-    fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
+        self.inner.accept_char(text, render_flag);
     }
 
-    fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
+        self.inner.accept_text(text, render_flag);
     }
 }
 
@@ -76,12 +76,15 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + S
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             FetchAction::Inner(action) => {
-                let None = self
-                    .inner
-                    .apply_action(cx.wrap_with(FetchAction::Inner), action)?;
+                let None = self.inner.apply_action(
+                    cx.wrap_with(FetchAction::Inner),
+                    action,
+                    render_flag,
+                )?;
                 Ok(None)
             }
             FetchAction::FetchFinished(nav) => Ok(Some(nav)),
@@ -98,6 +101,7 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + S
         size: jellyhaj_widgets_core::Size,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         let None = self.inner.click(
             cx.wrap_with(FetchAction::Inner),
@@ -105,6 +109,7 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + S
             size,
             kind,
             modifier,
+            render_flag,
         )?;
         Ok(None)
     }

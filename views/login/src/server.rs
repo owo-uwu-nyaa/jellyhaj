@@ -13,20 +13,22 @@ use jellyhaj_core::{
 use jellyhaj_fetch_view::make_fetch;
 use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_login_widget::server::{ServerData, ServerDataAction, ServerWidget};
-use jellyhaj_widgets_core::Result;
+use jellyhaj_login_widget::server::{ServerData, ServerDataAction, ServerMapper, ServerWidget};
+use jellyhaj_widgets_core::{Result, outer::UnwrapWidget};
 use ratatui::crossterm::style::Stylize;
 use sqlx::SqliteConnection;
 
 use crate::{DB, LoginContext};
 pub fn render_select_server(cx: LoginContext, state: LoginState, out: ClientOut) -> Erased {
-    let widget = ServerData::new(state.server_url.clone()).make_with_default();
+    let widget = ServerData::new(state, out).make_with_default();
+    let widget = UnwrapWidget::new(widget);
     let widget = KeybindWidget::new(
         widget,
         cx.config.keybinds.form.clone(),
         FormCommandMapper::<ServerDataAction>::default(),
     );
-    let widget = ServerWidget::new(widget, out, state);
+    let widget = UnwrapWidget::new(widget);
+    let widget = ServerWidget::new(widget, ServerMapper);
     make_new_erased(cx, widget)
 }
 

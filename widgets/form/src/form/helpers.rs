@@ -3,7 +3,7 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    Buffer, KeyModifiers, MouseEventKind, Position, Rect, Size, WidgetContext, Wrapper,
+    Buffer, KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Size, WidgetContext, Wrapper,
     spawn::tracing::trace,
 };
 use tracing::{Span, field, instrument};
@@ -18,12 +18,16 @@ impl<Data: FormData> Form<Data> {
         &mut self,
         cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Data::AR>>> {
         self.data.with_selection_mut_cx(
             0,
             &mut self.sel,
             cx.wrap_with(FormAction::Inner),
-            ApplyMovement(action),
+            ApplyMovement {
+                action,
+                render_flag,
+            },
         )
     }
 }
@@ -114,9 +118,12 @@ impl<AR: Debug> WithSelection<AR, bool> for AcceptsTextInput {
     }
 }
 
-pub(crate) struct ApplyChar(pub(crate) char);
+pub(crate) struct ApplyChar<'r> {
+    pub(crate) text: char,
+    pub(crate) render_flag: &'r mut RenderFlag,
+}
 
-impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyChar {
+impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyChar<'_> {
     #[instrument(
         skip(self, sel, state),
         name = "apply_char",
@@ -131,16 +138,19 @@ impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyChar {
         index: usize,
     ) {
         let mut val = [0u8; 4];
-        let val = self.0.encode_utf8(&mut val);
+        let val = self.text.encode_utf8(&mut val);
         trace!(val, "apply char");
-        state.apply_char(sel, self.0);
+        state.apply_char(sel, self.text, self.render_flag);
     }
 }
 
-pub(crate) struct ApplyText(pub(crate) String);
+pub(crate) struct ApplyText<'r> {
+    pub(crate) text: String,
+    pub(crate) render_flag: &'r mut RenderFlag,
+}
 
-impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyText {
-    #[instrument(skip(self, sel, state), name = "apply_text", level = "trace", fields(val = self.0.as_str()))]
+impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyText<'_> {
+    #[instrument(skip(self, sel, state), name = "apply_text", level = "trace", fields(text = self.text.as_str()))]
     fn with_mut<I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -149,16 +159,19 @@ impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyText {
         index: usize,
     ) {
         trace!("apply text");
-        state.apply_text(sel, self.0);
+        state.apply_text(sel, self.text, self.render_flag);
     }
 }
 
-pub(crate) struct ApplyMovement(pub(crate) FormAction<Infallible>);
+pub(crate) struct ApplyMovement<'r> {
+    pub(crate) action: FormAction<Infallible>,
+    pub(crate) render_flag: &'r mut RenderFlag,
+}
 
 impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
-    for ApplyMovement
+    for ApplyMovement<'_>
 {
-    #[instrument(skip(self, cx, state), name = "apply_movement", level = "trace", fields(val = ?self.0), ret, err)]
+    #[instrument(skip(self, cx, state), name = "apply_movement", level = "trace", fields(action = ?self.action), ret, err)]
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -167,18 +180,20 @@ impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<
         name: &'static str,
         index: usize,
     ) -> Result<Option<ControlFlow<Navigation, AR>>> {
-        let res = state.apply_movement(sel, cx, self.0)?.map(|cf| match cf {
-            ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
-            ControlFlow::Break(n) => ControlFlow::Break(n),
-        });
+        let res = state
+            .apply_movement(sel, cx, self.action, self.render_flag)?
+            .map(|cf| match cf {
+                ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
+                ControlFlow::Break(n) => ControlFlow::Break(n),
+            });
         Ok(res)
     }
 }
 
-pub(crate) struct ApplyAction;
+pub(crate) struct ApplyAction<'r>(pub(crate) &'r mut RenderFlag);
 
 impl<R: 'static, AR: Debug> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
-    for ApplyAction
+    for ApplyAction<'_>
 {
     #[instrument(
         skip(self, cx, state),
@@ -194,7 +209,7 @@ impl<R: 'static, AR: Debug> WithActionMut<R, AR, Result<Option<ControlFlow<Navig
         state: &mut I,
         index: usize,
     ) -> Result<Option<ControlFlow<Navigation, AR>>> {
-        let res = state.apply_action(cx, action)?.map(|cf| match cf {
+        let res = state.apply_action(cx, action, self.0)?.map(|cf| match cf {
             ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),
             ControlFlow::Break(n) => ControlFlow::Break(n),
         });
@@ -250,6 +265,7 @@ pub(crate) struct ClickCurrent<'s> {
     pub(crate) store: &'s [u16],
     pub(crate) size: Size,
     pub(crate) offset: u16,
+    pub(crate) render_flag: &'s mut RenderFlag,
 }
 
 impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
@@ -291,6 +307,7 @@ impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<
                 self.pos,
                 self.kind,
                 self.modifier,
+                self.render_flag,
             )
             .map(|v| {
                 v.map(|cf| match cf {
@@ -313,6 +330,7 @@ pub(crate) struct ClickItem<'s, AR> {
     pub(crate) store: &'s [u16],
     pub(crate) kind: MouseEventKind,
     pub(crate) modifier: KeyModifiers,
+    pub(crate) render_flag: &'s mut RenderFlag,
 }
 
 impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
@@ -346,6 +364,7 @@ impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
                 },
                 self.kind,
                 self.modifier,
+                self.render_flag,
             )?;
             self.res = res.map(|cf| match cf {
                 ControlFlow::Continue(c) => ControlFlow::Continue(c.into()),

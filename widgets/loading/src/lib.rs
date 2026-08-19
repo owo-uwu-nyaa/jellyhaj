@@ -1,7 +1,9 @@
 use std::{borrow::Cow, cmp::min, convert::Infallible, time::Duration};
 
 use futures_util::stream::unfold;
-use jellyhaj_widgets_core::{JellyhajWidget, JellyhajWidgetBase, Rect, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{
+    JellyhajWidget, JellyhajWidgetBase, Rect, RenderFlag, WidgetContext, Wrapper,
+};
 use ratatui::widgets::{Block, BorderType, Widget};
 use tokio::time::interval;
 use tracing::{info_span, instrument};
@@ -90,6 +92,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         &mut self,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         for v in &mut self.lines {
             *v += 1;
@@ -98,6 +101,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
             self.lines.push(0);
         }
         self.timeout = (self.timeout + 1) % TIMEOUT_CYCLE;
+        render_flag.set();
         Ok(None)
     }
 
@@ -108,6 +112,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         _size: ratatui::prelude::Size,
         _kind: ratatui::crossterm::event::MouseEventKind,
         _modifier: ratatui::crossterm::event::KeyModifiers,
+        _render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

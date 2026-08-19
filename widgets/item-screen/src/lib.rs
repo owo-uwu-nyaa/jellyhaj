@@ -7,8 +7,8 @@ use std::{
 
 pub use jellyhaj_item_list::{ItemList, ItemListAction, new_item_list};
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetBase, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, Result,
-    WidgetContext, Wrapper,
+    ItemWidget, ItemWidgetBase, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, RenderFlag,
+    Result, WidgetContext, Wrapper,
     spawn::tracing::instrument,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
@@ -140,18 +140,18 @@ impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemScreen<T> {
         self.get(self.current)
             .is_some_and(JellyhajWidgetBase::accepts_text_input)
     }
-    fn accept_char(&mut self, text: char) {
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
         if let Some(i) = self.get_mut(self.current)
             && i.accepts_text_input()
         {
-            i.accept_char(text);
+            i.accept_char(text, render_flag);
         }
     }
-    fn accept_text(&mut self, text: String) {
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
         if let Some(i) = self.get_mut(self.current)
             && i.accepts_text_input()
         {
-            i.accept_text(text);
+            i.accept_text(text, render_flag);
         }
     }
 }
@@ -167,6 +167,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         fn apply<R: 'static, T: ItemWidget<R>>(
             this: &mut ItemScreen<T>,
@@ -178,30 +179,51 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
             >,
             index: usize,
             action: ItemListAction<T::Action>,
+            render_flag: &mut RenderFlag,
         ) -> Result<Option<T::ActionResult>> {
             this.lists
                 .get_mut(index)
                 .and_then(|r| {
-                    r.apply_action(cx.wrap_with(ScreenWrapper { index }), action)
+                    r.apply_action(cx.wrap_with(ScreenWrapper { index }), action, render_flag)
                         .transpose()
                 })
                 .transpose()
         }
         match action {
-            ItemScreenAction::SpecificInner { row, item, action } => {
-                apply(self, cx, row, ItemListAction::SpecificInner(item, action))
+            ItemScreenAction::SpecificInner { row, item, action } => apply(
+                self,
+                cx,
+                row,
+                ItemListAction::SpecificInner(item, action),
+                render_flag,
+            ),
+            ItemScreenAction::CurrentInner(action) => apply(
+                self,
+                cx,
+                self.current,
+                ItemListAction::CurrentInner(action),
+                render_flag,
+            ),
+            ItemScreenAction::Left => {
+                apply(self, cx, self.current, ItemListAction::Left, render_flag)
             }
-            ItemScreenAction::CurrentInner(action) => {
-                apply(self, cx, self.current, ItemListAction::CurrentInner(action))
+            ItemScreenAction::Right => {
+                apply(self, cx, self.current, ItemListAction::Right, render_flag)
             }
-            ItemScreenAction::Left => apply(self, cx, self.current, ItemListAction::Left),
-            ItemScreenAction::Right => apply(self, cx, self.current, ItemListAction::Right),
             ItemScreenAction::Up => {
-                self.current = self.current.saturating_sub(1);
+                let (new, overflow) = self.current.overflowing_sub(1);
+                if !overflow {
+                    render_flag.set();
+                    self.current = new;
+                }
                 Ok(None)
             }
             ItemScreenAction::Down => {
-                self.current = min(self.lists.len(), self.current + 1);
+                let new = self.current + 1;
+                if new < self.len() {
+                    self.current = new;
+                    render_flag.set();
+                }
                 Ok(None)
             }
         }
@@ -214,6 +236,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if position.x < 2
             || position.y < 2
@@ -230,6 +253,10 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
             if y_position < self.item_size.width + 4
                 && let Some(list) = self.lists.get_mut(index)
             {
+                if self.current != index && kind.is_down() {
+                    self.current = index;
+                    render_flag.set();
+                }
                 JellyhajWidget::click(
                     list,
                     cx.wrap_with(ScreenWrapper { index }),
@@ -243,6 +270,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
                     },
                     kind,
                     modifier,
+                    render_flag,
                 )
             } else {
                 Ok(None)

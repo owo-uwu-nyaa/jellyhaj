@@ -12,7 +12,8 @@ use crate::fetch::get_image;
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext,
+    Wrapper,
 };
 use ratatui::{
     layout::{Rect, Size},
@@ -72,63 +73,74 @@ impl JellyfinImage {
     ) -> Option<&Protocol> {
         if self.image.is_some() {
             self.image.as_ref().map(|p| &p.protocol)
+        } else if self.loading {
+            None
         } else {
-            let image_picker: &Picker = cx.refs.as_ref();
-            let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().height);
-            let p_width = u32::from(self.size.width) * u32::from(image_picker.font_size().width);
-            if self.loading {
-                None
-            } else {
-                let image_size = ImageSize { p_width, p_height };
-                let cached = ImageCache::get_ref(cx.refs).get(&ImageProtocolKeyRef::new(
-                    self.image_type,
-                    &self.item_id,
-                    &self.tag,
-                    image_size,
-                ));
-                if let Some(image) = cached {
-                    let picker = Picker::get_ref(cx.refs);
-                    let (width, height) = self.calc_dimensions(&image, picker);
-                    let protocol = match picker
-                        .new_protocol(image, Size { width, height }, Resize::Fit(None))
-                        .context("generating protocol")
-                    {
-                        Ok(p) => p,
-                        Err(e) => {
-                            tracing::error!("error creating protocol: {e:?}");
-                            return None;
-                        }
-                    };
-                    Some(
-                        &self
-                            .image
-                            .insert(ImageProtocol {
-                                protocol,
-                                size: image_size,
-                            })
-                            .protocol,
-                    )
-                } else {
-                    self.loading = true;
-                    let key = ImageKey {
-                        image_type: self.image_type,
-                        item_id: self.item_id.clone(),
-                        tag: self.tag.clone(),
-                        size: image_size,
-                    };
-                    let db = DB::get_ref(cx.refs).clone();
-                    let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
-                    let size = self.size;
-                    let stats = Stats::get_ref(cx.refs).clone();
-                    let cache = ImageCache::get_ref(cx.refs).clone();
-                    cx.submitter.spawn_task_suppressed_error(
-                        async move { get_image(key, db, jellyfin, size, stats, cache).await },
-                        info_span!("get_image"),
-                        "get_image",
-                    );
-                    None
+            self.retrieve_image(cx)
+        }
+    }
+
+    fn retrieve_image<
+        R: ContextRef<Picker>
+            + ContextRef<Stats>
+            + ContextRef<JellyfinClient>
+            + ContextRef<DB>
+            + ContextRef<ImageCache>,
+    >(
+        &mut self,
+        cx: WidgetContext<'_, ParsedImage, impl Wrapper<ParsedImage>, R>,
+    ) -> Option<&Protocol> {
+        let image_picker: &Picker = cx.refs.as_ref();
+        let p_height = u32::from(self.size.height) * u32::from(image_picker.font_size().height);
+        let p_width = u32::from(self.size.width) * u32::from(image_picker.font_size().width);
+        let image_size = ImageSize { p_width, p_height };
+        let cached = ImageCache::get_ref(cx.refs).get(&ImageProtocolKeyRef::new(
+            self.image_type,
+            &self.item_id,
+            &self.tag,
+            image_size,
+        ));
+        if let Some(image) = cached {
+            let picker = Picker::get_ref(cx.refs);
+            let (width, height) = self.calc_dimensions(&image, picker);
+            let protocol = match picker
+                .new_protocol(image, Size { width, height }, Resize::Fit(None))
+                .context("generating protocol")
+            {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::error!("error creating protocol: {e:?}");
+                    return None;
                 }
-            }
+            };
+            Some(
+                &self
+                    .image
+                    .insert(ImageProtocol {
+                        protocol,
+                        size: image_size,
+                    })
+                    .protocol,
+            )
+        } else {
+            self.loading = true;
+            let key = ImageKey {
+                image_type: self.image_type,
+                item_id: self.item_id.clone(),
+                tag: self.tag.clone(),
+                size: image_size,
+            };
+            let db = DB::get_ref(cx.refs).clone();
+            let jellyfin = JellyfinClient::get_ref(cx.refs).clone();
+            let size = self.size;
+            let stats = Stats::get_ref(cx.refs).clone();
+            let cache = ImageCache::get_ref(cx.refs).clone();
+            cx.submitter.spawn_task_suppressed_error(
+                async move { get_image(key, db, jellyfin, size, stats, cache).await },
+                info_span!("get_image"),
+                "get_image",
+            );
+            None
         }
     }
 
@@ -203,6 +215,7 @@ impl<
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         self.loading = false;
         if action.size == self.size {
@@ -215,7 +228,11 @@ impl<
                 protocol,
                 size: action.image_size,
             });
+            render_flag.set();
+        } else if self.retrieve_image(cx).is_some() {
+            render_flag.set();
         }
+
         Ok(None)
     }
 
@@ -226,6 +243,7 @@ impl<
         _: Size,
         _: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

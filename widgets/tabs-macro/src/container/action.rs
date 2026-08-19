@@ -14,7 +14,8 @@ pub fn gen_action(container: &Container, exports: &Path) -> TokenStream {
             #pat(v) => #exports::JellyhajWidget::apply_action(
                 &mut self.#var,
                 cx.wrap_with(#pat),
-                v
+                v,
+                render_flag
             ).map(|v|v.map(|v|#exports::Into::<#result_ty>::into(v))) ,
         }
     });
@@ -30,7 +31,8 @@ pub fn gen_action(container: &Container, exports: &Path) -> TokenStream {
                     #exports::JellyhajWidget::apply_action(
                         &mut self.#var,
                         cx.wrap_with(#pat),
-                        action
+                        action,
+                        render_flag
                     ).map(|v|v.map(|v|#exports::Into::<#result_ty>::into(v)))
                 } else {
                     #exports::Ok(#exports::None)
@@ -50,6 +52,7 @@ pub fn gen_action(container: &Container, exports: &Path) -> TokenStream {
             cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
             action: Self::Action,
             current: usize,
+            render_flag: &mut #exports::RenderFlag,
         ) -> #exports::Result<#exports::Option<Self::ActionResult>>{
             match action {
                 #(#universal)*

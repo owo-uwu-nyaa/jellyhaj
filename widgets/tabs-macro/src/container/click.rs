@@ -17,6 +17,7 @@ pub fn gen_click(container: &Container, exports: &Path) -> TokenStream {
             size,
             kind,
             modifier,
+            render_flag
         ).map(|v|v.map(|v|Into::<#result_ty>::into(v))),
         }
     });
@@ -30,6 +31,7 @@ pub fn gen_click(container: &Container, exports: &Path) -> TokenStream {
             kind: #exports::MouseEventKind,
             modifier: #exports::KeyModifiers,
             current: #exports::usize,
+            render_flag: &mut #exports::RenderFlag,
         ) -> #exports::Result<#exports::Option<Self::ActionResult>>{
             match current {
                 #(#click)*

@@ -8,7 +8,7 @@ use ratatui::{
 use tracing::instrument;
 use valuable::Valuable;
 
-use crate::{JellyhajWidgetBase, WidgetContext, WidgetTreeVisitor, Wrapper};
+use crate::{JellyhajWidgetBase, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper};
 use color_eyre::Result;
 
 pub trait ItemWidgetBase: Valuable + Send + Sized + 'static {
@@ -24,10 +24,10 @@ pub trait ItemWidgetBase: Valuable + Send + Sized + 'static {
     fn accepts_text_input(&self) -> bool {
         false
     }
-    fn accept_char(&mut self, _text: char) {
+    fn accept_char(&mut self, _text: char, _render_flag: &mut RenderFlag) {
         unimplemented!()
     }
-    fn accept_text(&mut self, _text: String) {
+    fn accept_text(&mut self, _text: String, _render_flag: &mut RenderFlag) {
         unimplemented!()
     }
 
@@ -43,6 +43,7 @@ pub trait ItemWidget<R: 'static>: ItemWidgetBase {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn item_click(
@@ -52,6 +53,7 @@ pub trait ItemWidget<R: 'static>: ItemWidgetBase {
         size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn render_item_inner(
@@ -111,12 +113,12 @@ impl<I: ItemWidgetBase> JellyhajWidgetBase for I {
     }
 
     #[inline]
-    fn accept_char(&mut self, text: char) {
-        ItemWidgetBase::accept_char(self, text);
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
+        ItemWidgetBase::accept_char(self, text, render_flag);
     }
 
     #[inline]
-    fn accept_text(&mut self, text: String) {
-        ItemWidgetBase::accept_text(self, text);
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
+        ItemWidgetBase::accept_text(self, text, render_flag);
     }
 }

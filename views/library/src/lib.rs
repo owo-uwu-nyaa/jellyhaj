@@ -9,7 +9,7 @@ use jellyhaj_core::{
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_library_widget::{LibraryWidget, make_item_query};
+use jellyhaj_library_widget::{make_item_query, new_library_widget};
 
 async fn fetch_user_view(jellyfin: JellyfinClient, view: Box<UserView>) -> Result<NextScreen> {
     let res: JellyfinVec<_> = jellyfin
@@ -48,6 +48,6 @@ pub fn render_user_view(
     items: Vec<MediaItem>,
     seen: Option<u32>,
 ) -> Erased {
-    let widget = LibraryWidget::new(view, items, &cx, seen);
+    let widget = new_library_widget(view, items, &cx, seen);
     make_new_erased(cx, widget)
 }

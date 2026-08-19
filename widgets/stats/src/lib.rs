@@ -2,7 +2,8 @@ use std::{cmp::max, convert::Infallible, sync::atomic::Ordering::Relaxed, time::
 
 use futures_util::stream::unfold;
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext,
+    Wrapper,
 };
 use ratatui::{
     layout::Constraint,
@@ -139,11 +140,13 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         _: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         let stats = StatsData::get_ref(cx.refs);
         self.image_fetches = stats.image_fetches.load(Relaxed).to_string();
         self.db_image_cache_hits = stats.db_image_cache_hits.load(Relaxed).to_string();
         self.memory_image_cache_hits = stats.memory_image_cache_hits.load(Relaxed).to_string();
+        render_flag.set();
         Ok(None)
     }
 
@@ -154,6 +157,7 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
         _: ratatui::prelude::Size,
         _: ratatui::crossterm::event::MouseEventKind,
         _: ratatui::crossterm::event::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
         Ok(None)
     }

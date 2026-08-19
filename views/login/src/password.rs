@@ -7,8 +7,10 @@ use jellyhaj_core::{
 use jellyhaj_fetch_view::make_fetch;
 use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_login_widget::password::{PasswordData, PasswordDataAction, PasswordWidget};
-use jellyhaj_widgets_core::Result;
+use jellyhaj_login_widget::password::{
+    PasswordActionMapper, PasswordData, PasswordDataAction, PasswordWidget,
+};
+use jellyhaj_widgets_core::{Result, outer::UnwrapWidget};
 use tokio::process::Command;
 
 use crate::LoginContext;
@@ -20,18 +22,15 @@ pub fn render_password(
     client: JellyfinClient<NoAuth>,
     server_id: String,
 ) -> Erased {
-    let widget = PasswordData::new(
-        state.username.clone(),
-        state.password.clone(),
-        &state.passwort_cmd,
-    )
-    .make_with_default();
+    let widget = PasswordData::new(state, server_id, out, client).make_with_default();
+    let widget = UnwrapWidget::new(widget);
     let widget = KeybindWidget::new(
         widget,
         cx.config.keybinds.form.clone(),
         FormCommandMapper::<PasswordDataAction>::default(),
     );
-    let widget = PasswordWidget::new(widget, out, state, client, server_id);
+    let widget = UnwrapWidget::new(widget);
+    let widget = PasswordWidget::new(widget, PasswordActionMapper);
     make_new_erased(cx, widget)
 }
 

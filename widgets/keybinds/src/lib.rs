@@ -6,7 +6,7 @@ use std::{fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::{CommandMapper, Config, state::Navigation, widgets::KeybindAction};
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, WidgetContext, Wrapper,
+    ContextRef, JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use keybinds::{BindingMap, Command};
@@ -85,11 +85,11 @@ impl<T: Command, W: JellyhajWidgetBase, M: CommandMapper<T, A = W::Action>> Jell
     fn accepts_text_input(&self) -> bool {
         self.inner.accepts_text_input()
     }
-    fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
+        self.inner.accept_char(text, render_flag);
     }
-    fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
+        self.inner.accept_text(text, render_flag);
     }
 }
 
@@ -109,8 +109,9 @@ impl<
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        action::apply_key_event(self, cx, action)
+        action::apply_key_event(self, cx, action, render_flag)
     }
 
     #[instrument(skip_all, name = "click_keybinds")]
@@ -121,8 +122,9 @@ impl<
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
-        click::apply_click(self, cx, position, size, kind, modifier)
+        click::apply_click(self, cx, position, size, kind, modifier, render_flag)
     }
 
     #[instrument(skip_all, name = "render_keybind")]

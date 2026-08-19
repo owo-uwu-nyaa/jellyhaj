@@ -4,7 +4,10 @@ mod jellyhaj;
 pub mod mapper;
 pub mod outer;
 
-use std::ops::Deref;
+use std::{
+    fmt::Debug,
+    ops::{BitOrAssign, Deref},
+};
 
 pub use color_eyre::Result;
 pub use config::Config;
@@ -15,6 +18,7 @@ pub use jellyhaj::{
 pub use jellyhaj_async_task as async_task;
 pub use jellyhaj_async_task::Wrapper;
 use jellyhaj_async_task::{TaskSubmitterRef, Wrapped};
+use ratatui::crossterm::event::KeyEvent;
 pub use ratatui::{
     self,
     buffer::Buffer,
@@ -92,14 +96,27 @@ pub struct RenderFlag {
 }
 
 impl RenderFlag {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             should_render: false,
         }
     }
 
-    pub fn set(&mut self) {
+    #[inline]
+    pub const fn set(&mut self) {
         self.should_render = true;
+    }
+
+    #[must_use]
+    pub const fn reset(&mut self) -> bool {
+        std::mem::replace(&mut self.should_render, false)
+    }
+}
+
+impl Default for RenderFlag {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -109,4 +126,17 @@ impl Deref for RenderFlag {
     fn deref(&self) -> &Self::Target {
         &self.should_render
     }
+}
+
+impl BitOrAssign<bool> for RenderFlag {
+    #[inline]
+    fn bitor_assign(&mut self, rhs: bool) {
+        self.should_render |= rhs;
+    }
+}
+
+#[derive(Debug)]
+pub enum KeybindAction<A: Debug + Send + 'static> {
+    Inner(A),
+    Key(KeyEvent),
 }

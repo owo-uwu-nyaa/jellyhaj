@@ -3,7 +3,7 @@ use std::{cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
 use color_eyre::eyre::OptionExt;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    KeyModifiers, MouseEventKind, Position, Rect, Result, WidgetContext, Wrapper,
+    KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Result, WidgetContext, Wrapper,
 };
 use ratatui::{
     crossterm::event::MouseButton,
@@ -95,26 +95,32 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if let Some(sel_inner) = sel {
             match action {
                 FormAction::Up => {
                     *sel_inner = selection_prev(*sel_inner);
+                    render_flag.set();
                 }
                 FormAction::Down => {
                     *sel_inner = selection_next(*sel_inner);
+                    render_flag.set();
                 }
                 FormAction::Enter => {
                     *self = *sel_inner;
                     *sel = None;
+                    render_flag.set();
                 }
                 FormAction::Quit => {
                     *sel = None;
+                    render_flag.set();
                 }
                 _ => {}
             }
         } else if matches!(action, FormAction::Enter) {
             *sel = Some(*self);
+            render_flag.set();
         }
         Ok(None)
     }
@@ -123,6 +129,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -222,6 +229,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
             let sel_inner = sel.as_mut().expect("inner must be set");
@@ -255,6 +263,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
                 let index = pos.y - full_area.y;
                 *self = items[index as usize];
                 *sel = None;
+                render_flag.set();
             }
         }
         Ok(None)
@@ -267,11 +276,13 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
+            render_flag.set();
             Ok((Some(Some(*self)), None))
         } else {
             Ok((None, None))
@@ -348,10 +359,12 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if let Some(sel_inner) = sel {
             match action {
                 FormAction::Up => {
+                    render_flag.set();
                     let mut index = *sel_inner;
                     if index == 0 {
                         index = self.optons.len();
@@ -359,6 +372,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
                     *sel_inner = index.strict_sub(1);
                 }
                 FormAction::Down => {
+                    render_flag.set();
                     let mut index = *sel_inner + 1;
                     if index >= self.optons.len() {
                         index = 0;
@@ -366,15 +380,18 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
                     *sel_inner = index;
                 }
                 FormAction::Enter => {
+                    render_flag.set();
                     self.cur = *sel_inner;
                     *sel = None;
                 }
                 FormAction::Quit => {
+                    render_flag.set();
                     *sel = None;
                 }
                 _ => {}
             }
         } else if matches!(action, FormAction::Enter) {
+            render_flag.set();
             *sel = Some(self.cur);
         }
         Ok(None)
@@ -384,6 +401,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -488,6 +506,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
             let sel_inner = sel.as_mut().expect("inner must be set");
@@ -521,6 +540,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
                 let index = pos.y - full_area.y;
                 self.cur = index as usize + offset as usize;
                 *sel = None;
+                render_flag.set();
             }
         }
         Ok(None)
@@ -533,11 +553,13 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         pos: ratatui::prelude::Position,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
     )> {
         if kind == MouseEventKind::Down(MouseButton::Left) {
+            render_flag.set();
             Ok((Some(Some(self.cur)), None))
         } else {
             Ok((None, None))

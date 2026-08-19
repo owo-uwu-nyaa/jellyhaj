@@ -1,7 +1,8 @@
 use std::convert::Infallible;
 
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetBase, Result, WidgetContext, WidgetTreeVisitor, Wrapper,
+    JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result, WidgetContext, WidgetTreeVisitor,
+    Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -76,8 +77,10 @@ impl<R: 'static> JellyhajWidget<R> for LogWidget {
         &mut self,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         self.state.transition(action);
+        render_flag.set();
         Ok(None)
     }
 
@@ -88,6 +91,7 @@ impl<R: 'static> JellyhajWidget<R> for LogWidget {
         _: jellyhaj_widgets_core::Size,
         _: jellyhaj_widgets_core::MouseEventKind,
         _: jellyhaj_widgets_core::KeyModifiers,
+        _: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         Ok(None)
     }

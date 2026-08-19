@@ -5,11 +5,12 @@ use std::{
 };
 
 use jellyhaj_widgets_core::{
-    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, WidgetContext,
-    WidgetTreeVisitor, Wrapper,
+    ItemWidget, ItemWidgetBase, ItemWidgetExt, JellyhajWidget, JellyhajWidgetBase, RenderFlag,
+    Result, WidgetContext, WidgetTreeVisitor, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit},
 };
 use ratatui::{
+    crossterm::event::{KeyModifiers, MouseEventKind},
     layout::{Position, Rect, Size},
     widgets::{
         Block, Padding, Scrollbar, ScrollbarOrientation::HorizontalBottom, ScrollbarState,
@@ -140,21 +141,21 @@ impl<T: ItemWidgetBase> JellyhajWidgetBase for ItemList<T> {
             .is_some_and(ItemWidgetBase::accepts_text_input)
     }
 
-    fn accept_char(&mut self, text: char) {
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
         let cur = self.current;
         if let Some(i) = self.get_mut(cur)
             && i.accepts_text_input()
         {
-            i.accept_char(text);
+            i.accept_char(text, render_flag);
         }
     }
 
-    fn accept_text(&mut self, text: String) {
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
         let cur = self.current;
         if let Some(i) = self.get_mut(cur)
             && i.accepts_text_input()
         {
-            i.accept_text(text);
+            i.accept_text(text, render_flag);
         }
     }
 }
@@ -170,13 +171,14 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        render_flag: &mut RenderFlag,
+    ) -> Result<Option<Self::ActionResult>> {
         match action {
             ItemListAction::SpecificInner(index, action) => self
                 .items
                 .get_mut(index)
                 .and_then(|v| {
-                    v.item_apply_action(cx.wrap_with(ListWrapper { index }), action)
+                    v.item_apply_action(cx.wrap_with(ListWrapper { index }), action, render_flag)
                         .transpose()
                 })
                 .transpose(),
@@ -189,16 +191,19 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
                             index: self.current,
                         }),
                         action,
+                        render_flag,
                     )
                     .transpose()
                 })
                 .transpose(),
             ItemListAction::Left => {
                 self.current = self.current.saturating_sub(1);
+                render_flag.set();
                 Ok(None)
             }
             ItemListAction::Right => {
                 self.current = self.current.saturating_add(1);
+                render_flag.set();
                 Ok(None)
             }
         }
@@ -207,11 +212,12 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        mut position: ratatui::prelude::Position,
+        mut position: Position,
         size: Size,
-        kind: ratatui::crossterm::event::MouseEventKind,
-        modifier: ratatui::crossterm::event::KeyModifiers,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+        kind: MouseEventKind,
+        modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
+    ) -> Result<Option<Self::ActionResult>> {
         if position.x < 2
             || position.y < 2
             || position.x >= size.width - 2
@@ -227,6 +233,10 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
             if x_position < self.item_size.width
                 && let Some(item) = self.items.get_mut(index)
             {
+                if index != self.current && kind.is_down() {
+                    self.current = index;
+                    render_flag.set();
+                }
                 item.item_click(
                     cx.wrap_with(ListWrapper { index }),
                     Position {
@@ -236,6 +246,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
                     self.item_size,
                     kind,
                     modifier,
+                    render_flag,
                 )
             } else {
                 Ok(None)
@@ -249,7 +260,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> jellyhaj_widgets_core::Result<()> {
+    ) -> Result<()> {
         self.current = min(self.current, self.items.len().saturating_sub(1));
         let outer = Block::bordered()
             .title_top(self.title.as_str())

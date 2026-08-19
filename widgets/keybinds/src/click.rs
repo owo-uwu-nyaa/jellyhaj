@@ -8,7 +8,7 @@ use crate::{
 };
 use color_eyre::Result;
 use jellyhaj_core::{Config, state::Navigation};
-use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{ContextRef, JellyhajWidget, RenderFlag, WidgetContext, Wrapper};
 use keybinds::{Command, KeyBinding};
 use ratatui::layout::{Position, Size};
 use tracing::{debug, warn};
@@ -25,6 +25,7 @@ pub fn apply_click<
     size: ratatui::prelude::Size,
     kind: ratatui::crossterm::event::MouseEventKind,
     modifier: ratatui::crossterm::event::KeyModifiers,
+    render_flag: &mut RenderFlag,
 ) -> Result<Option<ControlFlow<Navigation, W::ActionResult>>> {
     let len: usize = this.current_map.iter().map(|v| v.len()).sum();
     if len > 0 {
@@ -49,6 +50,7 @@ pub fn apply_click<
                 },
                 kind,
                 modifier,
+                render_flag,
             ) {
                 Ok(None) => Ok(None),
                 Ok(Some(action)) => Ok(Some(ControlFlow::Continue(action))),
@@ -75,6 +77,7 @@ pub fn apply_click<
             .map(|((_, v), _)| v.clone())
             .next()
         {
+            render_flag.set();
             match c {
                 KeyBinding::Command(c) => {
                     debug!("found matching command");
@@ -85,7 +88,11 @@ pub fn apply_click<
                     return match mapped {
                         ControlFlow::Break(u) => Ok(Some(ControlFlow::Break(u))),
                         ControlFlow::Continue(a) => {
-                            match this.inner.apply_action(cx.wrap_with(KeybindWrapper), a) {
+                            match this.inner.apply_action(
+                                cx.wrap_with(KeybindWrapper),
+                                a,
+                                render_flag,
+                            ) {
                                 Ok(None) => Ok(None),
                                 Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
                                 Err(e) => Err(e),
@@ -104,10 +111,14 @@ pub fn apply_click<
             }
         }
     } else {
-        return match this
-            .inner
-            .click(cx.wrap_with(KeybindWrapper), position, size, kind, modifier)
-        {
+        return match this.inner.click(
+            cx.wrap_with(KeybindWrapper),
+            position,
+            size,
+            kind,
+            modifier,
+            render_flag,
+        ) {
             Ok(None) => Ok(None),
             Ok(Some(r)) => Ok(Some(ControlFlow::Continue(r))),
             Err(e) => Err(e),

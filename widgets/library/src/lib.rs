@@ -9,17 +9,18 @@ use jellyfin::{
 use jellyhaj_core::{
     CommandMapper, Config,
     keybinds::UserViewCommand,
-    state::{Navigation, NextScreen, flatten_control_flow},
-    widgets::KeybindAction,
+    state::{Navigation, NextScreen},
 };
 use jellyhaj_entry_widget::{Entry, EntryAction, ImageCache, Picker, Stats};
 use jellyhaj_event_listener::JellyfinEventInterests;
 use jellyhaj_item_grid::{GridWrapper, ItemGrid, ItemGridAction, new_item_grid};
 use jellyhaj_keybinds_widget::{KeybindWidget, KeybindWrapper};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, ItemWidget, JellyhajWidget, JellyhajWidgetBase, Result,
-    WidgetContext, WidgetTreeVisitor, Wrapper,
+    ContextRef, GetFromContext, ItemWidget, JellyhajWidgetBase, RenderFlag, Result, WidgetContext,
+    Wrapper,
     async_task::{Cancellation, Cancelled, StreamExt, UnboundedSender},
+    mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
+    outer::{Named, UnwrapWidget},
     spawn::tracing::{debug, info_span},
     valuable::Valuable,
 };
@@ -30,17 +31,16 @@ type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum LibraryAction {
-    Inner(ItemGridAction<EntryAction>),
     Reload,
     Remove,
     Add(Vec<MediaItem>),
 }
 
-struct Mapper {
+pub struct KeybindMapper {
     view: UserView,
 }
 
-impl CommandMapper<UserViewCommand> for Mapper {
+impl CommandMapper<UserViewCommand> for KeybindMapper {
     type A = ItemGridAction<EntryAction>;
 
     fn map(&self, command: UserViewCommand) -> ControlFlow<Navigation, Self::A> {
@@ -61,19 +61,6 @@ impl CommandMapper<UserViewCommand> for Mapper {
     }
 }
 
-#[derive(Clone, Copy)]
-struct Wrap;
-impl Wrapper<KeybindAction<ItemGridAction<EntryAction>>> for Wrap {
-    type F = KeybindAction<LibraryAction>;
-
-    fn wrap(&self, val: KeybindAction<ItemGridAction<EntryAction>>) -> Self::F {
-        match val {
-            KeybindAction::Inner(v) => KeybindAction::Inner(LibraryAction::Inner(v)),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        }
-    }
-}
-
 #[must_use]
 pub fn make_item_query(seen: u32, parent: &str) -> GetItemsQuery<'_> {
     GetItemsQuery {
@@ -90,7 +77,7 @@ pub fn make_item_query(seen: u32, parent: &str) -> GetItemsQuery<'_> {
     }
 }
 
-async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
+async fn fetch_library_content<W: Wrapper<LibraryAction>>(
     jellyfin: JellyfinClient,
     library_id: String,
     wrapper: W,
@@ -110,7 +97,7 @@ async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
         ));
         while let Some(v) = stream.next().await {
             if sender
-                .send(v.map(|v| wrapper.wrap(KeybindAction::Inner(LibraryAction::Add(v.items)))))
+                .send(v.map(|v| wrapper.wrap(LibraryAction::Add(v.items))))
                 .is_err()
             {
                 break;
@@ -124,79 +111,54 @@ async fn fetch_library_content<W: Wrapper<KeybindAction<LibraryAction>>>(
     .await;
 }
 
-impl LibraryWidget {
-    pub fn new(
-        view: Box<UserView>,
-        items: Vec<MediaItem>,
-        cx: &(
-             impl ContextRef<Spawner>
-             + ContextRef<Config>
-             + ContextRef<Picker>
-             + ContextRef<Stats>
-             + ContextRef<JellyfinClient>
-             + ContextRef<JellyfinEventInterests>
-             + ContextRef<DB>
-             + ContextRef<ImageCache>
-             + 'static
-         ),
-        seen: Option<u32>,
-    ) -> Self {
-        let inner = new_item_grid(
-            items.into_iter().map(|i| Entry::new(i, cx)).collect(),
-            view.name.clone(),
-            cx,
-        );
-        let inner = KeybindWidget::new(
-            inner,
-            Config::get_ref(cx).keybinds.user_view.clone(),
-            Mapper {
-                view: UserView::clone(&view),
-            },
-        );
-
-        Self {
-            inner,
+pub fn new_library_widget(
+    view: Box<UserView>,
+    items: Vec<MediaItem>,
+    cx: &(
+         impl ContextRef<Spawner>
+         + ContextRef<Config>
+         + ContextRef<Picker>
+         + ContextRef<Stats>
+         + ContextRef<JellyfinClient>
+         + ContextRef<JellyfinEventInterests>
+         + ContextRef<DB>
+         + ContextRef<ImageCache>
+         + 'static
+     ),
+    seen: Option<u32>,
+) -> LibraryWidget {
+    let inner = new_item_grid(
+        items.into_iter().map(|i| Entry::new(i, cx)).collect(),
+        view.name.clone(),
+        cx,
+    );
+    let inner = KeybindWidget::new(
+        inner,
+        Config::get_ref(cx).keybinds.user_view.clone(),
+        KeybindMapper {
+            view: UserView::clone(&view),
+        },
+    );
+    let inner = UnwrapWidget::new(inner);
+    LibraryWidget::new(
+        inner,
+        LibraryMapper {
             user_view: *view,
             seen,
-        }
-    }
+        },
+    )
 }
 
 #[derive(Valuable)]
-pub struct LibraryWidget {
-    #[valuable(skip)]
-    inner: KeybindWidget<UserViewCommand, ItemGrid<Entry>, Mapper>,
+pub struct LibraryMapper {
     user_view: UserView,
     seen: Option<u32>,
 }
 
-impl JellyhajWidgetBase for LibraryWidget {
-    type Action = KeybindAction<LibraryAction>;
+type InnerWidget = UnwrapWidget<KeybindWidget<UserViewCommand, ItemGrid<Entry>, KeybindMapper>>;
 
-    type ActionResult = Navigation;
-
-    const NAME: &str = "library";
-
-    fn visit_children(&self, visitor: &mut impl WidgetTreeVisitor) {
-        visitor.visit(&self.inner);
-    }
-
-    fn min_width(&self) -> Option<u16> {
-        self.inner.min_width()
-    }
-    fn min_height(&self) -> Option<u16> {
-        self.inner.min_height()
-    }
-
-    fn accepts_text_input(&self) -> bool {
-        self.inner.accepts_text_input()
-    }
-    fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text);
-    }
-    fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text);
-    }
+impl ActionMapperBase<InnerWidget> for LibraryMapper {
+    type Action = LibraryAction;
 }
 
 impl<
@@ -209,69 +171,27 @@ impl<
         + ContextRef<DB>
         + ContextRef<ImageCache>
         + 'static,
-> JellyhajWidget<R> for LibraryWidget
+> ActionMapper<R, InnerWidget> for LibraryMapper
 {
-    fn apply_action(
+    fn init(
         &mut self,
+        _: &mut InnerWidget,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        action: Self::Action,
-    ) -> Result<Option<Self::ActionResult>> {
-        let action = match action {
-            KeybindAction::Inner(LibraryAction::Reload) => {
-                return Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
-                    Box::new(self.user_view.clone()),
-                ))));
-            }
-            KeybindAction::Inner(LibraryAction::Remove) => {
-                return Ok(Some(Navigation::PopContext));
-            }
-            KeybindAction::Inner(LibraryAction::Add(items)) => {
-                debug!("received {} additional items", items.len());
-                let start = self.inner.inner.len();
-                self.inner
-                    .inner
-                    .extend(items.into_iter().enumerate().map(|(i, item)| {
-                        let mut entry = Entry::new(item, cx.refs);
-                        entry.init(cx.wrap_with(Wrap).wrap_with(KeybindWrapper).wrap_with(
-                            GridWrapper {
-                                index: start.strict_add(i),
-                            },
-                        ));
-                        entry
-                    }));
-                return Ok(None);
-            }
-            KeybindAction::Inner(LibraryAction::Inner(action)) => KeybindAction::Inner(action),
-            KeybindAction::Key(key_event) => KeybindAction::Key(key_event),
-        };
-        flatten_control_flow(self.inner.apply_action(cx.wrap_with(Wrap), action))
-    }
-
-    fn click(
-        &mut self,
-        cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: jellyhaj_widgets_core::Position,
-        size: jellyhaj_widgets_core::Size,
-        kind: jellyhaj_widgets_core::MouseEventKind,
-        modifier: jellyhaj_widgets_core::KeyModifiers,
-    ) -> Result<Option<Self::ActionResult>> {
-        flatten_control_flow(
-            self.inner
-                .click(cx.wrap_with(Wrap), position, size, kind, modifier),
-        )
-    }
-
-    fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {
+        _: WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
+    ) {
         JellyfinEventInterests::get_ref(cx.refs).with(|events| {
             events.register_folder_modified(
                 self.user_view.id.clone(),
-                cx.submitter
-                    .wrap_with(|_| KeybindAction::Inner(LibraryAction::Reload)),
+                cx.submitter.wrap_with(|_| LibraryAction::Reload),
             );
             events.register_item_removed(
                 self.user_view.id.clone(),
-                cx.submitter
-                    .wrap_with(|_| KeybindAction::Inner(LibraryAction::Remove)),
+                cx.submitter.wrap_with(|_| LibraryAction::Remove),
             );
         });
         if let Some(seen) = self.seen.take() {
@@ -292,13 +212,50 @@ impl<
         }
     }
 
-    fn render_fallible_inner(
+    fn map_action(
         &mut self,
-        area: jellyhaj_widgets_core::Rect,
-        buf: &mut jellyhaj_widgets_core::Buffer,
+        this: &mut InnerWidget,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> Result<()> {
-        self.inner
-            .render_fallible_inner(area, buf, cx.wrap_with(Wrap))
+        this_cx: WidgetContext<
+            '_,
+            <InnerWidget as JellyhajWidgetBase>::Action,
+            impl Wrapper<<InnerWidget as JellyhajWidgetBase>::Action>,
+            R,
+        >,
+        action: Self::Action,
+        render_flag: &mut RenderFlag,
+    ) -> Result<Option<<InnerWidget as JellyhajWidgetBase>::ActionResult>> {
+        match action {
+            LibraryAction::Reload => {
+                Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
+                    Box::new(self.user_view.clone()),
+                ))))
+            }
+            LibraryAction::Remove => {
+                Ok(Some(Navigation::PopContext))
+            }
+            LibraryAction::Add(items) => {
+                debug!("received {} additional items", items.len());
+                render_flag.set();
+                let start = this.inner.inner.len();
+                this.inner
+                    .inner
+                    .extend(items.into_iter().enumerate().map(|(i, item)| {
+                        let mut entry = Entry::new(item, cx.refs);
+                        entry.init(this_cx.wrap_with(KeybindWrapper).wrap_with(GridWrapper {
+                            index: start.strict_add(i),
+                        }));
+                        entry
+                    }));
+                Ok(None)
+            }
+        }
     }
 }
+
+pub struct LibraryName;
+impl Named for LibraryName {
+    const NAME: &str = "library";
+}
+
+pub type LibraryWidget = ActionMapperWidget<LibraryName, InnerWidget, LibraryMapper>;

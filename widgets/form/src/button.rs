@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    MouseEventKind, Rect, Result, WidgetContext, Wrapper,
+    MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
     valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -108,6 +108,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for B
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: crate::FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, C::T>>> {
         if matches!(action, FormAction::Enter) {
             Ok(Some(ControlFlow::Continue(self.creator.make_action())))
@@ -120,6 +121,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for B
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -133,6 +135,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for B
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, C::T>>> {
         unimplemented!()
     }
@@ -144,6 +147,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for B
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, C::T>>,

@@ -1,7 +1,7 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
@@ -74,10 +74,22 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for SecretField {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
+    fn apply_char(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: char,
+        render_flag: &mut RenderFlag,
+    ) {
+        render_flag.set();
         self.secret.push(text);
     }
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
+    fn apply_text(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: String,
+        render_flag: &mut RenderFlag,
+    ) {
+        render_flag.set();
         self.secret.push_str(&text);
     }
 
@@ -108,9 +120,11 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if matches!(action, FormAction::Delete) {
             self.secret.pop();
+            render_flag.set();
         }
         Ok(None)
     }
@@ -119,6 +133,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -132,6 +147,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unimplemented!()
     }
@@ -143,6 +159,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,

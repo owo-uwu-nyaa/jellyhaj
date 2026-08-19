@@ -4,7 +4,7 @@ use jellyfin::{items::MediaItem, user_views::UserView};
 use jellyhaj_context::TuiContext;
 use jellyhaj_core::widgets::shaded::widget::{Erased, make_new_erased};
 use jellyhaj_fetch_view::make_fetch;
-use jellyhaj_home_screen_widget::HomeScreen;
+use jellyhaj_home_screen_widget::new_home_screen;
 
 #[derive(Debug)]
 pub enum Pass {
@@ -21,7 +21,7 @@ pub fn render_home_screen(
     libraries: Vec<UserView>,
     library_latest: Vec<(String, Vec<MediaItem>)>,
 ) -> Erased {
-    let widget = HomeScreen::new(&cx, cont, next_up, libraries, library_latest);
+    let widget = new_home_screen(&cx, cont, next_up, libraries, library_latest);
     make_new_erased(cx, widget)
 }
 

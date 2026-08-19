@@ -39,12 +39,12 @@ pub fn gen_tabbed(container: &Container, exports: &Path) -> TokenStream {
     let accept_char = container.tabs.iter().enumerate().map(|(i, v)| {
         let var = &v.var;
         let i = Literal::usize_suffixed(i);
-        quote! {#i => #exports::JellyhajWidgetBase::accept_char(&mut self.#var, text),}
+        quote! {#i => #exports::JellyhajWidgetBase::accept_char(&mut self.#var, text, render_flag),}
     });
     let accept_text = container.tabs.iter().enumerate().map(|(i, v)| {
         let var = &v.var;
         let i = Literal::usize_suffixed(i);
-        quote! {#i => #exports::JellyhajWidgetBase::accept_text(&mut self.#var, text),}
+        quote! {#i => #exports::JellyhajWidgetBase::accept_text(&mut self.#var, text, render_flag),}
     });
 
     quote! {
@@ -81,13 +81,13 @@ pub fn gen_tabbed(container: &Container, exports: &Path) -> TokenStream {
                     _ => #exports::unreachable!("should only be called with current in bounds")
                 }
             }
-            fn accept_char(&mut self, text: #exports::char, current: #exports::usize){
+            fn accept_char(&mut self, text: #exports::char, current: #exports::usize, render_flag: &mut #exports::RenderFlag){
                 match current {
                     #(#accept_char)*
                     _ => #exports::unreachable!("should only be called with current in bounds")
                 }
             }
-            fn accept_text(&mut self, text: #exports::String, current: #exports::usize){
+            fn accept_text(&mut self, text: #exports::String, current: #exports::usize, render_flag: &mut #exports::RenderFlag){
                 match current {
                     #(#accept_text)*
                     _ => #exports::unreachable!("should only be called with current in bounds")

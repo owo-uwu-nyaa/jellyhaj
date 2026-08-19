@@ -5,8 +5,8 @@ use std::{convert::Infallible, fmt::Debug, marker::PhantomData, ops::ControlFlow
 
 use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
-    JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect, Size,
-    WidgetContext, Wrapper,
+    JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect, RenderFlag,
+    Size, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
@@ -122,14 +122,14 @@ impl<Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>> JellyhajWi
         self.data.with_selection(0, &self.sel, AcceptsTextInput)
     }
 
-    fn accept_char(&mut self, text: char) {
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
         self.data
-            .with_selection_mut(0, &mut self.sel, ApplyChar(text));
+            .with_selection_mut(0, &mut self.sel, ApplyChar { text, render_flag });
     }
 
-    fn accept_text(&mut self, text: String) {
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
         self.data
-            .with_selection_mut(0, &mut self.sel, ApplyText(text));
+            .with_selection_mut(0, &mut self.sel, ApplyText { text, render_flag });
     }
 }
 
@@ -142,6 +142,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         let res = 'res: {
             let action: FormAction<Infallible> = match action {
@@ -157,7 +158,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                         0,
                         action,
                         cx.wrap_with(FormAction::Inner),
-                        ApplyAction,
+                        ApplyAction(render_flag),
                     );
                 }
             };
@@ -165,7 +166,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                 .data
                 .with_selection(0, &self.sel, AcceptsMovementAction)
             {
-                self.dispatch_active_action(cx, action)
+                self.dispatch_active_action(cx, action, render_flag)
             } else {
                 match action {
                     FormAction::Up => {
@@ -188,6 +189,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                             index,
                             SelectionDefault,
                         )?;
+                        render_flag.set();
                         Ok(None)
                     }
                     FormAction::Down => {
@@ -208,11 +210,16 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                             index,
                             SelectionDefault,
                         )?;
+                        render_flag.set();
                         Ok(None)
                     }
 
-                    FormAction::Delete => self.dispatch_active_action(cx, FormAction::Delete),
-                    FormAction::Enter => self.dispatch_active_action(cx, FormAction::Enter),
+                    FormAction::Delete => {
+                        self.dispatch_active_action(cx, FormAction::Delete, render_flag)
+                    }
+                    FormAction::Enter => {
+                        self.dispatch_active_action(cx, FormAction::Enter, render_flag)
+                    }
                     FormAction::Quit => Ok(Some(ControlFlow::Break(Navigation::PopContext))),
                     FormAction::Left | FormAction::Right => Ok(None),
                 }
@@ -228,7 +235,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         })
     }
 
-    #[instrument(skip(self, cx), name = "click_form")]
+    #[instrument(skip(self, cx, render_flag), name = "click_form")]
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -236,6 +243,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         mut size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         let res = 'res: {
             if position.x > 2
@@ -255,6 +263,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                     store: &self.store,
                     size,
                     offset: self.offset,
+                    render_flag,
                 };
                 let res = self.data.with_selection_mut_cx(
                     0,
@@ -267,6 +276,11 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                 }
 
                 if kind.is_down() {
+                    let index = find_index(&self.store, position);
+                    let cur_index = self.data.index(&self.sel);
+                    if index != cur_index {
+                        render_flag.set();
+                    }
                     let mut cur = ClickItem::<Data::AR> {
                         pos: position,
                         res: None,
@@ -274,8 +288,8 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                         store: &self.store,
                         kind,
                         modifier,
+                        render_flag,
                     };
-                    let index = find_index(&self.store, position);
                     self.data.with_index_mut(
                         0,
                         &mut self.sel,

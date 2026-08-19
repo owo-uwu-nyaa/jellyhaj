@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::{convert::Infallible, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::buffer::CellWidth;
 use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::Valuable;
@@ -53,10 +53,22 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextField {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
+    fn apply_char(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: char,
+        render_flag: &mut RenderFlag,
+    ) {
+        render_flag.set();
         self.text.push(text);
     }
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
+    fn apply_text(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: String,
+        render_flag: &mut RenderFlag,
+    ) {
+        render_flag.set();
         self.text.push_str(&text);
     }
 
@@ -87,8 +99,10 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if matches!(action, FormAction::Delete) {
+            render_flag.set();
             self.text.pop();
         }
         Ok(None)
@@ -98,6 +112,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -111,6 +126,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unimplemented!()
     }
@@ -122,6 +138,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
@@ -206,11 +223,23 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextFieldDynamic {
     fn accepts_text_input(&self, sel: &Self::SelectionInner) -> bool {
         true
     }
-    fn apply_char(&mut self, sel: &mut Self::SelectionInner, text: char) {
+    fn apply_char(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: char,
+        render_flag: &mut RenderFlag,
+    ) {
         self.text.push(text);
+        render_flag.set();
     }
-    fn apply_text(&mut self, sel: &mut Self::SelectionInner, text: String) {
+    fn apply_text(
+        &mut self,
+        sel: &mut Self::SelectionInner,
+        text: String,
+        render_flag: &mut RenderFlag,
+    ) {
         self.text.push_str(&text);
+        render_flag.set();
     }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
@@ -240,9 +269,11 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         if matches!(action, FormAction::Delete) {
             self.text.pop();
+            render_flag.set();
         }
         Ok(None)
     }
@@ -251,6 +282,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -264,6 +296,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         unimplemented!()
     }
@@ -275,6 +308,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,

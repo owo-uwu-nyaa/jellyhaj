@@ -1,7 +1,7 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::{buffer::CellWidth, widgets::Widget};
 use valuable::Valuable;
 
@@ -44,6 +44,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: crate::FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         Ok(None)
     }
@@ -52,6 +53,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -65,6 +67,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         Ok(None)
     }
@@ -76,6 +79,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,
@@ -157,6 +161,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel 
         sel: &mut Self::SelectionInner,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: crate::FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         Ok(None)
     }
@@ -165,6 +170,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel 
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         unreachable!()
     }
@@ -178,6 +184,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel 
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
         Ok(None)
     }
@@ -189,6 +196,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel 
         pos: ratatui::prelude::Position,
         kind: jellyhaj_widgets_core::MouseEventKind,
         modifier: jellyhaj_widgets_core::KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<(
         Option<Self::SelectionInner>,
         Option<ControlFlow<Navigation, Infallible>>,

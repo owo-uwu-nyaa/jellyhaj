@@ -2,8 +2,8 @@ use std::{cmp::max, fmt::Debug};
 
 use color_eyre::Result;
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect, Size,
-    WidgetContext, WidgetTreeVisitor, Wrapper,
+    Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect,
+    RenderFlag, Size, WidgetContext, WidgetTreeVisitor, Wrapper,
     ratatui::style::Modifier,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
@@ -36,8 +36,8 @@ pub trait Tabbed: Send + 'static {
     fn min_height(&self, current: usize) -> Option<u16>;
 
     fn accepts_text_input(&self, current: usize) -> bool;
-    fn accept_char(&mut self, text: char, current: usize);
-    fn accept_text(&mut self, text: String, current: usize);
+    fn accept_char(&mut self, text: char, current: usize, render_flag: &mut RenderFlag);
+    fn accept_text(&mut self, text: String, current: usize, render_flag: &mut RenderFlag);
 }
 
 impl<T: Tabbed> Valuable for TabbedWidgets<T> {
@@ -68,8 +68,10 @@ pub trait TabContainer<R: 'static>: Tabbed {
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
         current: usize,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
+    #[allow(clippy::too_many_arguments)]
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -78,6 +80,7 @@ pub trait TabContainer<R: 'static>: Tabbed {
         kind: MouseEventKind,
         modifier: KeyModifiers,
         current: usize,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>>;
 
     fn render_fallible(
@@ -134,11 +137,11 @@ impl<T: Tabbed> JellyhajWidgetBase for TabbedWidgets<T> {
     fn accepts_text_input(&self) -> bool {
         self.inner.accepts_text_input(self.current)
     }
-    fn accept_char(&mut self, text: char) {
-        self.inner.accept_char(text, self.current);
+    fn accept_char(&mut self, text: char, render_flag: &mut RenderFlag) {
+        self.inner.accept_char(text, self.current, render_flag);
     }
-    fn accept_text(&mut self, text: String) {
-        self.inner.accept_text(text, self.current);
+    fn accept_text(&mut self, text: String, render_flag: &mut RenderFlag) {
+        self.inner.accept_text(text, self.current, render_flag);
     }
 }
 
@@ -151,9 +154,11 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if T::is_next(&action) {
             self.current = (self.current + 1) % T::TABS.len();
+            render_flag.set();
             Ok(None)
         } else if T::is_prev(&action) {
             self.current = if self.current == 0 {
@@ -161,9 +166,11 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
             } else {
                 self.current.saturating_sub(1)
             };
+            render_flag.set();
             Ok(None)
         } else {
-            self.inner.apply_action(cx, action, self.current)
+            self.inner
+                .apply_action(cx, action, self.current, render_flag)
         }
     }
 
@@ -174,6 +181,7 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         mut size: Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if position.y == 0 {
             let mut x = position.x;
@@ -185,6 +193,7 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
                 let len = u16::try_from(l.len() + 2).expect("u16 overflow");
                 if x < len {
                     self.current = i;
+                    render_flag.set();
                     return Ok(None);
                 }
                 x = x.strict_sub(len);
@@ -195,8 +204,15 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         } else {
             position.y = position.y.strict_sub(2);
             size.height = size.height.strict_sub(2);
-            self.inner
-                .click(cx, position, size, kind, modifier, self.current)
+            self.inner.click(
+                cx,
+                position,
+                size,
+                kind,
+                modifier,
+                self.current,
+                render_flag,
+            )
         }
     }
 
@@ -269,7 +285,8 @@ pub mod macro_exports {
     pub use color_eyre::Result;
     pub use jellyhaj_widgets_core::{
         Buffer, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers,
-        MouseEventKind, Position, Rect, Size, WidgetContext, WidgetTreeVisitor, Wrapper,
+        MouseEventKind, Position, Rect, RenderFlag, Size, WidgetContext, WidgetTreeVisitor,
+        Wrapper,
     };
     pub use std::{
         convert::{Infallible, Into},

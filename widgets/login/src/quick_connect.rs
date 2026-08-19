@@ -5,7 +5,7 @@ use jellyfin::JellyfinClient;
 use jellyhaj_core::state::{ClientOut, LoginState, Navigation, NextScreen};
 use jellyhaj_widgets_core::{
     Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect,
-    Result, Size, WidgetContext, Wrapper,
+    RenderFlag, Result, Size, WidgetContext, Wrapper,
     spawn::tracing::{info, info_span},
 };
 use ratatui::{
@@ -99,10 +99,12 @@ impl<F: Future<Output = Result<QuickConectAction>> + Send + 'static, R: 'static>
         &mut self,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
+        render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         match action {
             QuickConectAction::Clock => {
                 self.position = (self.position + 1) % 4;
+                render_flag.set();
                 Ok(None)
             }
             QuickConectAction::Quit => Ok(Some(Navigation::PopContext)),
@@ -124,6 +126,7 @@ impl<F: Future<Output = Result<QuickConectAction>> + Send + 'static, R: 'static>
         size: Size,
         kind: MouseEventKind,
         _modifier: KeyModifiers,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::ActionResult>> {
         if kind.is_down() && {
             let mut area = Rect::from((Position::ORIGIN, size)).centered(
