@@ -385,29 +385,22 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
 }
 
 fn find_index(store: &[u16], y: u16) -> usize {
-    if y == 0 {
-        0
-    } else if let last = *store.last().expect("should not be empty")
-        && last < y
-    {
-        store.partition_point(|h| *h != last)
-    } else {
-        let mut index = store.partition_point(|h| *h < y);
-        if store[index] > y {
-            index -= 1;
+    let mut last = u16::MAX;
+    let mut index = 0;
+    for (i, v) in store.iter().copied().enumerate().filter(|(_, v)| {
+        let res = last != *v;
+        last = *v;
+        res
+    }) {
+        if v > y {
+            return index;
+        } else if v == y {
+            return i;
+        } else {
+            index = i;
         }
-        scan_forward(store, index)
     }
-}
-
-fn scan_forward(store: &[u16], index: usize) -> usize {
-    let val = store[index];
-    store[0..=index]
-        .iter()
-        .copied()
-        .enumerate()
-        .rfind(|(_, c)| *c != val)
-        .map_or(0, |(v, _)| v + 1)
+    index
 }
 
 #[cfg(test)]
