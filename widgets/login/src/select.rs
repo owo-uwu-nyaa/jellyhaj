@@ -8,9 +8,7 @@ use jellyhaj_core::{
 };
 use jellyhaj_form_widget::{
     button::Button,
-    form::{
-        FormCommandMapper, FormResultMapper, component::FormComponent,
-    },
+    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     label::Label,
 };

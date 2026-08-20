@@ -226,14 +226,10 @@ impl<
         render_flag: &mut RenderFlag,
     ) -> Result<Option<<InnerWidget as JellyhajWidgetBase>::ActionResult>> {
         match action {
-            LibraryAction::Reload => {
-                Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
-                    Box::new(self.user_view.clone()),
-                ))))
-            }
-            LibraryAction::Remove => {
-                Ok(Some(Navigation::PopContext))
-            }
+            LibraryAction::Reload => Ok(Some(Navigation::Replace(NextScreen::LoadUserView(
+                Box::new(self.user_view.clone()),
+            )))),
+            LibraryAction::Remove => Ok(Some(Navigation::PopContext)),
             LibraryAction::Add(items) => {
                 debug!("received {} additional items", items.len());
                 render_flag.set();
