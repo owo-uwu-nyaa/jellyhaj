@@ -240,7 +240,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
             full_area.width = min(S::MAX_LEN + 2, area.width);
             let needed_height = S::ALL_LEN + 2;
             let mut items = S::ALL;
-            if needed_height < full_area.height {
+            if needed_height > full_area.height {
                 let window = full_area.height;
                 let offset = calc_offset(
                     S::ALL.len().try_into().expect("len is to large"),

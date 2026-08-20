@@ -255,6 +255,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                 position.y -= 2;
                 size.width -= 4;
                 size.height -= 4;
+                trace!(?size, ?position, "inner geometry");
                 let mut cur = ClickCurrent {
                     kind,
                     modifier,
@@ -272,11 +273,13 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                     &mut cur,
                 )?;
                 if cur.cought {
+                    trace!("click caught");
                     break 'res res;
                 }
 
                 if kind.is_down() {
-                    let index = find_index(&self.store, position);
+                    let index = find_index(&self.store, position.y);
+                    trace!(index, "found clicked widget");
                     let cur_index = self.data.index(&self.sel);
                     if index != cur_index {
                         render_flag.set();
@@ -381,14 +384,49 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
     }
 }
 
-fn find_index(store: &[u16], position: Position) -> usize {
-    if position.y == 0 {
+fn find_index(store: &[u16], y: u16) -> usize {
+    if y == 0 {
         0
+    } else if let last = *store.last().expect("should not be empty")
+        && last < y
+    {
+        store.partition_point(|h| *h != last)
     } else {
-        store.partition_point(|h| {
-            let h = *h;
-            h < position.y
-        }) - 1
+        let mut index = store.partition_point(|h| *h < y);
+        if store[index] > y {
+            index -= 1;
+        }
+        scan_forward(store, index)
+    }
+}
+
+fn scan_forward(store: &[u16], index: usize) -> usize {
+    let val = store[index];
+    store[0..=index]
+        .iter()
+        .copied()
+        .enumerate()
+        .rfind(|(_, c)| *c != val)
+        .map_or(0, |(v, _)| v + 1)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::form::find_index;
+
+    #[test]
+    fn test_find_index() {
+        assert_eq!(0, find_index(&[0, 2, 2, 4], 0));
+        assert_eq!(0, find_index(&[0, 0, 2, 2, 4], 0));
+        assert_eq!(0, find_index(&[0, 2, 2, 4], 1));
+        assert_eq!(0, find_index(&[0, 0, 2, 2, 4], 1));
+        assert_eq!(2, find_index(&[0, 0, 2, 4], 2));
+        assert_eq!(2, find_index(&[0, 0, 2, 2, 4], 2));
+        assert_eq!(2, find_index(&[0, 0, 2, 4], 3));
+        assert_eq!(2, find_index(&[0, 0, 2, 2, 4], 3));
+        assert_eq!(3, find_index(&[0, 0, 2, 4], 4));
+        assert_eq!(3, find_index(&[0, 0, 2, 4], 5));
     }
 }
 

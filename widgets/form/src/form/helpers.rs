@@ -315,6 +315,7 @@ impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<
                     ControlFlow::Break(n) => ControlFlow::Break(n),
                 })
             });
+            trace!("cought");
             self.cought = true;
             res
         } else {
@@ -404,15 +405,11 @@ impl<R: 'static, S: FormData> WithIterItems<R, S::AR> for CalcHeight<'_, S> {
         let pos = if show_if {
             if index == 0 {
                 self.store.clear();
-                span.record("pos", 0);
-                self.store.push(0);
                 self.height = state.height();
                 self.height_buf = state.height_buf();
                 0
             } else {
                 self.height = self.height.strict_add(1);
-                span.record("pos", self.height);
-                self.store.push(self.height);
                 let pos = self.height;
                 self.height = self.height.strict_add(state.height());
                 self.height_buf = self
@@ -426,6 +423,7 @@ impl<R: 'static, S: FormData> WithIterItems<R, S::AR> for CalcHeight<'_, S> {
             self.height
         };
         self.store.push(pos);
+        span.record("pos", pos);
         trace!(pos, "height result");
         Ok(())
     }

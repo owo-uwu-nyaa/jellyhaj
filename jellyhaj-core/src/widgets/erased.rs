@@ -66,17 +66,23 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
                 column,
                 row,
                 modifiers,
-            }) => self.widget.click(
-                WidgetContext {
-                    refs: &self.context,
-                    submitter: self.submitter.as_ref(),
-                },
-                Position::new(column, row),
-                frame_size,
-                kind,
-                modifiers,
-                &mut self.render_flag,
-            ),
+            }) => {
+                if kind.is_moved() {
+                    return None;
+                }
+
+                self.widget.click(
+                    WidgetContext {
+                        refs: &self.context,
+                        submitter: self.submitter.as_ref(),
+                    },
+                    Position::new(column, row),
+                    frame_size,
+                    kind,
+                    modifiers,
+                    &mut self.render_flag,
+                )
+            }
             Event::Paste(v) => {
                 if self.widget.accepts_text_input() {
                     self.widget.accept_text(v, &mut self.render_flag);
