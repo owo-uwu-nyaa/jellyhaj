@@ -122,7 +122,6 @@ members = [
   "widgets/form-derive",
   "widgets/form-derive-impl",
   "widgets/home-screen",
-  "widgets/http-client",
   "widgets/image",
   "widgets/inspect",
   "widgets/item-details",

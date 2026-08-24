@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use jellyfin::{
     Authed,
     connect::JsonResponseHelper,
@@ -5,13 +7,74 @@ use jellyfin::{
 };
 use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    state::NextScreen,
+    state::{Navigation, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
-use jellyhaj_form_widget::form::{FormCommandMapper, FormDataExt};
-use jellyhaj_http_client_widget::HttpClientData;
+use jellyhaj_form_widget::{
+    FormAction,
+    button::Button,
+    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
+    form_widget,
+    label::DynamicLabel,
+    text_field::TextField,
+};
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_widgets_core::outer::{Named, OuterWidget, UnwrapWidget};
+use jellyhaj_widgets_core::{
+    RenderFlag, Result, WidgetContext, Wrapper,
+    outer::{Named, OuterWidget, UnwrapWidget},
+};
+use valuable::Valuable;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Get;
+impl From<Infallible> for Get {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+pub struct RequestMapper;
+impl FormResultMapper<HttpClientData> for RequestMapper {
+    type Res = Navigation;
+
+    fn map(
+        state: &mut Form<HttpClientData>,
+        _form_result: <HttpClientData as FormComponent>::AR,
+        _cx: WidgetContext<
+            '_,
+            FormAction<<HttpClientData as FormComponent>::Action>,
+            impl Wrapper<FormAction<<HttpClientData as FormComponent>::Action>>,
+            (),
+        >,
+        _render_flag: &mut RenderFlag,
+    ) -> Result<Option<Self::Res>> {
+        Ok(Some(Navigation::Push(NextScreen::HttpClientFetch {
+            url: state.data.url.text.clone(),
+        })))
+    }
+}
+
+#[derive(Valuable)]
+#[form_widget("http client", Get, RequestMapper)]
+pub struct HttpClientData {
+    #[form(descr = "Url")]
+    url: TextField,
+    #[form(descr = "GET")]
+    get: Button<Get>,
+    #[form(descr = "Device ID:")]
+    device_id: DynamicLabel,
+}
+
+impl HttpClientData {
+    #[must_use]
+    pub fn new(device_id: String) -> Self {
+        Self {
+            url: TextField::new("/".to_string()),
+            get: Button::new(Get),
+            device_id: DynamicLabel { val: device_id },
+        }
+    }
+}
+
 pub struct Name;
 impl Named for Name {
     const NAME: &str = "http-client";

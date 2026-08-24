@@ -2230,17 +2230,7 @@ dependencies = [
  "jellyhaj-core",
  "jellyhaj-fetch-view",
  "jellyhaj-form-widget",
- "jellyhaj-http-client-widget",
  "jellyhaj-keybinds-widget",
- "jellyhaj-widgets-core",
-]
-
-[[package]]
-name = "jellyhaj-http-client-widget"
-version = "0.1.0"
-dependencies = [
- "jellyhaj-core",
- "jellyhaj-form-widget",
  "jellyhaj-widgets-core",
  "valuable",
 ]

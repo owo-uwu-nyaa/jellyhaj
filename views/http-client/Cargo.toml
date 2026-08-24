@@ -9,9 +9,9 @@ jellyhaj-context = { version = "0.1.0", path = "../../context" }
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
 jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }
-jellyhaj-http-client-widget = { version = "0.1.0", path = "../../widgets/http-client" }
 jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
+valuable.workspace = true
 
 [lints]
 workspace = true
