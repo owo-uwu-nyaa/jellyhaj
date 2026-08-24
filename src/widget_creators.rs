@@ -58,7 +58,27 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::HttpClientFetch { url } => {
             jellyhaj_http_client_view::render_http_client_fetch(cx, url)
         }
-
+        NextScreen::FetchModifyMetadata(item) => {
+            jellyhaj_metadata_editor_view::make_fetch_modify_metadata(cx, item)
+        }
+        NextScreen::ModifyMetadata(item, editor) => {
+            jellyhaj_metadata_editor_view::make_modify_metadata(cx, item, editor)
+        }
+        NextScreen::DoModifyMetadata { id, new_metadata } => {
+            jellyhaj_metadata_editor_view::make_do_modify_metadata(cx, id, new_metadata)
+        }
+        NextScreen::AddGenreFetch {
+            result_sender,
+            selected,
+        } => jellyhaj_metadata_editor_view::make_add_genre_fetch(cx, result_sender, selected),
+        NextScreen::AddGenre {
+            result_sender,
+            selected,
+            all_genres,
+        } => jellyhaj_metadata_editor_view::make_add_genre(cx, result_sender, selected, all_genres),
+        NextScreen::NewGenre(submitter) => {
+            jellyhaj_metadata_editor_view::make_new_genre(cx, submitter)
+        }
         NextScreen::SelectServer { .. }
         | NextScreen::ConnectToServer { .. }
         | NextScreen::SelectAuthMethod { .. }
@@ -165,6 +185,12 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::QuickConnectAuth(_)
         | NextScreen::HttpClient
         | NextScreen::HttpClientFetch { .. }
+        | NextScreen::FetchModifyMetadata(_)
+        | NextScreen::DoModifyMetadata { .. }
+        | NextScreen::NewGenre(_)
+        | NextScreen::AddGenreFetch { .. }
+        | NextScreen::AddGenre { .. }
+        | NextScreen::ModifyMetadata(_, _)
         | NextScreen::Logout => {
             jellyhaj_error_view::render_error(cx, &eyre!("This requires beeing logged in"))
         }

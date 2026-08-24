@@ -1972,6 +1972,7 @@ dependencies = [
  "jellyhaj-loading-widget",
  "jellyhaj-log-view",
  "jellyhaj-login-view",
+ "jellyhaj-metadata-editor-view",
  "jellyhaj-player-view",
  "jellyhaj-quick-connect-view",
  "jellyhaj-refresh-item-view",
@@ -2488,6 +2489,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "jellyhaj-metadata-editor-view"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "jellyfin",
+ "jellyhaj-context",
+ "jellyhaj-core",
+ "jellyhaj-fetch-view",
+ "jellyhaj-form-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-metadata-editor-widget",
+ "jellyhaj-widgets-core",
+]
+
+[[package]]
+name = "jellyhaj-metadata-editor-widget"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "jellyfin",
+ "jellyhaj-core",
+ "jellyhaj-form-widget",
+ "jellyhaj-keybinds-widget",
+ "jellyhaj-widgets-core",
+ "valuable",
+]
+
+[[package]]
 name = "jellyhaj-player-view"
 version = "0.1.0"
 dependencies = [
@@ -2939,16 +2968,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "metadata-editor"
-version = "0.1.0"
-dependencies = [
- "jellyfin",
- "jellyhaj-form-widget",
- "jellyhaj-widgets-core",
- "valuable",
 ]
 
 [[package]]

@@ -79,7 +79,9 @@ impl EntryData {
                     Err(e) => NextScreen::Error(e),
                 }
             }
-
+            (Self::Item(i), EntryCommand::EditMetadata) => {
+                NextScreen::FetchModifyMetadata(Box::new(i.clone()))
+            }
             (
                 Self::View(_),
                 EntryCommand::Play
@@ -87,7 +89,8 @@ impl EntryData {
                 | EntryCommand::OpenSeason
                 | EntryCommand::OpenEpisode
                 | EntryCommand::SetWatched
-                | EntryCommand::UnsetWatched,
+                | EntryCommand::UnsetWatched
+                | EntryCommand::EditMetadata,
             ) => return None,
         };
         Some(Navigation::Push(next))

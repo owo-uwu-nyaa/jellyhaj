@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     ops::{Deref, DerefMut},
     pin::pin,
     sync::{Arc, atomic::AtomicBool},
@@ -232,6 +233,15 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
     pub const fn cancel_token(&self) -> &Cancellation {
         self.cancel
     }
+}
+
+impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
+    pub fn erased(&self) -> impl ErasedSubmitter<A> {
+        ErasedSubmitterImpl {
+            wrapper: self.wrapper,
+            sender: self.sender.clone(),
+        }
+    }
 
     #[track_caller]
     pub fn spawn_task(
@@ -284,9 +294,7 @@ impl<'r, A, W: Wrapper<A>> TaskSubmitterRef<'r, A, W> {
             name,
         );
     }
-}
 
-impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_stream(
         &self,
@@ -350,17 +358,15 @@ impl<A: Send, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
             name,
         );
     }
-}
 
-impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_value(&self, val: Result<A>) {
-        let _ = self.sender.send(val.map(|v| self.wrapper().wrap(v)));
+        let _ = self.sender.send(val.map(|v| self.wrapper.wrap(v)));
     }
 
     #[track_caller]
     pub fn spawn_value_infallible(&self, val: A) {
-        let _ = self.sender.send(Ok(self.wrapper().wrap(val)));
+        let _ = self.sender.send(Ok(self.wrapper.wrap(val)));
     }
 }
 
@@ -369,5 +375,34 @@ impl<A, W: Wrapper<A>> Deref for TaskSubmitterRef<'_, A, W> {
 
     fn deref(&self) -> &Self::Target {
         self.spawner
+    }
+}
+
+pub trait ErasedSubmitter<A: 'static>: Send + Sync + Debug + 'static {
+    #[track_caller]
+    fn spawn_value(&self, val: Result<A>);
+    #[track_caller]
+    fn spawn_value_infallible(&self, val: A);
+}
+
+struct ErasedSubmitterImpl<A: 'static, W: Wrapper<A>> {
+    wrapper: W,
+    sender: UnboundedSender<Result<W::F>>,
+}
+
+impl<A: 'static, W: Wrapper<A>> Debug for ErasedSubmitterImpl<A, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ErasedSubmitterImpl")
+            .finish_non_exhaustive()
+    }
+}
+
+impl<A: 'static, W: Wrapper<A>> ErasedSubmitter<A> for ErasedSubmitterImpl<A, W> {
+    fn spawn_value(&self, val: Result<A>) {
+        let _ = self.sender.send(val.map(|v| self.wrapper.wrap(v)));
+    }
+
+    fn spawn_value_infallible(&self, val: A) {
+        let _ = self.sender.send(Ok(self.wrapper.wrap(val)));
     }
 }

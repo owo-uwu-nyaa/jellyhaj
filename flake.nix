@@ -50,7 +50,7 @@
             default = jellyhaj;
             inherit jellyhaj;
           }
-          // (if pkgs.stdenv.isLinux then { inherit test-server; } else { });
+          // (if pkgs.stdenv.hostPlatform.isLinux then { inherit test-server; } else { });
           checks = {
             inherit jellyhaj;
             config = writeConfig (fromTOML (builtins.readFile ./config/config.toml));

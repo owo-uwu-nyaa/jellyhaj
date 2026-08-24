@@ -6,9 +6,10 @@ use config::keybind_defs::GlobalCommand;
 use futures_util::future::BoxFuture;
 use jellyfin::{
     JellyfinClient, NoAuth,
-    items::{MediaItem, RefreshItemQuery},
+    items::{MediaItem, MetadataEditor, MetadataUpdate, RefreshItemQuery},
     user_views::UserView,
 };
+use jellyhaj_widgets_core::async_task::ErasedSubmitter;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use valuable::Valuable;
@@ -73,6 +74,22 @@ pub enum NextScreen {
     Stats,
     Logs,
     Inspect,
+    FetchModifyMetadata(Box<MediaItem>),
+    ModifyMetadata(Box<MediaItem>, MetadataEditor),
+    DoModifyMetadata {
+        id: String,
+        new_metadata: Box<MetadataUpdate>,
+    },
+    NewGenre(Arc<dyn ErasedSubmitter<String>>),
+    AddGenreFetch {
+        result_sender: Arc<dyn ErasedSubmitter<String>>,
+        selected: Vec<String>,
+    },
+    AddGenre {
+        result_sender: Arc<dyn ErasedSubmitter<String>>,
+        selected: Vec<String>,
+        all_genres: Vec<String>,
+    },
     QuickConnect,
     QuickConnectAuth(String),
     SelectServer {

@@ -9,8 +9,8 @@
   glib,
   aws-lc,
   versionCheckHook,
-  withMpris ? stdenv.isLinux, # enable media player dbus interface
-  withJournald ? stdenv.isLinux,
+  withMpris ? stdenv.hostPlatform.isLinux, # enable media player dbus interface
+  withJournald ? stdenv.hostPlatform.isLinux,
   withTools ? false, # add developement tools
 }:
 let

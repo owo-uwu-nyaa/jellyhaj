@@ -7,14 +7,15 @@ use jellyhaj_core::{
     state::{ClientOut, LoginState, Navigation, NextScreen},
 };
 use jellyhaj_form_widget::{
+    FormAction,
     button::Button,
-    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     label::Label,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, RenderFlag, Result, Wrapper,
     mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
     outer::{Named, UnwrapWidget},
 };
@@ -38,27 +39,28 @@ impl FormResultMapper<SelectData> for SelectResultMapper {
     type Res = Navigation;
 
     fn map(
-        state: &SelectData,
+        state: &mut Form<SelectData>,
         form_result: <SelectData as FormComponent>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            <SelectData as FormComponent>::Action,
-            impl Wrapper<<SelectData as FormComponent>::Action>,
+            FormAction<<SelectData as FormComponent>::Action>,
+            impl Wrapper<FormAction<<SelectData as FormComponent>::Action>>,
             (),
         >,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::Res>> {
         let screen = match form_result {
             Selection::QuickConnect => NextScreen::AuthQuickConnectFetch {
-                state: state.state.clone(),
-                out: state.client_out.clone(),
-                client: state.client.clone(),
-                server_id: state.server_id.clone(),
+                state: state.data.state.clone(),
+                out: state.data.client_out.clone(),
+                client: state.data.client.clone(),
+                server_id: state.data.server_id.clone(),
             },
             Selection::Password => NextScreen::AuthPassword {
-                state: state.state.clone(),
-                out: state.client_out.clone(),
-                client: state.client.clone(),
-                server_id: state.server_id.clone(),
+                state: state.data.state.clone(),
+                out: state.data.client_out.clone(),
+                client: state.data.client.clone(),
+                server_id: state.data.server_id.clone(),
             },
         };
         Ok(Some(Navigation::Push(screen)))

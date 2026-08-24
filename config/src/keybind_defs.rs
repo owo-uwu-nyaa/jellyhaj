@@ -41,6 +41,7 @@ pub enum EntryCommand {
     UnsetWatched,
     CopyId,
     InspectData,
+    EditMetadata,
 }
 
 #[derive(Debug, Clone, Copy, Command, Valuable)]

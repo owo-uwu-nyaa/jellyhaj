@@ -355,6 +355,30 @@ where
         }
         Ok(res)
     }
+    pub async fn map_collect<R>(self, mut f: impl FnMut(T) -> R) -> StdResult<Vec<R>, E> {
+        let mut this = std::pin::pin!(self);
+        let mut res = match this.as_mut().next().await {
+            None => return Ok(vec![]),
+            Some(Err(e)) => return Err(e),
+            Some(Ok(v)) => {
+                let mut res = if let Some(total) = v.total_record_count {
+                    Vec::with_capacity(usize::try_from(total).unwrap_or(0))
+                } else {
+                    Vec::new()
+                };
+                v.items.into_iter().map(&mut f).for_each(|v| res.push(v));
+                res
+            }
+        };
+        while let Some(next) = this.as_mut().next().await {
+            next?
+                .items
+                .into_iter()
+                .map(&mut f)
+                .for_each(|v| res.push(v));
+        }
+        Ok(res)
+    }
     #[must_use]
     pub const fn seen(&self) -> u32 {
         self.seen

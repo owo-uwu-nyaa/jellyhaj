@@ -56,6 +56,7 @@ color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
 jellyhaj-context = { version = "0.1.0", path = "context" }
+jellyhaj-metadata-editor-view = { version = "0.1.0", path = "views/metadata-editor" }
 
 [features]
 attach = ["dep:libc"]
@@ -108,7 +109,7 @@ members = [
   "views/item-details",
   "views/library",
   "views/log",
-  "views/login",
+  "views/login", "views/metadata-editor",
   "views/player",
   "views/quick-connect",
   "views/refresh-item",

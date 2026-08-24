@@ -297,12 +297,25 @@ pub struct DynamicSelection {
 }
 
 impl DynamicSelection {
+    #[must_use]
+    pub const fn new(optons: Vec<String>) -> Self {
+        Self { optons, cur: 0 }
+    }
+
     fn max_len(&self) -> u16 {
         let max: usize = self.optons.iter().map(String::len).max().unwrap_or(0);
         max.try_into().expect("option length to long")
     }
     fn len(&self) -> u16 {
         self.optons.len().try_into().expect("to many options")
+    }
+    pub fn add_and_set_option(&mut self, new_option: String) {
+        self.cur = self.optons.len();
+        self.optons.push(new_option);
+    }
+    #[must_use]
+    pub fn get(&self) -> &String {
+        &self.optons[self.cur]
     }
 }
 

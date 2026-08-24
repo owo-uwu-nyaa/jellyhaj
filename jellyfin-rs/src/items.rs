@@ -139,6 +139,16 @@ pub struct GetItemsQuery<'a> {
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GetGenreQuery<'a> {
+    pub start_index: Option<u32>,
+    pub limit: Option<u32>,
+    pub enable_images: Option<bool>,
+    pub enable_image_types: Option<&'a str>,
+    pub image_type_limit: Option<u32>,
+}
+
+#[derive(Debug, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetResumeQuery<'a> {
     pub user_id: Option<&'a str>,
     pub start_index: Option<u32>,
@@ -366,8 +376,9 @@ pub struct Studio {
 pub struct People {
     pub id: String,
     pub name: String,
-    pub primary_image_tag: Option<String>,
     pub role: Option<String>,
+    #[serde(default)]
+    pub image_tags: HashMap<ImageType, String>,
     #[serde(rename = "Type")]
     pub p_type: String,
 }
@@ -378,6 +389,8 @@ pub struct People {
 pub struct GenreItem {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub image_tags: HashMap<ImageType, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -428,7 +441,7 @@ pub struct ParentalRatingOption {
 pub struct Country {
     pub name: String,
     pub display_name: String,
-    pub two_letter_isoregion_name: String,
+    pub two_letter_isoregion_name: Option<String>,
     #[serde(rename = "ThreeLetterISORegionName")]
     pub three_letter_iso_region_name: String,
 }
@@ -452,11 +465,20 @@ pub struct Culture {
 #[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub struct MetadataEditor {
     #[serde(default)]
-    parental_rating_options: Vec<ParentalRatingOption>,
+    pub parental_rating_options: Vec<ParentalRatingOption>,
     #[serde(default)]
-    countries: Vec<Country>,
+    pub countries: Vec<Country>,
     #[serde(default)]
-    cultures: Vec<Culture>,
+    pub cultures: Vec<Culture>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
+#[serde(rename_all = "PascalCase")]
+pub struct MetadataUpdate {
+    pub name: String,
+    pub original_title: String,
+    pub sort_name: String,
 }
 
 impl JellyfinClient {
@@ -483,6 +505,14 @@ impl JellyfinClient {
         query: &GetItemsQuery<'_>,
     ) -> Result<JsonResponse<JellyfinVec<MediaItem>>> {
         self.send_request_json(self.get("/Items", query)?.empty_body()?)
+            .await
+    }
+
+    pub async fn get_genre_items(
+        &self,
+        query: &GetGenreQuery<'_>,
+    ) -> Result<JsonResponse<JellyfinVec<GenreItem>>> {
+        self.send_request_json(self.get("/Genres", query)?.empty_body()?)
             .await
     }
 
@@ -672,6 +702,20 @@ impl JellyfinClient {
             .empty_body()?,
         )
         .await
+    }
+    pub async fn update_item(&self, item_id: &str, new_metadata: &MetadataUpdate) -> Result<()> {
+        self.send_request(
+            self.post(
+                |prefix: &mut String| {
+                    prefix.push_str("/Items/");
+                    prefix.push_str(item_id);
+                },
+                NoQuery,
+            )?
+            .json_body(new_metadata)?,
+        )
+        .await?;
+        Ok(())
     }
 }
 

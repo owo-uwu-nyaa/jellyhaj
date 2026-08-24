@@ -1,11 +1,14 @@
 [package]
-name = "metadata-editor"
+name = "jellyhaj-metadata-editor-widget"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
+color-eyre.workspace = true
+jellyfin = { version = "0.1.4", path = "../../jellyfin-rs", features = ["valuable"] }
+jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
+jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
 valuable.workspace = true
 

@@ -8,15 +8,16 @@ use jellyhaj_core::{
     state::{ClientOut, LoginState, Navigation, NextScreen},
 };
 use jellyhaj_form_widget::{
+    FormAction,
     button::Button,
-    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     secret_field::SecretField,
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, RenderFlag, Result, Wrapper,
     mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
     outer::{Named, UnwrapWidget},
 };
@@ -36,23 +37,24 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
     type Res = Navigation;
 
     fn map(
-        state: &PasswordData,
+        state: &mut Form<PasswordData>,
         _: <PasswordData as FormComponent>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            <PasswordData as FormComponent>::Action,
-            impl Wrapper<<PasswordData as FormComponent>::Action>,
+            FormAction<<PasswordData as FormComponent>::Action>,
+            impl Wrapper<FormAction<<PasswordData as FormComponent>::Action>>,
             (),
         >,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::Res>> {
         let mut login_state = LoginState {
-            server_url: state.server_url.clone(),
-            username: state.username.text.clone(),
+            server_url: state.data.server_url.clone(),
+            username: state.data.username.text.clone(),
             password: String::new(),
             passwort_cmd: Vec::new(),
         };
-        if state.use_password_cmd {
-            match serde_json::from_str(&state.password_cmd.text) {
+        if state.data.use_password_cmd {
+            match serde_json::from_str(&state.data.password_cmd.text) {
                 Ok(v) => login_state.passwort_cmd = v,
                 Err(e) => {
                     return Ok(Some(Navigation::Push(NextScreen::Error(
@@ -61,13 +63,13 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
                 }
             }
         } else {
-            login_state.password.clone_from(&state.password.secret);
+            login_state.password.clone_from(&state.data.password.secret);
         }
         Ok(Some(Navigation::Push(NextScreen::AuthPasswordFetch {
             state: login_state,
-            out: state.client_out.clone(),
-            client: state.client.clone(),
-            server_id: state.server_id.clone(),
+            out: state.data.client_out.clone(),
+            client: state.data.client.clone(),
+            server_id: state.data.server_id.clone(),
         })))
     }
 }

@@ -110,11 +110,8 @@ where
         with: W,
     ) -> T {
         let index = this.index;
-        base_index += self[0..index]
-            .iter()
-            .map(FormComponent::total_size)
-            .sum::<usize>();
-        self[base_index].with_selection(base_index, &this.inner, with)
+        base_index += index_offset(self, index);
+        self[index].with_selection(base_index, &this.inner, with)
     }
 
     fn with_selection_mut<T, W: WithSelectionMut<Self::AR, T>>(
@@ -124,11 +121,8 @@ where
         with: W,
     ) -> T {
         let index = this.index;
-        base_index += self[0..index]
-            .iter()
-            .map(FormComponent::total_size)
-            .sum::<usize>();
-        self[base_index].with_selection_mut(base_index, &mut this.inner, with)
+        base_index += index_offset(self, index);
+        self[index].with_selection_mut(base_index, &mut this.inner, with)
     }
 
     fn with_selection_mut_cx<R: 'static, T, W: WithSelectionMutCX<R, Self::AR, T>>(
@@ -140,7 +134,7 @@ where
     ) -> T {
         let index = this.index;
         base_index += index_offset(self, index);
-        self[base_index].with_selection_mut_cx(
+        self[index].with_selection_mut_cx(
             base_index,
             &mut this.inner,
             cx.wrap_with(VecActionWrapper { index }),
@@ -161,7 +155,7 @@ where
             let total_size = inner.total_size();
             if rel_index < total_size {
                 let mut res = VecSelector {
-                    index,
+                    index: i,
                     inner: Default::default(),
                 };
                 inner.with_index_mut(

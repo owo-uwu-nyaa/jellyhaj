@@ -127,6 +127,7 @@ w = "set-watched"
 u = "unset-watched"
 "C-i" = "copy-id"
 I = "inspect-data"
+e = "edit-metadata"
 
 [template.g]
 "C-A-l" = "logout"

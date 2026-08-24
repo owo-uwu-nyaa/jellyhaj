@@ -8,14 +8,15 @@ use jellyhaj_core::{
 };
 use jellyhaj_fetch_view::make_nav_fetch;
 use jellyhaj_form_widget::{
+    FormAction,
     button::Button,
-    form::{FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
     form_widget,
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    WidgetContext, Wrapper,
+    RenderFlag, WidgetContext, Wrapper,
     outer::{Named, OuterWidget, UnwrapWidget},
     valuable::Valuable,
 };
@@ -37,18 +38,19 @@ impl FormResultMapper<QuickConnect> for Mapper {
     type Res = Navigation;
 
     fn map(
-        state: &QuickConnect,
+        state: &mut Form<QuickConnect>,
         form_result: <QuickConnect as FormComponent>::AR,
         _cx: WidgetContext<
             '_,
-            <QuickConnect as FormComponent>::Action,
-            impl Wrapper<<QuickConnect as FormComponent>::Action>,
+            FormAction<<QuickConnect as FormComponent>::Action>,
+            impl Wrapper<FormAction<<QuickConnect as FormComponent>::Action>>,
             (),
         >,
+        _render_flag: &mut RenderFlag,
     ) -> jellyhaj_widgets_core::Result<Option<Self::Res>> {
         let Action::Login = form_result;
         Ok(Some(Navigation::Replace(QuickConnectAuth(
-            state.code.text.clone(),
+            state.data.code.text.clone(),
         ))))
     }
 }

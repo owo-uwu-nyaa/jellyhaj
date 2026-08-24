@@ -6,14 +6,15 @@ use jellyhaj_core::{
     state::{ClientOut, LoginState, Navigation, NextScreen},
 };
 use jellyhaj_form_widget::{
+    FormAction,
     button::Button,
-    form::{FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
     form_widget,
     text_field::TextField,
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidgetBase, Result, Wrapper,
+    ContextRef, JellyhajWidgetBase, RenderFlag, Result, Wrapper,
     mapper::{ActionMapper, ActionMapperBase, ActionMapperWidget},
     outer::{Named, UnwrapWidget},
 };
@@ -33,23 +34,24 @@ impl FormResultMapper<ServerData> for ServerResultMapper {
     type Res = Navigation;
 
     fn map(
-        state: &ServerData,
+        state: &mut Form<ServerData>,
         _form_result: <ServerData as FormComponent>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            <ServerData as FormComponent>::Action,
-            impl Wrapper<<ServerData as FormComponent>::Action>,
+            FormAction<<ServerData as FormComponent>::Action>,
+            impl Wrapper<FormAction<<ServerData as FormComponent>::Action>>,
             (),
         >,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::Res>> {
         Ok(Some(Navigation::Push(NextScreen::ConnectToServer {
             state: LoginState {
-                server_url: state.server_url.text.clone(),
-                username: state.state.username.clone(),
-                password: state.state.password.clone(),
-                passwort_cmd: state.state.passwort_cmd.clone(),
+                server_url: state.data.server_url.text.clone(),
+                username: state.data.state.username.clone(),
+                password: state.data.state.password.clone(),
+                passwort_cmd: state.data.state.passwort_cmd.clone(),
             },
-            out: state.client_out.clone(),
+            out: state.data.client_out.clone(),
         })))
     }
 }

@@ -3,12 +3,12 @@ use std::{convert::Infallible, fmt::Debug};
 use jellyfin::items::{RefreshItemQuery, RefreshMode};
 use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_form_widget::{
-    Selection,
+    FormAction, Selection,
     button::{ActionCreator, Button},
-    form::{FormResultMapper, component::FormComponent},
+    form::{Form, FormResultMapper, component::FormComponent},
     form_widget,
 };
-use jellyhaj_widgets_core::{Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{RenderFlag, Result, WidgetContext, Wrapper};
 use valuable::Valuable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Selection, Valuable)]
@@ -49,19 +49,20 @@ impl FormResultMapper<RefreshItem> for RefreshItemResultMapper {
     type Res = Navigation;
 
     fn map(
-        state: &RefreshItem,
+        state: &mut Form<RefreshItem>,
         form_result: <RefreshItem as FormComponent>::AR,
         _cx: WidgetContext<
             '_,
-            <RefreshItem as FormComponent>::Action,
-            impl Wrapper<<RefreshItem as FormComponent>::Action>,
+            FormAction<<RefreshItem as FormComponent>::Action>,
+            impl Wrapper<FormAction<<RefreshItem as FormComponent>::Action>>,
             (),
         >,
+        _render_flag: &mut RenderFlag,
     ) -> Result<Option<Self::Res>> {
         let FormResult::Submit = form_result;
         Ok(Some(Navigation::Replace(NextScreen::DoRefreshItem {
-            id: state.id.clone(),
-            query: state.to_query(),
+            id: state.data.id.clone(),
+            query: state.data.to_query(),
         })))
     }
 }

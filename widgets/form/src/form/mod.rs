@@ -1,7 +1,7 @@
 pub mod component;
 pub mod helpers;
 
-use std::{convert::Infallible, fmt::Debug, marker::PhantomData, ops::ControlFlow};
+use std::{cmp::Ordering, convert::Infallible, fmt::Debug, marker::PhantomData, ops::ControlFlow};
 
 use jellyhaj_core::{CommandMapper, keybinds::FormCommand, state::Navigation};
 use jellyhaj_widgets_core::{
@@ -28,9 +28,15 @@ use color_eyre::Result;
 pub trait FormResultMapper<S: FormData> {
     type Res: Debug;
     fn map(
-        state: &S,
-        form_result: S::AR,
-        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, ()>,
+        state: &mut Form<S>,
+        form_result: <S as FormComponent>::AR,
+        cx: WidgetContext<
+            '_,
+            FormAction<<S as FormComponent>::Action>,
+            impl Wrapper<FormAction<<S as FormComponent>::Action>>,
+            (),
+        >,
+        render_flag: &mut jellyhaj_widgets_core::RenderFlag,
     ) -> Result<Option<Self::Res>>;
 }
 
@@ -39,9 +45,10 @@ impl<S: FormData> FormResultMapper<S> for IdFormResultMapper {
     type Res = S::AR;
 
     fn map(
-        _state: &S,
+        _state: &mut Form<S>,
         form_result: S::AR,
-        cx: WidgetContext<'_, S::Action, impl Wrapper<S::Action>, ()>,
+        cx: WidgetContext<'_, FormAction<S::Action>, impl Wrapper<FormAction<S::Action>>, ()>,
+        _render_flag: &mut jellyhaj_widgets_core::RenderFlag,
     ) -> Result<Option<Self::Res>> {
         Ok(Some(form_result))
     }
@@ -77,6 +84,64 @@ pub struct Form<Data: FormData> {
     pub data: Data,
     store: Vec<u16>,
     offset: u16,
+}
+
+impl<Data: FormData> Form<Data> {
+    pub fn up<R: 'static>(
+        &mut self,
+        cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
+        render_flag: &mut RenderFlag,
+    ) -> Result<()> {
+        let start = Data::index(&self.data, &self.sel);
+        let mut current = start;
+        let index = loop {
+            current = current
+                .checked_sub(1)
+                .unwrap_or_else(|| self.data.total_size().strict_sub(1));
+            if self.data.show_if(current) {
+                break current;
+            } else if current == start {
+                panic!("all form other than the current are hidden")
+            }
+        };
+        self.data.with_index_mut(
+            0,
+            &mut self.sel,
+            cx.wrap_with(FormAction::Inner),
+            index,
+            SelectionDefault,
+        )?;
+        trace!(selector=?&self.sel, "form moved up");
+        render_flag.set();
+        Ok(())
+    }
+
+    pub fn down<R: 'static>(
+        &mut self,
+        cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
+        render_flag: &mut RenderFlag,
+    ) -> Result<()> {
+        let start = self.data.index(&self.sel);
+        let mut current = start;
+        let index = loop {
+            current = current.strict_add(1) % self.data.total_size();
+            if self.data.show_if(current) {
+                break current;
+            } else if current == start {
+                panic!("all form other than the current are hidden")
+            }
+        };
+        self.data.with_index_mut(
+            0,
+            &mut self.sel,
+            cx.wrap_with(FormAction::Inner),
+            index,
+            SelectionDefault,
+        )?;
+        trace!(selector=?&self.sel, "form moved down");
+        render_flag.set();
+        Ok(())
+    }
 }
 
 static FORM_FIELDS: &[NamedField] = &[NamedField::new("sel"), NamedField::new("data")];
@@ -170,47 +235,11 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
             } else {
                 match action {
                     FormAction::Up => {
-                        let start = Data::index(&self.data, &self.sel);
-                        let mut current = start;
-                        let index = loop {
-                            current = current
-                                .checked_sub(1)
-                                .unwrap_or_else(|| self.data.total_size().strict_sub(1));
-                            if self.data.show_if(current) {
-                                break current;
-                            } else if current == start {
-                                panic!("all form other than the current are hidden")
-                            }
-                        };
-                        self.data.with_index_mut(
-                            0,
-                            &mut self.sel,
-                            cx.wrap_with(FormAction::Inner),
-                            index,
-                            SelectionDefault,
-                        )?;
-                        render_flag.set();
+                        self.up(cx, render_flag)?;
                         Ok(None)
                     }
                     FormAction::Down => {
-                        let start = self.data.index(&self.sel);
-                        let mut current = start;
-                        let index = loop {
-                            current = current.strict_add(1) % self.data.total_size();
-                            if self.data.show_if(current) {
-                                break current;
-                            } else if current == start {
-                                panic!("all form other than the current are hidden")
-                            }
-                        };
-                        self.data.with_index_mut(
-                            0,
-                            &mut self.sel,
-                            cx.wrap_with(FormAction::Inner),
-                            index,
-                            SelectionDefault,
-                        )?;
-                        render_flag.set();
+                        self.down(cx, render_flag)?;
                         Ok(None)
                     }
 
@@ -229,8 +258,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
             None => None,
             Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
             Some(ControlFlow::Continue(v)) => {
-                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner).with_cx(&()))?
-                    .map(ControlFlow::Continue)
+                Mapper::map(self, v, cx.with_cx(&()), render_flag)?.map(ControlFlow::Continue)
             }
         })
     }
@@ -312,8 +340,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
             None => None,
             Some(ControlFlow::Break(v)) => Some(ControlFlow::Break(v)),
             Some(ControlFlow::Continue(v)) => {
-                Mapper::map(&self.data, v, cx.wrap_with(FormAction::Inner).with_cx(&()))?
-                    .map(ControlFlow::Continue)
+                Mapper::map(self, v, cx.with_cx(&()), render_flag)?.map(ControlFlow::Continue)
             }
         })
     }
@@ -384,6 +411,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
     }
 }
 
+#[inline(never)]
 fn find_index(store: &[u16], y: u16) -> usize {
     let mut last = u16::MAX;
     let mut index = 0;
@@ -392,12 +420,12 @@ fn find_index(store: &[u16], y: u16) -> usize {
         last = *v;
         res
     }) {
-        if v > y {
-            return index;
-        } else if v == y {
-            return i;
-        } else {
-            index = i;
+        match v.cmp(&y) {
+            Ordering::Less => index = i,
+            Ordering::Equal => return i,
+            Ordering::Greater => {
+                return index;
+            }
         }
     }
     index
