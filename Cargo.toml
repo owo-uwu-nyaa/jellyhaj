@@ -12,6 +12,7 @@ either = {workspace = true}
 futures-util = {workspace = true}
 image = {workspace = true}
 jellyfin = {path = "jellyfin-rs"}
+jellyhaj-context = {path = "context", version = "0.1.0"}
 jellyhaj-core = {path = "jellyhaj-core"}
 jellyhaj-error-view = {path = "views/error", version = "0.1.0"}
 jellyhaj-event-listener = {path = "event-listener", version = "0.1.0"}
@@ -25,6 +26,7 @@ jellyhaj-library-view = {path = "views/library", version = "0.1.0"}
 jellyhaj-loading-widget = {path = "widgets/loading", version = "0.1.0"}
 jellyhaj-log-view = {path = "views/log", version = "0.1.0"}
 jellyhaj-login-view = {path = "views/login", version = "0.1.0"}
+jellyhaj-metadata-editor-view = {path = "views/metadata-editor", version = "0.1.0"}
 jellyhaj-player-view = {path = "views/player", version = "0.1.0"}
 jellyhaj-quick-connect-view = {path = "views/quick-connect", version = "0.1.0"}
 jellyhaj-refresh-item-view = {path = "views/refresh-item", version = "0.1.0"}
@@ -55,8 +57,6 @@ clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
-jellyhaj-context = { version = "0.1.0", path = "context" }
-jellyhaj-metadata-editor-view = { version = "0.1.0", path = "views/metadata-editor" }
 
 [features]
 attach = ["dep:libc"]
@@ -85,7 +85,8 @@ nix = {features = ["process", "signal"], workspace = true}
 [workspace]
 members = [
   "async-task",
-  "config", "context",
+  "config",
+  "context",
   "event-listener",
   "image-cache",
   "jellyfin-rs",
@@ -109,7 +110,8 @@ members = [
   "views/item-details",
   "views/library",
   "views/log",
-  "views/login", "views/metadata-editor",
+  "views/login",
+  "views/metadata-editor",
   "views/player",
   "views/quick-connect",
   "views/refresh-item",
@@ -132,7 +134,8 @@ members = [
   "widgets/library",
   "widgets/loading",
   "widgets/log",
-  "widgets/login", "widgets/metadata-editor",
+  "widgets/login",
+  "widgets/metadata-editor",
   "widgets/player",
   "widgets/refresh-item",
   "widgets/stats",

@@ -26,13 +26,13 @@ use jellyhaj_widgets_core::{
 use valuable::Valuable;
 
 #[derive(Debug, Clone, Copy)]
-pub struct Get;
+struct Get;
 impl From<Infallible> for Get {
     fn from(_: Infallible) -> Self {
         unreachable!()
     }
 }
-pub struct RequestMapper;
+struct RequestMapper;
 impl FormResultMapper<HttpClientData> for RequestMapper {
     type Res = Navigation;
 
@@ -55,7 +55,7 @@ impl FormResultMapper<HttpClientData> for RequestMapper {
 
 #[derive(Valuable)]
 #[form_widget("http client", Get, RequestMapper)]
-pub struct HttpClientData {
+struct HttpClientData {
     #[form(descr = "Url")]
     url: TextField,
     #[form(descr = "GET")]
@@ -66,7 +66,7 @@ pub struct HttpClientData {
 
 impl HttpClientData {
     #[must_use]
-    pub fn new(device_id: String) -> Self {
+    fn new(device_id: String) -> Self {
         Self {
             url: TextField::new("/".to_string()),
             get: Button::new(Get),
@@ -75,7 +75,7 @@ impl HttpClientData {
     }
 }
 
-pub struct Name;
+struct Name;
 impl Named for Name {
     const NAME: &str = "http-client";
 }
