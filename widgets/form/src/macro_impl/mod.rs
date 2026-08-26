@@ -7,6 +7,7 @@ pub mod exports {
     pub use std::{
         default::Default,
         fmt::Debug,
+        option::Option,
         panic,
         primitive::{bool, str, usize},
     };

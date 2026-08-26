@@ -72,12 +72,12 @@ impl Component {
             }
         });
         quote! {
-            fn with_selection<T, W: #with_selection<Self::AR, T>>(
+            fn with_selection< W: #with_selection<Self::AR>>(
                 &self,
                 base_index: #exports::usize,
                 this: &Self::Selector,
                 with: W,
-            ) -> T {
+            ) -> #exports::bool {
                 match this {
                     #(#pats),*
                 }
@@ -119,12 +119,12 @@ impl Component {
             }
         });
         quote! {
-            fn with_selection_mut<T, W: #with_selection_mut<Self::AR, T>>(
+            fn with_selection_mut<W: #with_selection_mut<Self::AR>>(
                 &mut self,
                 base_index: #exports::usize,
                 this: &mut Self::Selector,
                 with: W,
-            ) -> T {
+            ) {
                 match this {
                     #(#pats),*
                 }
@@ -169,13 +169,13 @@ impl Component {
             }
         });
         quote! {
-            fn with_selection_mut_cx<R: 'static, T, W: #with_selection_mut_cx<R, Self::AR, T>>(
+            fn with_selection_mut_cx<R: 'static, T: #exports::Default, W: #with_selection_mut_cx<R, Self::AR, T>>(
                 &mut self,
                 base_index: #exports::usize,
                 this: &mut Self::Selector,
                 cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
                 with: W,
-            ) -> T {
+            ) -> #exports::Result<T> {
                 match this {
                     #(#pats),*
                 }
@@ -425,7 +425,7 @@ impl Component {
                 action: Self::Action,
                 cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
                 with: W,
-            ) -> T{
+            ) -> #exports::Result<#exports::Option<T>>{
                 match action {
                     #(#pats),*
                 }

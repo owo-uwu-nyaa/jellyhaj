@@ -32,27 +32,35 @@ impl<Data: FormData> Form<Data> {
     }
 }
 
-pub trait WithSelection<AR: Debug, T> {
+/**
+ * Get information about currently selected item.
+ * Result should default to false
+*/
+pub trait WithSelection<AR: Debug> {
     fn with<I: FormItemBase<AR>>(
         self,
         sel: &I::SelectionInner,
         state: &I,
         name: &'static str,
         index: usize,
-    ) -> T;
+    ) -> bool;
 }
 
-pub trait WithSelectionMut<AR: Debug, T> {
+/**
+ * Modify the currently selected item.
+ * If the current item does not exist just do nothing
+ *  */
+pub trait WithSelectionMut<AR: Debug> {
     fn with_mut<I: FormItemBase<AR>>(
         self,
         sel: &mut I::SelectionInner,
         state: &mut I,
         name: &'static str,
         index: usize,
-    ) -> T;
+    );
 }
 
-pub trait WithSelectionMutCX<R: 'static, AR: Debug, T> {
+pub trait WithSelectionMutCX<R: 'static, AR: Debug, T: Default> {
     fn with_mut<I: FormItem<R, AR>>(
         self,
         sel: &mut I::SelectionInner,
@@ -60,7 +68,7 @@ pub trait WithSelectionMutCX<R: 'static, AR: Debug, T> {
         state: &mut I,
         name: &'static str,
         index: usize,
-    ) -> T;
+    ) -> Result<T>;
 }
 
 pub trait WithIterItems<R: 'static, AR: Debug> {
@@ -100,12 +108,12 @@ pub trait WithActionMut<R: 'static, AR: Debug, T> {
         cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
         state: &mut I,
         index: usize,
-    ) -> T;
+    ) -> Result<Option<T>>;
 }
 
 pub(crate) struct AcceptsTextInput;
 
-impl<AR: Debug> WithSelection<AR, bool> for AcceptsTextInput {
+impl<AR: Debug> WithSelection<AR> for AcceptsTextInput {
     #[instrument(skip(self, state), name = "accepts_text_input", level = "trace", ret)]
     fn with<I: FormItemBase<AR>>(
         self,
@@ -123,7 +131,7 @@ pub(crate) struct ApplyChar<'r> {
     pub(crate) render_flag: &'r mut RenderFlag,
 }
 
-impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyChar<'_> {
+impl<AR: Debug> WithSelectionMut<AR> for ApplyChar<'_> {
     #[instrument(
         skip(self, sel, state),
         name = "apply_char",
@@ -149,7 +157,7 @@ pub(crate) struct ApplyText<'r> {
     pub(crate) render_flag: &'r mut RenderFlag,
 }
 
-impl<AR: Debug> WithSelectionMut<AR, ()> for ApplyText<'_> {
+impl<AR: Debug> WithSelectionMut<AR> for ApplyText<'_> {
     #[instrument(skip(self, sel, state), name = "apply_text", level = "trace", fields(text = self.text.as_str()))]
     fn with_mut<I: FormItemBase<AR>>(
         self,
@@ -168,7 +176,7 @@ pub(crate) struct ApplyMovement<'r> {
     pub(crate) render_flag: &'r mut RenderFlag,
 }
 
-impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Option<ControlFlow<Navigation, AR>>>
     for ApplyMovement<'_>
 {
     #[instrument(skip(self, cx, state), name = "apply_movement", level = "trace", fields(action = ?self.action), ret, err)]
@@ -192,9 +200,7 @@ impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<
 
 pub(crate) struct ApplyAction<'r>(pub(crate) &'r mut RenderFlag);
 
-impl<R: 'static, AR: Debug> WithActionMut<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
-    for ApplyAction<'_>
-{
+impl<R: 'static, AR: Debug> WithActionMut<R, AR, ControlFlow<Navigation, AR>> for ApplyAction<'_> {
     #[instrument(
         skip(self, cx, state),
         name = "apply_action",
@@ -219,7 +225,7 @@ impl<R: 'static, AR: Debug> WithActionMut<R, AR, Result<Option<ControlFlow<Navig
 
 pub(crate) struct AcceptsMovementAction;
 
-impl<AR: Debug> WithSelection<AR, bool> for AcceptsMovementAction {
+impl<AR: Debug> WithSelection<AR> for AcceptsMovementAction {
     #[instrument(
         skip(self, state),
         name = "accepts_movement_action",
@@ -268,7 +274,7 @@ pub(crate) struct ClickCurrent<'s> {
     pub(crate) render_flag: &'s mut RenderFlag,
 }
 
-impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<Option<ControlFlow<Navigation, AR>>>>
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Option<ControlFlow<Navigation, AR>>>
     for &mut ClickCurrent<'_>
 {
     #[instrument(
@@ -473,7 +479,7 @@ pub(crate) struct Pass2<'s> {
     pub(crate) offset: u16,
 }
 
-impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, Result<()>> for Pass2<'_> {
+impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, ()> for Pass2<'_> {
     #[instrument(
         skip(self, cx, state),
         name = "pass2",

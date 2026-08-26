@@ -8,7 +8,10 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{
+        Form, FormCommandMapper, FormResultMapper,
+        component::{ComponentVec, FormComponent},
+    },
     form_component, form_widget,
     label::DynamicLabel,
     selection::DynamicSelection,
@@ -91,7 +94,7 @@ pub struct GenreSelection {
     #[form(descr = "Current Genres")]
     current_sep: Seperator,
     #[form(flatten)]
-    current: Vec<CurrentGenre>,
+    current: ComponentVec<CurrentGenre>,
     #[form(skip)]
     #[valuable(skip)]
     new_genre_sender: Option<Arc<dyn ErasedSubmitter<String>>>,
@@ -111,12 +114,9 @@ impl GenreSelection {
             add: Button::new(GenreDo::Select),
             select: Button::new(GenreDo::Add),
             current_sep: Seperator,
-            current: selected
-                .into_iter()
-                .map(|genre| CurrentGenre {
-                    name: DynamicLabel::new(genre),
-                })
-                .collect(),
+            current: ComponentVec::new_with(selected.into_iter().map(|genre| CurrentGenre {
+                name: DynamicLabel::new(genre),
+            })),
             new_genre_sender: None,
             result_sender,
         }

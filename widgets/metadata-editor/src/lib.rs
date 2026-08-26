@@ -11,7 +11,10 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::{Button, DynamicButton},
-    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{
+        Form, FormCommandMapper, FormResultMapper,
+        component::{ComponentVec, FormComponent},
+    },
     form_component, form_widget,
     seperator::Seperator,
     text_field::{TextField, TextFieldDynamic},
@@ -33,7 +36,7 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
     fn map(
         state: &mut Form<ModifyMetadata>,
         form_result: <ModifyMetadata as FormComponent>::AR,
-        cx: WidgetContext<
+        _cx: WidgetContext<
             '_,
             FormAction<<ModifyMetadata as FormComponent>::Action>,
             impl Wrapper<FormAction<<ModifyMetadata as FormComponent>::Action>>,
@@ -67,7 +70,6 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
                     .collect(),
             }))),
             MetadataActions::RemoveGenre { id } => {
-                state.down(cx, render_flag)?;
                 state.data.genres.retain(|genre| genre.button.name != id);
                 render_flag.set();
                 Ok(None)
@@ -104,7 +106,7 @@ pub struct ExternalIds {
     #[form(descr = "External Ids")]
     seperator: Seperator,
     #[form(flatten)]
-    ids: Vec<ExternalId>,
+    ids: ComponentVec<ExternalId>,
 }
 
 #[form_component(MetadataActions)]
@@ -130,7 +132,7 @@ pub struct ModifyMetadata {
     #[form(descr = "Genres")]
     gen_sep: Seperator,
     #[form(flatten)]
-    genres: Vec<Genre>,
+    genres: ComponentVec<Genre>,
     #[form(descr = "Add genre")]
     add_genre: Button<MetadataActions>,
     #[form(skip)]
