@@ -19,7 +19,7 @@ use ratatui::{
 };
 use spawn::Spawner;
 
-pub trait ErasedWidget<Res: 'static>: Send + 'static {
+pub trait ErasedWidget<Res: 'static>: 'static {
     fn name(&self) -> &'static str;
     fn submit_event(&mut self, event: Event, size: Size) -> Option<WidgetResult<Res>>;
     fn render(&mut self, area: Rect, buffer: &mut Buffer) -> Result<()>;
@@ -36,7 +36,7 @@ struct ErasedWidgetImpl<R: 'static, W: JellyhajWidget<R>> {
     render_flag: RenderFlag,
 }
 
-impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = KeybindAction<A>>>
+impl<R: 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = KeybindAction<A>>>
     ErasedWidget<W::ActionResult> for ErasedWidgetImpl<R, W>
 {
     fn name(&self) -> &'static str {
@@ -143,7 +143,7 @@ impl<R: Send + 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action =
 }
 
 pub(super) fn make_new_erased<
-    R: ContextRef<Spawner> + Send + 'static,
+    R: ContextRef<Spawner> + 'static,
     A: Debug + Send + 'static,
     W: JellyhajWidget<R, Action = KeybindAction<A>>,
 >(
@@ -166,7 +166,7 @@ pub(super) fn make_new_erased<
 
 pub trait ErasedWidgetExt<'w, Res> {
     fn filtered_events(self) -> WidgetEventStream<'w, Res>;
-    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send;
+    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>>;
 }
 
 fn filtered_poll<Res: 'static>(
@@ -188,7 +188,7 @@ impl<'w, Res: 'static> ErasedWidgetExt<'w, Res> for &'w mut dyn ErasedWidget<Res
         WidgetEventStream { inner: self }
     }
 
-    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> + Send {
+    fn next_filtered_event(self) -> impl Future<Output = Option<WidgetResult<Res>>> {
         std::future::poll_fn(move |cx| filtered_poll(self, cx))
     }
 }

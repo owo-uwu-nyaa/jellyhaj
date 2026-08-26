@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     pin::pin,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -152,7 +153,7 @@ impl Interests {
 }
 
 struct CancelSocket {
-    inner: Arc<ManualResetEvent>,
+    inner: Rc<ManualResetEvent>,
 }
 
 impl Drop for CancelSocket {
@@ -163,8 +164,8 @@ impl Drop for CancelSocket {
 
 #[derive(Clone)]
 pub struct JellyfinEventInterests {
-    inner: Arc<Mutex<Interests>>,
-    cancel: Arc<CancelSocket>,
+    inner: Rc<Mutex<Interests>>,
+    cancel: Rc<CancelSocket>,
 }
 
 impl JellyfinEventInterests {
@@ -178,11 +179,11 @@ impl JellyfinEventInterests {
     pub fn new(
         spawn: &Spawner,
         jellyfin: &JellyfinClient,
-        storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+        storage: Rc<tokio::sync::Mutex<SqliteConnection>>,
         store_events: bool,
     ) -> Result<Self> {
         let this = Self {
-            inner: Arc::new(Mutex::new(Interests {
+            inner: Rc::new(Mutex::new(Interests {
                 refresh_progress: HashMap::new(),
                 changed_user_data: HashMap::new(),
                 folder_modified: HashMap::new(),
@@ -190,8 +191,8 @@ impl JellyfinEventInterests {
                 item_removed: HashMap::new(),
                 clean_counter: CLEAN_INTERVAL,
             })),
-            cancel: Arc::new(CancelSocket {
-                inner: Arc::new(ManualResetEvent::new(false)),
+            cancel: Rc::new(CancelSocket {
+                inner: Rc::new(ManualResetEvent::new(false)),
             }),
         };
         let stream = jellyfin.get_socket()?;
@@ -211,10 +212,10 @@ impl JellyfinEventInterests {
 }
 
 async fn poll_socket_cancellable(
-    interests: Arc<Mutex<Interests>>,
+    interests: Rc<Mutex<Interests>>,
     stream: impl Stream<Item = JellyfinMessage>,
-    cancel: Arc<ManualResetEvent>,
-    storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    cancel: Rc<ManualResetEvent>,
+    storage: Rc<tokio::sync::Mutex<SqliteConnection>>,
     store_events: bool,
 ) {
     tokio::select! {
@@ -229,9 +230,9 @@ async fn poll_socket_cancellable(
 
 #[instrument(skip_all)]
 async fn jellyfin_poll_socket(
-    interests: Arc<Mutex<Interests>>,
+    interests: Rc<Mutex<Interests>>,
     stream: impl Stream<Item = JellyfinMessage>,
-    storage: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    storage: Rc<tokio::sync::Mutex<SqliteConnection>>,
     store_events: bool,
 ) {
     let mut stream = pin!(stream);

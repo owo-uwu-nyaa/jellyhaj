@@ -3,18 +3,20 @@ use std::{
     io::{Write, stdout},
     path::PathBuf,
     process::abort,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{Context, OptionExt, Result};
-use crossterm::{ExecutableCommand, terminal::SetTitle};
-use jellyhaj::{AtomicStr, run_app};
+use color_eyre::{
+    Section, SectionExt,
+    eyre::{Context, OptionExt, Result, eyre},
+};
+use crossterm::{ExecutableCommand, style::Stylize, terminal::SetTitle};
+use jellyhaj::run_app;
 #[cfg(unix)]
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal};
 use rayon::ThreadPoolBuilder;
-use tokio_util::sync::CancellationToken;
-use tracing::{error, level_filters::LevelFilter};
+use tracing::{error, error_span, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -170,28 +172,30 @@ fn main() -> Result<()> {
             let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::new().into_hooks();
             eyre_hook.install().expect("installing eyre hook");
             register_signal_handler()?;
-            let cancel = CancellationToken::new();
-            let handler_cancel = cancel.clone();
             std::io::stdout().execute(SetTitle("jellyhaj"))?;
-            let panic_message = Arc::new(AtomicStr::default());
-            let panic_message_storage = panic_message.clone();
+            let (panic_send, panic_recv) = tokio::sync::mpsc::unbounded_channel();
             std::panic::set_hook(Box::new(move |panic| {
-                handler_cancel.cancel();
+                let _ = panic_send.send({
+                    let report = eyre!("Application paniced");
+                    if let Some(payload) = panic.payload_as_str() {
+                        report.section(payload.to_string().header("Panic message"))
+                    } else {
+                        report.section("No panic message".red().bold().header("Panic message"))
+                    }
+                });
                 let report = panic_hook.panic_report(panic);
                 error!("{}", report);
-                panic_message_storage.set(report.to_string());
             }));
             ThreadPoolBuilder::new()
                 .thread_name(|n| format!("tui-worker-{n}"))
                 .build_global()
                 .context("building global thread pool")?;
             jellyhaj_core::term::run_with(|term| {
-                run_app(
-                    term,
-                    cancel,
-                    panic_message,
-                    args.config,
-                    args.use_builtin_config,
+                spawn::run_with_spawner(
+                    move |spawner| run_app(term, spawner, args.config, args.use_builtin_config),
+                    error_span!("jellyhaj"),
+                    "jellyhaj_main",
+                    panic_recv,
                 )
             })
         }

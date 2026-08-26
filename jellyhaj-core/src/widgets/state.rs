@@ -1,9 +1,9 @@
 use std::{
-    cell::UnsafeCell,
+    cell::{RefCell, UnsafeCell},
     convert::Infallible,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::Arc,
+    rc::Rc,
     task::{Context, Poll, ready},
 };
 
@@ -13,7 +13,6 @@ use jellyhaj_widgets_core::{
     async_task::{UnboundedReceiver, UnboundedSender},
 };
 use keybinds::KeybindEvents;
-use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use ratatui::DefaultTerminal;
 use tokio::task::{JoinHandle, coop::poll_proceed};
@@ -44,16 +43,16 @@ pub enum StateValue {
 }
 
 pub struct StateStack {
-    lock: Arc<RwLock<ListAccessToken>>,
-    list: Arc<StateEntry>,
+    lock: Rc<RefCell<ListAccessToken>>,
+    list: Rc<StateEntry>,
 }
 
 pub struct StateStackHandle {
-    inner: Arc<StateStack>,
+    inner: Rc<StateStack>,
 }
 
 impl Deref for StateStackHandle {
-    type Target = Arc<StateStack>;
+    type Target = Rc<StateStack>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -73,7 +72,7 @@ impl StateStackHandle {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(StateStack::new()),
+            inner: Rc::new(StateStack::new()),
         }
     }
 }
@@ -88,7 +87,7 @@ impl StateStack {
     #[instrument(skip_all, level = "trace", name = "StateStack::new()")]
     fn new() -> Self {
         debug!("new state stack");
-        let list = Arc::new(StateEntry {
+        let list = Rc::new(StateEntry {
             list: UnsafeCell::new(ListEntry {
                 next: None,
                 prev: None,
@@ -99,13 +98,13 @@ impl StateStack {
         unsafe {
             let entry = &mut *list.list.get();
             entry.next = Some(list.clone());
-            entry.prev = Some(Arc::downgrade(&list));
+            entry.prev = Some(Rc::downgrade(&list));
         }
 
         let token = ListAccessToken { _evil: () };
         unsafe { inspect_list(&list, &token) };
         Self {
-            lock: Arc::new(RwLock::new(token)),
+            lock: Rc::new(RefCell::new(token)),
             list,
         }
     }
@@ -113,7 +112,7 @@ impl StateStack {
     #[instrument(skip_all, level = "trace")]
     fn destroy(&self) {
         debug!("destroying state stack");
-        let mut guard = self.lock.write();
+        let mut guard = self.lock.borrow_mut();
         let mut entry = self.list.clone();
         unsafe { inspect_list(&entry, &guard) };
         while let Some(new_entry) = {
@@ -126,11 +125,11 @@ impl StateStack {
     }
 
     pub fn push(&self, widget: Erased, widget_creator: WidgetCreator) {
-        let mut token = self.lock.write();
+        let mut token = self.lock.borrow_mut();
         unsafe {
             prepend_element(
                 &self.list,
-                Arc::new_cyclic(|this| {
+                Rc::new_cyclic(|this| {
                     StateEntry::new(StateValue::Suspended(SuspendedInner::new(
                         widget,
                         this.clone(),
@@ -144,21 +143,21 @@ impl StateStack {
     }
     #[must_use]
     pub fn pop(&self) -> StateValue {
-        let mut token = self.lock.write();
+        let mut token = self.lock.borrow_mut();
         let entry = unsafe { self.list.get_list(&token) }
             .prev
             .as_ref()
             .expect("previous should be set while the list is live")
             .upgrade()
             .expect("previous should not be dropped");
-        if Arc::ptr_eq(&self.list, &entry) {
+        if Rc::ptr_eq(&self.list, &entry) {
             StateValue::Empty
         } else {
             unsafe {
                 remove_element(&entry, &mut token);
             }
             unsafe { inspect_list(&self.list, &token) };
-            Arc::into_inner(entry)
+            Rc::into_inner(entry)
                 .expect("should not currently be owned")
                 .value
         }
@@ -166,7 +165,7 @@ impl StateStack {
 
     #[instrument(skip_all, level = "trace")]
     pub fn visit(&self, mut visitor: impl FnMut(&StateValue)) {
-        let token = self.lock.read();
+        let token = self.lock.borrow_mut();
         tracing::trace!("visiting states");
         unsafe { inspect_list(&self.list, &token) };
         let head = &self.list;
@@ -176,7 +175,7 @@ impl StateStack {
                 .next
                 .as_ref()
                 .expect("next should be set while the list is live");
-            if Arc::ptr_eq(current, head) {
+            if Rc::ptr_eq(current, head) {
                 break;
             }
             visitor(&current.value);

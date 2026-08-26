@@ -45,7 +45,7 @@ impl Named for Name {
     const NAME: &str = "log-view";
 }
 
-pub fn render_log(cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static) -> Erased {
+pub fn render_log(cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static) -> Erased {
     let top = Config::get_ref(&cx).keybinds.logger.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(LogWidget::new(), top, Mapper));
     make_new_erased(cx, widget)

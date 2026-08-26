@@ -637,6 +637,7 @@ dependencies = [
  "nom 8.0.0",
  "ratatui-core",
  "serde",
+ "spawn",
  "sqlx",
  "tachyonfx",
  "tokio",
@@ -4252,7 +4253,6 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 

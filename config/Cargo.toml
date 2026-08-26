@@ -15,6 +15,7 @@ nom.workspace = true
 ratatui-core.workspace = true
 tachyonfx.workspace = true
 valuable.workspace = true
+spawn = { version = "0.1.0", path = "../spawn" }
 
 [package]
 edition = "2024"

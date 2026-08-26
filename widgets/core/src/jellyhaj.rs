@@ -34,7 +34,7 @@ impl WidgetTreeVisitor for &mut dyn TreeVisitor {
     }
 }
 
-pub trait JellyhajWidgetBase: Valuable + Send + Sized + 'static {
+pub trait JellyhajWidgetBase: Valuable + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
 

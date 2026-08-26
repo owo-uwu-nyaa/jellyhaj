@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 pub use config::Config;
 pub use image_cache::ImageCache;
@@ -17,8 +17,8 @@ use tokio::sync::Mutex;
 pub use stats_data::{Stats, StatsData};
 
 pub type DBInner = Mutex<SqliteConnection>;
-pub type DB = Arc<DBInner>;
-pub type ImagePicker = Arc<Picker>;
+pub type DB = Rc<DBInner>;
+pub type ImagePicker = Rc<Picker>;
 
 #[derive(Clone)]
 pub struct TuiContext {
@@ -31,7 +31,7 @@ pub struct TuiContext {
     pub mpv_handle: PlayerHandle,
     pub stats: Stats,
     pub spawn: Spawner,
-    pub state: Arc<StateStack>,
+    pub state: Rc<StateStack>,
 }
 
 impl ContextRef<JellyfinClient> for TuiContext {

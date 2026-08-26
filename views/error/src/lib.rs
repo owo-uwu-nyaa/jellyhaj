@@ -39,7 +39,7 @@ impl Named for Name {
 }
 
 pub fn render_error(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static,
     e: &Report,
 ) -> Erased {
     tracing::error!("Error encountered: {e:?}");

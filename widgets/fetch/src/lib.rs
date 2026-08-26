@@ -19,14 +19,14 @@ pub enum FetchAction {
 }
 
 #[derive(Valuable)]
-pub struct FetchWidget<F: Future<Output = Result<Navigation>> + Send + 'static> {
+pub struct FetchWidget<F: Future<Output = Result<Navigation>> + 'static> {
     #[valuable(skip)]
     fut: Option<F>,
     #[valuable(skip)]
     inner: Loading,
 }
 
-impl<F: Future<Output = Result<Navigation>> + Send + 'static> FetchWidget<F> {
+impl<F: Future<Output = Result<Navigation>> + 'static> FetchWidget<F> {
     pub fn new(fut: F, title: impl Into<Cow<'static, str>>) -> Self {
         Self {
             fut: Some(fut),
@@ -35,9 +35,7 @@ impl<F: Future<Output = Result<Navigation>> + Send + 'static> FetchWidget<F> {
     }
 }
 
-impl<F: Future<Output = Result<Navigation>> + Send + 'static> JellyhajWidgetBase
-    for FetchWidget<F>
-{
+impl<F: Future<Output = Result<Navigation>> + 'static> JellyhajWidgetBase for FetchWidget<F> {
     type Action = FetchAction;
 
     type ActionResult = Navigation;
@@ -69,7 +67,7 @@ impl<F: Future<Output = Result<Navigation>> + Send + 'static> JellyhajWidgetBase
     }
 }
 
-impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + Send + 'static>
+impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + 'static>
     JellyhajWidget<R> for FetchWidget<F>
 {
     fn apply_action(

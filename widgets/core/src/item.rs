@@ -11,7 +11,7 @@ use valuable::Valuable;
 use crate::{JellyhajWidgetBase, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper};
 use color_eyre::Result;
 
-pub trait ItemWidgetBase: Valuable + Send + Sized + 'static {
+pub trait ItemWidgetBase: Valuable + Sized + 'static {
     type Action: Debug + Send + 'static;
     type ActionResult: Debug;
 

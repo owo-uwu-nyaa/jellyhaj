@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::ControlFlow, pin::pin, sync::Arc};
+use std::{fmt::Debug, ops::ControlFlow, pin::pin, rc::Rc};
 
 use jellyfin::{
     JellyfinClient, JellyfinVec,
@@ -27,7 +27,7 @@ use jellyhaj_widgets_core::{
 use spawn::Spawner;
 use sqlx::SqliteConnection;
 
-type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
+type DB = Rc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum LibraryAction {

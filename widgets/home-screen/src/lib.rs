@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::ControlFlow, sync::Arc};
+use std::{fmt::Debug, ops::ControlFlow, rc::Rc};
 
 use jellyfin::{JellyfinClient, items::MediaItem, socket::ChangedUserData, user_views::UserView};
 use jellyhaj_core::{
@@ -19,7 +19,7 @@ use spawn::Spawner;
 use sqlx::SqliteConnection;
 use valuable::Valuable;
 
-type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
+type DB = Rc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum HomeScreenAction {

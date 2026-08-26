@@ -24,11 +24,11 @@ use ratatui::{
     widgets::{Block, BorderType, Paragraph, Widget},
 };
 use spawn::Spawner;
-use std::{borrow::Cow, fmt::Debug, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, rc::Rc};
 use tracing::instrument;
 use valuable::Valuable;
 
-type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
+type DB = Rc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug, Clone, Valuable)]
 #[allow(clippy::large_enum_variant)]

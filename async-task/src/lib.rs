@@ -246,7 +246,7 @@ impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_task(
         &self,
-        fut: impl Future<Output = Result<A>> + Send + 'static,
+        fut: impl Future<Output = Result<A>> + 'static,
         span: Span,
         name: &'static str,
     ) {
@@ -272,7 +272,7 @@ impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_task_infallible(
         &self,
-        fut: impl Future<Output = A> + Send + 'static,
+        fut: impl Future<Output = A> + 'static,
         span: Span,
         name: &'static str,
     ) {
@@ -298,7 +298,7 @@ impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_stream(
         &self,
-        stream: impl Stream<Item = Result<A>> + Send + 'static,
+        stream: impl Stream<Item = Result<A>> + 'static,
         span: Span,
         name: &'static str,
     ) {
@@ -329,7 +329,7 @@ impl<A: Send + 'static, W: Wrapper<A>> TaskSubmitterRef<'_, A, W> {
     #[track_caller]
     pub fn spawn_task_suppressed_error(
         &self,
-        fut: impl Future<Output = Result<A>> + Send + 'static,
+        fut: impl Future<Output = Result<A>> + 'static,
         span: Span,
         name: &'static str,
     ) {

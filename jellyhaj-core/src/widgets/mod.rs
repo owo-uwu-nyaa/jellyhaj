@@ -4,7 +4,7 @@ pub mod shaded;
 pub mod state;
 pub mod suspended;
 
-use std::sync::Arc;
+use std::rc::Rc;
 
 pub use erased::*;
 
@@ -45,7 +45,7 @@ pub enum RunResult {
 }
 
 struct DropGuard {
-    inner: Arc<ManualResetEvent>,
+    inner: Rc<ManualResetEvent>,
 }
 
 impl Drop for DropGuard {
@@ -57,4 +57,4 @@ impl Drop for DropGuard {
 
 type Visitor = Box<dyn FnOnce(&dyn Fn(&mut dyn TreeVisitor)) + Send + Sync>;
 
-pub type WidgetCreator = Arc<dyn Fn(NextScreen) -> Erased + Send + Sync>;
+pub type WidgetCreator = Rc<dyn Fn(NextScreen) -> Erased>;

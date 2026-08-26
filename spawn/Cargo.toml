@@ -2,8 +2,7 @@
 color-eyre = {workspace = true}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
-tokio = {features = ["rt", "tracing"], workspace = true}
-tokio-util = {workspace = true}
+tokio = { features = ["macros", "rt", "signal", "sync", "time", "tracing"], workspace = true }
 tracing = {workspace = true}
 
 [package]

@@ -8,6 +8,7 @@ use std::{
     io::Write,
     os::unix::fs::OpenOptionsExt,
     path::Path,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -33,7 +34,7 @@ use spawn::Spawner;
 use sqlx::SqliteConnection;
 use stats_data::{Stats, StatsData};
 
-type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
+type DB = Rc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Clone)]
 pub struct LoginContext {
@@ -41,7 +42,7 @@ pub struct LoginContext {
     pub cache: DB,
     pub spawner: Spawner,
     pub stats: Stats,
-    pub state: Arc<StateStack>,
+    pub state: Rc<StateStack>,
     pub original_login_state: LoginState,
 }
 
@@ -101,7 +102,7 @@ pub async fn login(
     };
     let widget_creator = {
         let cx = cx.clone();
-        Arc::new(move |nav| widget_creator_fn(nav, cx.clone()))
+        Rc::new(move |nav| widget_creator_fn(nav, cx.clone()))
     };
     let out = Arc::new(Mutex::new(None));
     let initial = if let Some(e) = state_err {
@@ -209,7 +210,7 @@ pub fn render_auth_finished(
 }
 
 pub fn render_logout(
-    cx: impl ContextRef<JellyfinClient> + ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+    cx: impl ContextRef<JellyfinClient> + ContextRef<Config> + ContextRef<Spawner> + 'static,
 ) -> Erased {
     let jellyfin = JellyfinClient::get_ref(&cx).clone();
     let fut = async move {

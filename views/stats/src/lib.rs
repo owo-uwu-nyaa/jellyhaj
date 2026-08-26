@@ -33,7 +33,7 @@ impl Named for Name {
 }
 
 pub fn render_stats(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StatsData> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StatsData> + 'static,
 ) -> Erased {
     let top = Config::get_ref(&cx).keybinds.stats.clone();
     let widget = StatsWidget::new(cx.as_ref());

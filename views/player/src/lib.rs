@@ -218,6 +218,6 @@ async fn fetch_series(cx: &JellyfinClient, series_id: &str) -> Result<Vec<MediaI
     Ok(res)
 }
 
-pub fn render_exit<R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static>(cx: R) -> Erased {
+pub fn render_exit<R: ContextRef<Spawner> + ContextRef<Config> + 'static>(cx: R) -> Erased {
     make_new_erased(cx, ExitWidget)
 }

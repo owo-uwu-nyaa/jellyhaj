@@ -1,7 +1,4 @@
-use std::{
-    io::Cursor,
-    sync::{Arc, atomic::Ordering::Relaxed},
-};
+use std::{io::Cursor, rc::Rc, sync::atomic::Ordering::Relaxed};
 
 use bytes::Bytes;
 use color_eyre::{Result, eyre::Context};
@@ -25,7 +22,7 @@ pub struct ParsedImage {
 #[instrument(skip_all)]
 pub async fn get_image(
     key: ImageKey,
-    db: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    db: Rc<tokio::sync::Mutex<SqliteConnection>>,
     jellyfin: JellyfinClient,
     size: Size,
     stats: Stats,
@@ -118,7 +115,7 @@ pub async fn get_image(
 async fn fetch_image(
     key: &ImageKey,
     jellyfin: JellyfinClient,
-    db: Arc<tokio::sync::Mutex<SqliteConnection>>,
+    db: Rc<tokio::sync::Mutex<SqliteConnection>>,
 ) -> Result<Bytes> {
     let image = jellyfin
         .get_image(

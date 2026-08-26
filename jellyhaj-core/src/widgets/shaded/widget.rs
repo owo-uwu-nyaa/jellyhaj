@@ -29,7 +29,7 @@ pub struct ShadedWidgetGen<W: ?Sized> {
 pub type ShadedWidget<Res> = ShadedWidgetGen<dyn ErasedWidget<Res>>;
 
 pub fn make_new_erased<
-    R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+    R: ContextRef<Spawner> + ContextRef<Config> + 'static,
     A: Debug + Send + 'static,
     W: JellyhajWidget<R, Action = KeybindAction<A>>,
 >(
@@ -41,7 +41,7 @@ pub fn make_new_erased<
 
 impl<Res: 'static> ShadedWidget<Res> {
     pub fn new_sized<
-        R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+        R: ContextRef<Spawner> + ContextRef<Config> + 'static,
         A: Debug + Send + 'static,
         W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Res>,
     >(
@@ -62,7 +62,7 @@ impl<Res: 'static> ShadedWidget<Res> {
         }
     }
     pub fn new<
-        R: ContextRef<Spawner> + ContextRef<Config> + Send + 'static,
+        R: ContextRef<Spawner> + ContextRef<Config> + 'static,
         A: Debug + Send + 'static,
         W: JellyhajWidget<R, Action = KeybindAction<A>, ActionResult = Res>,
     >(

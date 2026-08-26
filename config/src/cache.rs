@@ -1,4 +1,4 @@
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{future::Future, rc::Rc, time::Duration};
 
 use sqlx::{ConnectOptions, SqliteConnection, query, sqlite::SqliteConnectOptions};
 
@@ -39,8 +39,8 @@ async fn open_db() -> Result<SqliteConnection> {
 }
 
 async fn cache_maintainance<Fut: Future<Output = Result<()>>>(
-    mut f: impl FnMut(Arc<Mutex<SqliteConnection>>) -> Fut,
-    db: Arc<Mutex<SqliteConnection>>,
+    mut f: impl FnMut(Rc<Mutex<SqliteConnection>>) -> Fut,
+    db: Rc<Mutex<SqliteConnection>>,
 ) {
     let mut interval = interval(Duration::from_hours(1));
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -53,7 +53,7 @@ async fn cache_maintainance<Fut: Future<Output = Result<()>>>(
 }
 
 #[instrument(skip_all)]
-pub async fn cache() -> Result<Arc<Mutex<SqliteConnection>>> {
+pub async fn cache() -> Result<Rc<Mutex<SqliteConnection>>> {
     let mut db = open_db().await?;
     let migrate = info_span!("migrate");
     sqlx::migrate!("../migrations")
@@ -61,14 +61,16 @@ pub async fn cache() -> Result<Arc<Mutex<SqliteConnection>>> {
         .instrument(migrate.clone())
         .await?;
     migrate.in_scope(|| info!("migrations applied"));
-    let maintainance = info_span!("cache_maintainance");
-    let db = Arc::new(Mutex::new(db));
-    tokio::spawn(cache_maintainance(clean_images, db.clone()).instrument(maintainance));
+    let db = Rc::new(Mutex::new(db));
+    spawn::spawn_future(
+        cache_maintainance(clean_images, db.clone()).instrument(info_span!("cache_maintainance")),
+        "cache_maintainance",
+    );
     Ok(db)
 }
 
 #[instrument]
-pub async fn clean_images(db: Arc<Mutex<SqliteConnection>>) -> Result<()> {
+pub async fn clean_images(db: Rc<Mutex<SqliteConnection>>) -> Result<()> {
     let res = query!("delete from image_cache where (added+7*24*60*60)<unixepoch()")
         .execute(&mut *db.lock().await)
         .await

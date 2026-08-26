@@ -1,7 +1,9 @@
-use std::sync::{Arc, Weak};
+use std::{
+    cell::{Cell, RefCell},
+    rc::{Rc, Weak},
+};
 
 use futures_intrusive::sync::ManualResetEvent;
-use parking_lot::{Mutex, RwLock};
 use spawn::spawn_future;
 use tokio::{
     select,
@@ -22,7 +24,7 @@ use crate::{
 };
 
 pub struct SuspendedInner {
-    task: Mutex<Option<JoinHandle<RunResult>>>,
+    task: Cell<Option<JoinHandle<RunResult>>>,
     drop_guard: DropGuard,
     pub name: &'static str,
     pub send_visitor: UnboundedSender<Visitor>,
@@ -35,18 +37,18 @@ pub struct SuspendedInner {
 #[instrument(skip_all)]
 async unsafe fn run_suspended(
     mut state: Erased,
-    stop: Arc<ManualResetEvent>,
+    stop: Rc<ManualResetEvent>,
     mut visitors: UnboundedReceiver<Visitor>,
     widget_creator: WidgetCreator,
     state_entry: Weak<StateEntry>,
-    state_token: Arc<RwLock<ListAccessToken>>,
+    state_token: Rc<RefCell<ListAccessToken>>,
 ) -> RunResult {
     loop {
         select! {
             nav = state.next_filtered_event() => {
                 match nav.map(Navigation::from) {
                     Some(Navigation::PopContext) => {
-                        let mut token = state_token.write();
+                        let mut token = state_token.borrow_mut();
                         if let Some(entry) = state_entry.upgrade() {
                             unsafe {remove_element(&entry, &mut token)};
                         }
@@ -56,10 +58,10 @@ async unsafe fn run_suspended(
                         return RunResult::Exit;
                     }
                     Some(Navigation::Replace(next)) => {
-                        let mut token = state_token.write();
+                        let mut token = state_token.borrow_mut();
                         if let Some(entry) = state_entry.upgrade() {
                             unsafe{
-                                let new = Arc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
+                                let new = Rc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
                                         widget_creator(next),
                                         this.clone(),
                                         widget_creator.clone(),
@@ -75,10 +77,10 @@ async unsafe fn run_suspended(
                         return RunResult::Empty;
                     }
                     Some(Navigation::Push(next)) => {
-                        let mut token = state_token.write();
+                        let mut token = state_token.borrow_mut();
                         if let Some(entry) = state_entry.upgrade() {
                             unsafe{
-                                let new = Arc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
+                                let new = Rc::new_cyclic(|this|StateEntry::new(StateValue::Suspended(SuspendedInner::new(
                                         widget_creator(next),
                                         this.clone(),
                                         widget_creator.clone(),
@@ -93,10 +95,10 @@ async unsafe fn run_suspended(
                         }
                     }
                     Some(Navigation::PushWithoutTui(next)) => {
-                        let mut token = state_token.write();
+                        let mut token = state_token.borrow_mut();
                         if let Some(entry) = state_entry.upgrade(){
                             unsafe{
-                                let new = Arc::new(StateEntry::new(StateValue::WithoutTui(next)));
+                                let new = Rc::new(StateEntry::new(StateValue::WithoutTui(next)));
                                 append_element(&entry,new.clone() , &mut token);
                             }
                         }
@@ -121,7 +123,7 @@ async unsafe fn run_suspended(
 impl SuspendedInner {
     pub fn get_widget(&self) -> JoinHandle<RunResult> {
         self.drop_guard.inner.set();
-        self.task.lock().take().expect("tried to get task twice")
+        self.task.take().expect("tried to get task twice")
     }
 
     /**
@@ -132,9 +134,9 @@ impl SuspendedInner {
         widget: Erased,
         this: Weak<StateEntry>,
         widget_creator: WidgetCreator,
-        state_token: Arc<RwLock<ListAccessToken>>,
+        state_token: Rc<RefCell<ListAccessToken>>,
     ) -> Self {
-        let stop = Arc::new(ManualResetEvent::new(false));
+        let stop = Rc::new(ManualResetEvent::new(false));
         let (visitor_send, visitor_recv) = tokio::sync::mpsc::unbounded_channel();
         let name = widget.name();
         let task = spawn_future(
@@ -151,7 +153,7 @@ impl SuspendedInner {
             name,
         );
         Self {
-            task: Mutex::new(Some(task)),
+            task: Cell::new(Some(task)),
             drop_guard: DropGuard { inner: stop },
             name,
             send_visitor: visitor_send,

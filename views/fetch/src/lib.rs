@@ -43,17 +43,17 @@ impl Named for Name {
 }
 
 pub fn make_fetch(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static,
     title: impl Into<Cow<'static, str>>,
-    fut: impl Future<Output = Result<NextScreen>> + Send + 'static,
+    fut: impl Future<Output = Result<NextScreen>> + 'static,
 ) -> Erased {
     make_nav_fetch(cx, title, fut.map(|r| r.map(Navigation::Replace)))
 }
 
 pub fn make_nav_fetch(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static,
     title: impl Into<Cow<'static, str>>,
-    fut: impl Future<Output = Result<Navigation>> + Send + 'static,
+    fut: impl Future<Output = Result<Navigation>> + 'static,
 ) -> Erased {
     let top = Config::get_ref(&cx).keybinds.fetch.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(

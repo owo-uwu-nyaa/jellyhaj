@@ -43,7 +43,7 @@ impl Named for Name {
 }
 
 pub fn render_inspect(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + 'static,
 ) -> Erased {
     let top = Config::get_ref(&cx).keybinds.inspect.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
@@ -54,7 +54,7 @@ pub fn render_inspect(
     make_new_erased(cx, widget)
 }
 pub fn render_inspect_value(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + Send + 'static,
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + 'static,
     value: &serde_json::Value,
 ) -> Erased {
     let top = Config::get_ref(&cx).keybinds.inspect.clone();

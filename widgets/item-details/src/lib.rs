@@ -2,7 +2,7 @@ pub mod children;
 pub mod item_list_details;
 pub mod overview;
 
-use std::sync::Arc;
+use std::rc::Rc;
 
 use jellyfin::{JellyfinClient, items::MediaItem};
 use jellyhaj_core::{
@@ -25,7 +25,7 @@ use valuable::Valuable;
 
 use crate::overview::{Overview, OverviewAction};
 
-type DB = Arc<tokio::sync::Mutex<SqliteConnection>>;
+type DB = Rc<tokio::sync::Mutex<SqliteConnection>>;
 
 #[derive(Debug)]
 pub enum DisplayAction {
