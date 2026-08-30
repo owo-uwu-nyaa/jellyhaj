@@ -1,6 +1,10 @@
 pub mod genre;
 
-use std::{convert::Infallible, sync::Arc};
+use std::{
+    convert::Infallible,
+    str::FromStr,
+    sync::{Arc, LazyLock},
+};
 
 use jellyfin::items::{MediaItem, MetadataEditor, MetadataUpdate};
 use jellyhaj_core::{
@@ -26,6 +30,7 @@ use jellyhaj_widgets_core::{
     mapper::{ActionMapper, ActionMapperBase},
     outer::UnwrapWidget,
 };
+use jiff::{civil::DateTime, tz::TimeZone};
 use valuable::Valuable;
 
 pub struct Mapper;
@@ -142,6 +147,8 @@ pub struct ModifyMetadata {
     media_item: Box<MediaItem>,
 }
 
+static LOCAL_ZONE: LazyLock<TimeZone> = LazyLock::new(TimeZone::system);
+
 impl ModifyMetadata {
     #[must_use]
     pub fn new(item: Box<MediaItem>, _editor: MetadataEditor) -> Self {
@@ -149,7 +156,12 @@ impl ModifyMetadata {
             title: TextField::new(item.name.clone()),
             original_title: TextField::new(item.original_title.clone().unwrap_or_default()),
             sort_title: TextField::new(item.sort_name.clone().unwrap_or_default()),
-            date_added: TextField::new(item.date_created.clone().unwrap_or_default()),
+            date_added: TextField::with_checker(
+                item.date_created.as_ref().map_or_default(|d| {
+                    d.to_zoned(LOCAL_ZONE.clone()).strftime("%F %T").to_string()
+                }),
+                |v| DateTime::from_str(v).is_ok(),
+            ),
             external_id: ExternalIds {
                 seperator: Seperator,
                 ids: item

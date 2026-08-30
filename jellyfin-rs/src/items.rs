@@ -7,6 +7,7 @@ use crate::user::MediaSource;
 use crate::{JellyfinClient, JellyfinVec, Result, connect::JsonResponse};
 use color_eyre::eyre::{Context, eyre};
 use http::Uri;
+use jiff::Timestamp;
 use serde::Deserialize;
 use serde::Serialize;
 use strum::IntoStaticStr;
@@ -335,7 +336,8 @@ pub struct MediaItem {
     #[serde(default)]
     pub child_count: u32,
     pub cumulative_runtime_ticks: Option<u64>,
-    pub date_created: Option<String>,
+    #[valuable(skip)]
+    pub date_created: Option<Timestamp>,
     pub date_last_media_added: Option<String>,
     pub etag: Option<String>,
     #[serde(default)]

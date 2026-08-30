@@ -4,6 +4,8 @@ use std::{convert::Infallible, ops::ControlFlow};
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::buffer::CellWidth;
+use ratatui::style::Color;
+use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::Valuable;
 
@@ -12,12 +14,24 @@ use crate::{FormAction, FormItem, FormItemBase};
 #[derive(Debug, Valuable, Default)]
 pub struct TextField {
     pub text: String,
+    #[valuable(skip)]
+    checker: Option<fn(&str) -> bool>,
 }
 
 impl TextField {
     #[must_use]
     pub const fn new(text: String) -> Self {
-        Self { text }
+        Self {
+            text,
+            checker: None,
+        }
+    }
+    #[must_use]
+    pub const fn with_checker(text: String, checker: fn(&str) -> bool) -> Self {
+        Self {
+            text,
+            checker: Some(checker),
+        }
     }
 }
 #[cfg(feature = "serde")]
@@ -159,7 +173,16 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
             block = block.border_type(BorderType::Double);
         }
         let main = block.inner(area);
-        self.text.as_str().render(main, buf);
+        let wrong = self
+            .checker
+            .as_ref()
+            .map_or_default(|checher| !checher(&self.text));
+        let text = self.text.as_str();
+        if wrong {
+            Span::styled(text, Color::Red).render(main, buf);
+        } else {
+            text.render(main, buf);
+        }
         block.render(area, buf);
         Ok(())
     }
@@ -180,13 +203,27 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
 #[derive(Debug, Valuable, Default)]
 pub struct TextFieldDynamic {
     pub text: String,
+    #[valuable(skip)]
+    checker: Option<fn(&str) -> bool>,
     pub label: String,
 }
 
 impl TextFieldDynamic {
     #[must_use]
     pub const fn new(text: String, label: String) -> Self {
-        Self { text, label }
+        Self {
+            text,
+            label,
+            checker: None,
+        }
+    }
+    #[must_use]
+    pub const fn with_checker(text: String, label: String, checker: fn(&str) -> bool) -> Self {
+        Self {
+            text,
+            label,
+            checker: Some(checker),
+        }
     }
 }
 
@@ -329,7 +366,16 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
             block = block.border_type(BorderType::Double);
         }
         let main = block.inner(area);
-        self.text.as_str().render(main, buf);
+        let wrong = self
+            .checker
+            .as_ref()
+            .map_or_default(|checher| !checher(&self.text));
+        let text = self.text.as_str();
+        if wrong {
+            Span::styled(text, Color::Red).render(main, buf);
+        } else {
+            text.render(main, buf);
+        }
         block.render(area, buf);
         area.x += 1;
         area.height = 1;

@@ -202,6 +202,7 @@ tui-tree-widget = "0.24.0"
 valuable = {features = ["derive"], version = "0.1.1"}
 whoami = {default-features = false, version = "2.0.2"}
 zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
+jiff = {version = "0.2.35", features = ["serde"]}
 
 [workspace.lints.clippy]
 collection_is_never_read = "allow"
