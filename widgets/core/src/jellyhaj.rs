@@ -10,7 +10,7 @@ use std::any::type_name;
 use std::fmt::Debug;
 use tracing::warn;
 
-use crate::{RenderFlag, WidgetContext};
+use crate::{Cursor, RenderFlag, WidgetContext};
 use valuable::Valuable;
 
 pub trait TreeVisitor {
@@ -81,6 +81,7 @@ pub trait JellyhajWidget<R: 'static>: JellyhajWidgetBase {
         area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()>;
 }
 
@@ -90,6 +91,7 @@ pub trait JellyhajWidgetExt<R: 'static>: JellyhajWidget<R> {
         area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         fn size_ok(
             widget: &'static str,
@@ -133,7 +135,7 @@ pub trait JellyhajWidgetExt<R: 'static>: JellyhajWidget<R> {
         if (min_width.is_none() && min_height.is_none())
             || size_ok(type_name::<Self>(), min_width, min_height, area, buf)
         {
-            self.render_fallible_inner(area, buf, cx)
+            self.render_fallible_inner(area, buf, cx, cursor)
         } else {
             Ok(())
         }

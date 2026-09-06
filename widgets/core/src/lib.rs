@@ -18,7 +18,7 @@ pub use jellyhaj::{
 pub use jellyhaj_async_task as async_task;
 pub use jellyhaj_async_task::Wrapper;
 use jellyhaj_async_task::{TaskSubmitterRef, Wrapped};
-use ratatui::crossterm::event::KeyEvent;
+use ratatui::crossterm::{cursor::SetCursorStyle, event::KeyEvent};
 pub use ratatui::{
     self,
     buffer::Buffer,
@@ -91,6 +91,7 @@ impl<'p, A, W: Wrapper<A>, R> WidgetContext<'p, A, W, R> {
     }
 }
 
+#[derive(Debug)]
 pub struct RenderFlag {
     should_render: bool,
 }
@@ -139,4 +140,10 @@ impl BitOrAssign<bool> for RenderFlag {
 pub enum KeybindAction<A: Debug + Send + 'static> {
     Inner(A),
     Key(KeyEvent),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cursor {
+    pub position: Position,
+    pub kind: SetCursorStyle,
 }

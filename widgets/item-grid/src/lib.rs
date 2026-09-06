@@ -282,6 +282,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .title_top(self.title.as_str())
@@ -318,6 +319,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemGrid<T> {
                 Rect::from((position, self.item_size)),
                 buf,
                 cx.wrap_with(GridWrapper { index }),
+                cursor,
             )?;
         }
         outer.render(area, buf);

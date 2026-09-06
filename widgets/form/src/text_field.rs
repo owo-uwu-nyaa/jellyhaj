@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::{convert::Infallible, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Cursor, Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::buffer::CellWidth;
 use ratatui::style::Color;
 use ratatui::text::Span;
@@ -10,26 +10,165 @@ use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::Valuable;
 
 use crate::{FormAction, FormItem, FormItemBase};
+pub mod support {
+    use std::convert::Infallible;
+
+    use crossterm::cursor::SetCursorStyle;
+    use jellyhaj_widgets_core::{Cursor, RenderFlag};
+    use ratatui::buffer::CellWidth;
+    use tracing::{instrument, trace};
+
+    use crate::FormAction;
+
+    /// Index of `index`'th char in string.
+    /// If `index` is out of bounds it is adjusted to `chars.len()` and `val.str()` is returned
+    #[instrument(level = "trace", ret)]
+    pub fn char_index(val: &str, index: &mut u16) -> usize {
+        let mut total = 0u16;
+        val.char_indices()
+            .inspect(|_| total = total.strict_add(1))
+            .nth((*index).into())
+            .map_or_else(
+                || {
+                    // clamp max value
+                    *index = total;
+                    val.len()
+                },
+                |(v, _)| v,
+            )
+    }
+
+    #[instrument(level = "trace", ret)]
+    pub fn apply_movement(
+        pos: &mut u16,
+        text: &mut String,
+        action: FormAction<Infallible>,
+        render_flag: &mut RenderFlag,
+    ) {
+        match action {
+            FormAction::Left => {
+                render_flag.set();
+                *pos = pos.saturating_sub(1);
+            }
+            FormAction::Right => {
+                render_flag.set();
+                *pos = pos.saturating_add(1);
+            }
+            FormAction::Delete => {
+                if let Some(index) = char_index(text, pos).checked_sub(1) {
+                    let index = text.floor_char_boundary(index);
+                    render_flag.set();
+                    text.remove(index);
+                    *pos -= 1;
+                }
+            }
+            FormAction::Enter | FormAction::Quit | FormAction::Up | FormAction::Down => todo!(),
+        }
+    }
+    #[instrument(level = "trace", ret)]
+    pub fn apply_char(pos: &mut u16, text: &mut String, render_flag: &mut RenderFlag, c: char) {
+        render_flag.set();
+        let index = char_index(text, pos);
+        text.insert(index, c);
+        *pos = pos.strict_add(1);
+    }
+    #[instrument(level = "trace", ret)]
+    pub fn apply_str(pos: &mut u16, text: &mut String, render_flag: &mut RenderFlag, s: String) {
+        let chars = match s
+            .chars()
+            .enumerate()
+            .last()
+            .map(|(v, _)| u16::try_from(v + 1))
+        {
+            Some(Ok(v)) => v.strict_add(1),
+            Some(Err(_)) => {
+                // string is definitely to long
+                return;
+            }
+            None => 0,
+        };
+        render_flag.set();
+        let index = char_index(text, pos);
+        text.insert_str(index, &s);
+        *pos = pos.strict_add(chars);
+    }
+    #[instrument(level = "trace")]
+    pub fn position_cursor(
+        pos: &mut u16,
+        text: &str,
+        cursor: &mut Option<Cursor>,
+        area: ratatui::layout::Rect,
+    ) {
+        let mut position = area.as_position();
+        position.x += 1;
+        position.y += 1;
+        let index = char_index(text, pos);
+        let behind = &text[0..index];
+        position.x += behind.cell_width();
+        trace!("setting position to ({},{})", position.x, position.y);
+        *cursor = Some(Cursor {
+            position,
+            kind: SetCursorStyle::SteadyBar,
+        });
+    }
+
+    pub fn chars(val: &str) -> u16 {
+        val.chars().map(|_| 1u16).sum()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::text_field::support::char_index;
+
+        #[test]
+        fn char_indices() {
+            let mut pos = 0u16;
+            assert_eq!(0, char_index("", &mut pos));
+            assert_eq!(0, pos);
+            assert_eq!(0, char_index("a", &mut pos));
+            assert_eq!(0, pos);
+            pos = 1;
+            assert_eq!(1, char_index("a", &mut pos));
+            assert_eq!(1, pos);
+            assert_eq!(1, char_index("ab", &mut pos));
+            assert_eq!(1, pos);
+            pos = 2;
+            assert_eq!(1, char_index("a", &mut pos));
+            assert_eq!(1, pos);
+            pos = 2;
+            assert_eq!(2, char_index("ab", &mut pos));
+            assert_eq!(2, pos);
+            pos = 3;
+            assert_eq!(2, char_index("ab", &mut pos));
+            assert_eq!(2, pos);
+        }
+    }
+}
 
 #[derive(Debug, Valuable, Default)]
 pub struct TextField {
     pub text: String,
+    pub pos: u16,
     #[valuable(skip)]
     checker: Option<fn(&str) -> bool>,
 }
 
 impl TextField {
     #[must_use]
-    pub const fn new(text: String) -> Self {
+    pub fn new(text: String) -> Self {
+        let pos = support::chars(&text);
         Self {
             text,
+            pos,
             checker: None,
         }
     }
     #[must_use]
-    pub const fn with_checker(text: String, checker: fn(&str) -> bool) -> Self {
+    pub fn with_checker(text: String, checker: fn(&str) -> bool) -> Self {
+        let pos = support::chars(&text);
         Self {
             text,
+            pos,
             checker: Some(checker),
         }
     }
@@ -73,8 +212,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextField {
         text: char,
         render_flag: &mut RenderFlag,
     ) {
-        render_flag.set();
-        self.text.push(text);
+        support::apply_char(&mut self.pos, &mut self.text, render_flag, text);
     }
     fn apply_text(
         &mut self,
@@ -82,8 +220,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextField {
         text: String,
         render_flag: &mut RenderFlag,
     ) {
-        render_flag.set();
-        self.text.push_str(&text);
+        support::apply_str(&mut self.pos, &mut self.text, render_flag, text);
     }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
@@ -115,10 +252,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         action: FormAction<Infallible>,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if matches!(action, FormAction::Delete) {
-            render_flag.set();
-            self.text.pop();
-        }
+        support::apply_movement(&mut self.pos, &mut self.text, action, render_flag);
         Ok(None)
     }
 
@@ -128,7 +262,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         action: Self::Action,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
-        unreachable!()
+        match action {}
     }
 
     fn apply_click_active(
@@ -142,7 +276,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         modifier: jellyhaj_widgets_core::KeyModifiers,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        unimplemented!()
+        Ok(None)
     }
 
     fn apply_click_inactive(
@@ -195,7 +329,9 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
+        support::position_cursor(&mut self.pos, &self.text, cursor, area);
         Ok(())
     }
 }
@@ -206,23 +342,28 @@ pub struct TextFieldDynamic {
     #[valuable(skip)]
     checker: Option<fn(&str) -> bool>,
     pub label: String,
+    pub pos: u16,
 }
 
 impl TextFieldDynamic {
     #[must_use]
-    pub const fn new(text: String, label: String) -> Self {
+    pub fn new(text: String, label: String) -> Self {
+        let pos = support::chars(&text);
         Self {
             text,
             label,
             checker: None,
+            pos,
         }
     }
     #[must_use]
-    pub const fn with_checker(text: String, label: String, checker: fn(&str) -> bool) -> Self {
+    pub fn with_checker(text: String, label: String, checker: fn(&str) -> bool) -> Self {
+        let pos = support::chars(&text);
         Self {
             text,
             label,
             checker: Some(checker),
+            pos,
         }
     }
 }
@@ -266,8 +407,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextFieldDynamic {
         text: char,
         render_flag: &mut RenderFlag,
     ) {
-        self.text.push(text);
-        render_flag.set();
+        support::apply_char(&mut self.pos, &mut self.text, render_flag, text);
     }
     fn apply_text(
         &mut self,
@@ -275,8 +415,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextFieldDynamic {
         text: String,
         render_flag: &mut RenderFlag,
     ) {
-        self.text.push_str(&text);
-        render_flag.set();
+        support::apply_str(&mut self.pos, &mut self.text, render_flag, text);
     }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
@@ -308,10 +447,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         action: FormAction<Infallible>,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if matches!(action, FormAction::Delete) {
-            self.text.pop();
-            render_flag.set();
-        }
+        support::apply_movement(&mut self.pos, &mut self.text, action, render_flag);
         Ok(None)
     }
 
@@ -400,7 +536,9 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
+        support::position_cursor(&mut self.pos, &self.text, cursor, area);
         Ok(())
     }
 }

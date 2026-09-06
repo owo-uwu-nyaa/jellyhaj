@@ -6,7 +6,9 @@ use std::{
 };
 
 use config::{Config, effects::EffectInfo};
-use jellyhaj_widgets_core::{Buffer, ContextRef, GetFromContext, JellyhajWidget, Rect, Result};
+use jellyhaj_widgets_core::{
+    Buffer, ContextRef, Cursor, GetFromContext, JellyhajWidget, Rect, Result,
+};
 use spawn::Spawner;
 use tokio::time::Instant;
 
@@ -76,8 +78,13 @@ impl<Res: 'static> ShadedWidget<Res> {
         self.exit.is_none()
     }
 
-    pub fn render_shaded(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
-        self.render(area, buf)?;
+    pub fn render_shaded(
+        &mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        cursor: &mut Option<Cursor>,
+    ) -> Result<u8> {
+        self.render(area, buf, cursor)?;
         let now = Instant::now();
         let time = now - self.last;
         self.last = now;
@@ -100,8 +107,13 @@ impl<Res: 'static> ShadedWidget<Res> {
         }
         Ok(fps)
     }
-    pub fn start_render_stop(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
-        self.render(area, buf)?;
+    pub fn start_render_stop(
+        &mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        cursor: &mut Option<Cursor>,
+    ) -> Result<u8> {
+        self.render(area, buf, cursor)?;
         let now = Instant::now();
         let time = now - self.last;
         self.last = now;
@@ -133,7 +145,7 @@ impl<Res: 'static> ShadedWidget<Res> {
         Ok(fps)
     }
     pub fn render_stop(&mut self, area: Rect, buf: &mut Buffer) -> Result<u8> {
-        self.render(area, buf)?;
+        self.render(area, buf, &mut None)?;
         let now = Instant::now();
         let time = now - self.last;
         self.last = now;

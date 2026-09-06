@@ -28,3 +28,16 @@ impl Component {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{form::tests::example_component, test_helper::assert_tokens_eq};
+
+    #[test]
+    fn make_show_if_impls() {
+        assert_tokens_eq(
+            "test-files/form/tokens/show_if.rs",
+            example_component().make_show_if_impls(),
+        );
+    }
+}

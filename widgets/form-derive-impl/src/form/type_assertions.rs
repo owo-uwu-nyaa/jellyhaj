@@ -22,3 +22,16 @@ impl Component {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{form::tests::example_component, test_helper::assert_tokens_eq};
+
+    #[test]
+    fn make_type_assertions() {
+        assert_tokens_eq(
+            "test-files/form/tokens/type_assertions.rs",
+            example_component().make_type_assertions().collect(),
+        );
+    }
+}

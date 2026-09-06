@@ -168,6 +168,7 @@ impl<R: 'static + ContextRef<StatsData>> JellyhajWidget<R> for StatsWidget {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let block = Block::bordered().title("Program stats");
         let memory_image_cache_hits = [MEMORY_IMAGE_CACHE_HITS, &self.memory_image_cache_hits];

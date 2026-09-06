@@ -243,14 +243,11 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                         Ok(None)
                     }
 
-                    FormAction::Delete => {
-                        self.dispatch_active_action(cx, FormAction::Delete, render_flag)
-                    }
-                    FormAction::Enter => {
-                        self.dispatch_active_action(cx, FormAction::Enter, render_flag)
-                    }
                     FormAction::Quit => Ok(Some(ControlFlow::Break(Navigation::PopContext))),
-                    FormAction::Left | FormAction::Right => Ok(None),
+                    FormAction::Delete
+                    | FormAction::Enter
+                    | FormAction::Left
+                    | FormAction::Right => self.dispatch_active_action(cx, action, render_flag),
                 }
             }
         };
@@ -351,6 +348,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title(Data::TITLE)
@@ -403,6 +401,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
             store: &self.store,
             buf,
             offset: self.offset,
+            cursor,
         };
         self.data
             .with_selection_mut_cx(0, &mut self.sel, cx.wrap_with(FormAction::Inner), cur)?;

@@ -3,8 +3,8 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 use color_eyre::Result;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    Buffer, KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Size, WidgetContext, Wrapper,
-    spawn::tracing::trace,
+    Buffer, Cursor, KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Size, WidgetContext,
+    Wrapper, spawn::tracing::trace,
 };
 use tracing::{Span, field, instrument};
 
@@ -477,6 +477,7 @@ pub(crate) struct Pass2<'s> {
     pub(crate) store: &'s [u16],
     pub(crate) buf: &'s mut Buffer,
     pub(crate) offset: u16,
+    pub(crate) cursor: &'s mut Option<Cursor>,
 }
 
 impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, ()> for Pass2<'_> {
@@ -500,6 +501,15 @@ impl<R: 'static, AR: Debug> WithSelectionMutCX<R, AR, ()> for Pass2<'_> {
         this_area.y += self.store[index] - self.offset;
         Span::current().record("this_area", field::debug(&this_area));
         trace!("render pass 2");
-        I::render_pass_popup(state, cx, this_area, self.area, self.buf, name, sel)
+        I::render_pass_popup(
+            state,
+            cx,
+            this_area,
+            self.area,
+            self.buf,
+            name,
+            sel,
+            self.cursor,
+        )
     }
 }

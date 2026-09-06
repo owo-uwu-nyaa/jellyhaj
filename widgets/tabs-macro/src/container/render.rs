@@ -13,7 +13,8 @@ pub fn gen_render(container: &Container, exports: &Path) -> TokenStream {
             &mut self.#var,
             area,
             buf,
-            cx.wrap_with(#pat)
+            cx.wrap_with(#pat),
+            cursor
         ),}
     });
     quote! {
@@ -23,6 +24,7 @@ pub fn gen_render(container: &Container, exports: &Path) -> TokenStream {
             buf: &mut #exports::Buffer,
             cx: #exports::WidgetContext<'_, Self::Action, impl #exports::Wrapper<Self::Action>, R>,
             current: #exports::usize,
+            cursor: &mut #exports::Option<#exports::Cursor>,
         ) -> #exports::Result<()>{
             match current {
                 #(#render)*

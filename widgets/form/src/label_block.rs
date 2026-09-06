@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Debug, io::stdout, ops::ControlFlow};
 
 use crossterm::clipboard::CopyToClipboard;
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Position, RenderFlag, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Cursor, Position, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::{
     crossterm::execute,
     prelude::Rect,
@@ -198,6 +198,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         if let Some(pos) = sel {
             Clear.render(full_area, buf);

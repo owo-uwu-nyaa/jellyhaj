@@ -1,25 +1,27 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Cursor, Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::widgets::{Block, BorderType, Widget};
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
-use crate::{FormAction, FormItem, FormItemBase};
+use crate::{FormAction, FormItem, FormItemBase, text_field::support};
 
 #[derive(Debug)]
 pub struct SecretField {
     pub secret: String,
+    pub pos: u16,
 }
 
 impl SecretField {
     #[must_use]
-    pub const fn new(secret: String) -> Self {
-        Self { secret }
+    pub fn new(secret: String) -> Self {
+        let pos = support::chars(&secret);
+        Self { secret, pos }
     }
 }
 
-static SECRET_FIELD_FIELDS: &[NamedField] = &[NamedField::new("secret")];
+static SECRET_FIELD_FIELDS: &[NamedField] = &[NamedField::new("secret"), NamedField::new("pos")];
 
 impl Valuable for SecretField {
     fn as_value(&self) -> Value<'_> {
@@ -29,7 +31,7 @@ impl Valuable for SecretField {
     fn visit(&self, visit: &mut dyn valuable::Visit) {
         visit.visit_named_fields(&NamedValues::new(
             SECRET_FIELD_FIELDS,
-            &["redacted".as_value()],
+            &["redacted".as_value(), self.pos.as_value()],
         ));
     }
 }
@@ -80,8 +82,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for SecretField {
         text: char,
         render_flag: &mut RenderFlag,
     ) {
-        render_flag.set();
-        self.secret.push(text);
+        support::apply_char(&mut self.pos, &mut self.secret, render_flag, text);
     }
     fn apply_text(
         &mut self,
@@ -89,8 +90,7 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for SecretField {
         text: String,
         render_flag: &mut RenderFlag,
     ) {
-        render_flag.set();
-        self.secret.push_str(&text);
+        support::apply_str(&mut self.pos, &mut self.secret, render_flag, text);
     }
 
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool {
@@ -122,10 +122,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         action: FormAction<Infallible>,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        if matches!(action, FormAction::Delete) {
-            self.secret.pop();
-            render_flag.set();
-        }
+        support::apply_movement(&mut self.pos, &mut self.secret, action, render_flag);
         Ok(None)
     }
 
@@ -135,7 +132,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         action: Self::Action,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
-        unreachable!()
+        match action {}
     }
 
     fn apply_click_active(
@@ -149,7 +146,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         modifier: jellyhaj_widgets_core::KeyModifiers,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Infallible>>> {
-        unimplemented!()
+        Ok(None)
     }
 
     fn apply_click_inactive(
@@ -196,7 +193,9 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for SecretField {
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
+        support::position_cursor(&mut self.pos, &self.secret, cursor, area);
         Ok(())
     }
 }

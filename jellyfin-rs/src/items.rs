@@ -336,7 +336,7 @@ pub struct MediaItem {
     #[serde(default)]
     pub child_count: u32,
     pub cumulative_runtime_ticks: Option<u64>,
-    #[valuable(skip)]
+    #[cfg_attr(feature = "valuable", valuable(skip))]
     pub date_created: Option<Timestamp>,
     pub date_last_media_added: Option<String>,
     pub etag: Option<String>,

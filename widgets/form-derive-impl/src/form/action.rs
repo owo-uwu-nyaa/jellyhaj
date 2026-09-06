@@ -27,3 +27,16 @@ impl Component {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{form::tests::example_component, test_helper::assert_tokens_eq};
+
+    #[test]
+    fn make_action() {
+        assert_tokens_eq(
+            "test-files/form/tokens/action.rs",
+            example_component().make_action(),
+        );
+    }
+}

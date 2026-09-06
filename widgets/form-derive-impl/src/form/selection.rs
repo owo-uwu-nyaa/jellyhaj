@@ -108,3 +108,30 @@ impl Component {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{form::tests::example_component, test_helper::assert_tokens_eq};
+
+    #[test]
+    fn make_selection_ty() {
+        assert_tokens_eq(
+            "test-files/form/tokens/selection_ty.rs",
+            example_component().make_selection_ty(),
+        );
+    }
+    #[test]
+    fn make_selection_default() {
+        assert_tokens_eq(
+            "test-files/form/tokens/selection_default.rs",
+            example_component().make_selection_default(),
+        );
+    }
+    #[test]
+    fn make_selection_valuable() {
+        assert_tokens_eq(
+            "test-files/form/tokens/selection_valuable.rs",
+            example_component().make_selection_valuable(),
+        );
+    }
+}

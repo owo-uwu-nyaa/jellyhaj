@@ -6,7 +6,7 @@ use jellyhaj_core::{
 };
 use jellyhaj_loading_widget::{AdvanceLoadingScreen, Loading};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result,
+    ContextRef, Cursor, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result,
     WidgetContext, Wrapper, valuable::Valuable,
 };
 use tracing::info_span;
@@ -135,8 +135,9 @@ impl<R: ContextRef<Config> + 'static, F: Future<Output = Result<Navigation>> + '
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         self.inner
-            .render_fallible_inner(area, buf, cx.wrap_with(FetchAction::Inner))
+            .render_fallible_inner(area, buf, cx.wrap_with(FetchAction::Inner), cursor)
     }
 }

@@ -284,6 +284,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let outer = Block::bordered()
             .title_top(&*self.title)
@@ -320,7 +321,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemScreen<T> {
                 width: main.width,
                 height: self.item_size.height + 4,
             };
-            list.render_fallible(area, buf, cx.wrap_with(ScreenWrapper { index: i }))?;
+            list.render_fallible(area, buf, cx.wrap_with(ScreenWrapper { index: i }), cursor)?;
         }
         if (visible as usize) < self.lists.len() {
             Scrollbar::new(HorizontalBottom).render(

@@ -28,7 +28,7 @@ async fn run_state(
     events: &mut KeybindEvents,
     cx: TuiContext,
     external: &mut UnboundedReceiver<NextScreen>,
-) {
+) -> Result<()> {
     let widget_creator = {
         let cx = cx.clone();
         Rc::new(move |next| widget_creators::make_screen(next, cx.clone()))
@@ -41,9 +41,10 @@ async fn run_state(
         term,
         events,
         external,
-    )
+    )?
     .await;
-    info!("main application loop exit")
+    info!("main application loop exit");
+    Ok(())
 }
 
 #[instrument(skip_all, level = "debug")]
@@ -73,7 +74,7 @@ pub async fn run_app(
         &mut events,
         &mut widget_receiver,
     )
-    .await
+    .await?
     {
         let jellyfin_events = JellyfinEventInterests::new(
             &spawner,
@@ -124,7 +125,7 @@ pub async fn run_app(
             },
             &mut widget_receiver,
         )
-        .await;
+        .await?;
     }
     Ok(())
 }

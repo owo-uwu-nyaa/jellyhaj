@@ -52,7 +52,7 @@ impl Component {
                     quote! {
                         #sel(s) => #component::with_selection(
                             &self.#name,
-                            #index,
+                            (base_index + #index),
                             s,
                             with
                         )
@@ -65,7 +65,7 @@ impl Component {
                             s,
                             &self.#name,
                             #descr,
-                            #index
+                            (base_index + #index)
                         )
                     }
                 }
@@ -99,7 +99,7 @@ impl Component {
                     quote! {
                         #sel(s) => #component::with_selection_mut(
                             &mut self.#name,
-                            #index,
+                            (base_index + #index),
                             s,
                             with
                         )
@@ -112,7 +112,7 @@ impl Component {
                             s,
                             &mut self.#name,
                             #descr,
-                            #index
+                            (base_index + #index)
                         )
                     }
                 }
@@ -147,7 +147,7 @@ impl Component {
                     quote! {
                         #sel(s) => #component::with_selection_mut_cx(
                             &mut self.#name,
-                            #index,
+                            (base_index + #index),
                             s,
                             cx.wrap_with(#action),
                             with
@@ -162,7 +162,7 @@ impl Component {
                             cx.wrap_with(#action),
                             &mut self.#name,
                             #descr,
-                            #index
+                            (base_index + #index)
                         )
                     }
                 }
@@ -400,7 +400,7 @@ impl Component {
                             a,
                             cx.wrap_with(#action),
                             &mut self.#name,
-                            #index + base_index,
+                            (base_index + #index),
                         )
                     }
                 }
@@ -408,7 +408,7 @@ impl Component {
                     quote! {
                         #action(a) => #component::with_action_mut(
                             &mut self.#name,
-                            #index + base_index,
+                            (base_index + #index),
                             a,
                             cx.wrap_with(#action),
                             with
@@ -538,10 +538,13 @@ impl Component {
     fn append_total_size(&self, stream: &mut TokenStream) {
         let exports = &self.paths.exports;
         stream.append_all(quote! {fn total_size(&self) -> #exports::usize});
-        stream.append(self.make_base_index_expr(self.fields.len()));
+        stream.append(Group::new(
+            Delimiter::Brace,
+            self.make_base_index_expr(self.fields.len()),
+        ));
     }
 
-    fn make_base_index_expr(&self, index: usize) -> Group {
+    fn make_base_index_expr(&self, index: usize) -> TokenStream {
         let mut offset = 0usize;
         let component = &self.paths.form_component;
         let folded = self.fields[0..index].iter().filter_map(|item| {
@@ -556,6 +559,88 @@ impl Component {
         let mut res = TokenStream::new();
         res.append_terminated(folded, <Token![+]>::default());
         res.append(Literal::usize_suffixed(offset));
-        Group::new(Delimiter::Brace, res)
+        res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proc_macro2::TokenStream;
+
+    use crate::{form::tests::example_component, test_helper::assert_tokens_eq};
+
+    #[test]
+    fn make_component_type_defs() {
+        assert_tokens_eq(
+            "test-files/form/tokens/comp_type_defs.rs",
+            example_component().make_component_type_defs(),
+        );
+    }
+    #[test]
+    fn make_with_selection() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_selection.rs",
+            example_component().make_with_selection(),
+        );
+    }
+    #[test]
+    fn make_with_selection_mut() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_selection_mut.rs",
+            example_component().make_with_selection_mut(),
+        );
+    }
+    #[test]
+    fn make_with_selection_mut_cx() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_selection_mut_cx.rs",
+            example_component().make_with_selection_mut_cx(),
+        );
+    }
+    #[test]
+    fn append_with_index_mut() {
+        let mut out = TokenStream::new();
+        example_component().append_with_index_mut(&mut out);
+        assert_tokens_eq("test-files/form/tokens/with_index_mut.rs", out);
+    }
+    #[test]
+    fn make_with_iter() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_iter.rs",
+            example_component().make_with_iter(),
+        );
+    }
+    #[test]
+    fn make_with_iter_mut() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_iter_mut.rs",
+            example_component().make_with_iter_mut(),
+        );
+    }
+    #[test]
+    fn make_with_action_mut() {
+        assert_tokens_eq(
+            "test-files/form/tokens/with_action_mut.rs",
+            example_component().make_with_action_mut(),
+        );
+    }
+    #[test]
+    fn append_show_if() {
+        let mut out = TokenStream::new();
+        example_component().append_show_if(&mut out);
+        assert_tokens_eq("test-files/form/tokens/comp_show_if.rs", out);
+    }
+    #[test]
+    fn make_index() {
+        assert_tokens_eq(
+            "test-files/form/tokens/comp_index.rs",
+            example_component().make_index(),
+        );
+    }
+    #[test]
+    fn append_total_size() {
+        let mut out = TokenStream::new();
+        example_component().append_total_size(&mut out);
+        assert_tokens_eq("test-files/form/tokens/comp_total_size.rs", out);
     }
 }

@@ -175,6 +175,7 @@ impl<
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let entry_off = (area.width - self.entry.dimensions().width) / 2;
         self.entry.render_item(
@@ -185,6 +186,7 @@ impl<
                 .into(),
             buf,
             cx.wrap_with(DisplayAction::Inner),
+            cursor,
         )?;
         if let Some(overview) = self.overview.as_mut() {
             overview.render_fallible(
@@ -195,6 +197,7 @@ impl<
                     .into(),
                 buf,
                 cx.wrap_with(|_| unreachable!()),
+                cursor,
             )?;
         }
         Block::bordered()

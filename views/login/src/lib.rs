@@ -86,7 +86,7 @@ pub async fn login(
     term: &mut DefaultTerminal,
     events: &mut KeybindEvents,
     external: &mut UnboundedReceiver<NextScreen>,
-) -> Option<JellyfinClient> {
+) -> Result<Option<JellyfinClient>> {
     let (original_state, state_err) = match read_login_state(&config.login_file) {
         Ok(v) => (v, None),
         Err(e) => (LoginState::default(), Some(e)),
@@ -123,8 +123,8 @@ pub async fn login(
             out: out.clone(),
         }
     };
-    render_loop(initial, widget_creator, &cx.state, term, events, external).await;
-    out.lock().take()
+    render_loop(initial, widget_creator, &cx.state, term, events, external)?.await;
+    Ok(out.lock().take())
 }
 
 fn read_login_state(path: &Path) -> Result<LoginState> {

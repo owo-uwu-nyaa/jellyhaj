@@ -3,7 +3,8 @@ use std::{cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
 use color_eyre::eyre::OptionExt;
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Result, WidgetContext, Wrapper,
+    Cursor, KeyModifiers, MouseEventKind, Position, Rect, RenderFlag, Result, WidgetContext,
+    Wrapper,
 };
 use ratatui::{
     crossterm::event::MouseButton,
@@ -165,6 +166,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        _cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         if let Some(sel_inner) = sel {
             buf[Position {
@@ -453,6 +455,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        _cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         if let Some(sel_inner) = sel {
             buf[Position {

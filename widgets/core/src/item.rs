@@ -8,7 +8,7 @@ use ratatui::{
 use tracing::instrument;
 use valuable::Valuable;
 
-use crate::{JellyhajWidgetBase, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper};
+use crate::{Cursor, JellyhajWidgetBase, RenderFlag, WidgetContext, WidgetTreeVisitor, Wrapper};
 use color_eyre::Result;
 
 pub trait ItemWidgetBase: Valuable + Sized + 'static {
@@ -61,6 +61,7 @@ pub trait ItemWidget<R: 'static>: ItemWidgetBase {
         area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()>;
 }
 
@@ -70,6 +71,7 @@ pub trait ItemWidgetExt<R: 'static>: ItemWidget<R> {
         area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         #[instrument(name = "check_item_size")]
         fn inner(dim: Size, area: Rect) {
@@ -79,7 +81,7 @@ pub trait ItemWidgetExt<R: 'static>: ItemWidget<R> {
             assert!(dim.height == area.height, "width is too large for position");
         }
         inner(self.dimensions(), area);
-        self.render_item_inner(area, buf, cx)
+        self.render_item_inner(area, buf, cx, cursor)
     }
 }
 

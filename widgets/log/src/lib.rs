@@ -101,6 +101,7 @@ impl<R: 'static> JellyhajWidget<R> for LogWidget {
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let block = Block::bordered()
             .title("Log Messages")

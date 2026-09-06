@@ -123,6 +123,7 @@ impl<R: 'static> JellyhajWidget<R> for Loading {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered().title(&*self.title);
         let main = outer.inner(area);

@@ -12,11 +12,12 @@ use crate::fetch::get_image;
 use color_eyre::eyre::Context;
 pub use jellyfin::{JellyfinClient, items::ImageType};
 use jellyhaj_widgets_core::{
-    ContextRef, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext,
-    Wrapper,
+    ContextRef, Cursor, GetFromContext, JellyhajWidget, JellyhajWidgetBase, RenderFlag,
+    WidgetContext, Wrapper,
 };
 use ratatui::{
     layout::{Rect, Size},
+    prelude::Buffer,
     widgets::Widget,
 };
 pub use ratatui_image::picker::Picker;
@@ -192,8 +193,9 @@ impl<
     fn render_fallible_inner(
         &mut self,
         mut area: Rect,
-        buf: &mut ratatui::prelude::Buffer,
+        buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let new_size = area.as_size();
         let old_size = self.size;

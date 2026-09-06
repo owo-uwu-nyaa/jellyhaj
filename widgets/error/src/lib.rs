@@ -95,6 +95,7 @@ impl<R: 'static> JellyhajWidget<R> for ErrorWidget {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let text = self
             .text

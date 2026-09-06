@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
+    Cursor, MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
     valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use ratatui::{
@@ -198,6 +198,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for B
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         Ok(())
     }
@@ -369,6 +370,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug> FormItem<R, AR> for D
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         Ok(())
     }

@@ -2,11 +2,14 @@ use std::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
 
 use color_eyre::eyre::Result;
 use jellyhaj_async_task::Wrapper;
-use ratatui::crossterm::event::{KeyModifiers, MouseEventKind};
+use ratatui::{
+    crossterm::event::{KeyModifiers, MouseEventKind},
+    prelude::Position,
+};
 use valuable::{Fields, NamedValues, StructDef, Structable, Valuable, Value, Visit};
 
 use crate::{
-    JellyhajWidget, KeybindAction, RenderFlag, WidgetContext, WidgetTreeVisitor,
+    Cursor, JellyhajWidget, KeybindAction, RenderFlag, WidgetContext, WidgetTreeVisitor,
     jellyhaj::JellyhajWidgetBase,
 };
 
@@ -104,7 +107,7 @@ impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: ratatui::prelude::Position,
+        position: Position,
         size: ratatui::prelude::Size,
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
@@ -124,8 +127,9 @@ impl<R: 'static, N: Named, W: JellyhajWidget<R>, M: ResultMapper<W::ActionResult
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
-        self.inner.render_fallible_inner(area, buf, cx)
+        self.inner.render_fallible_inner(area, buf, cx, cursor)
     }
 }
 pub trait ActionMapperBase<W: JellyhajWidgetBase>: Valuable + Send + 'static {
@@ -314,7 +318,7 @@ impl<R: 'static, N: Named, W: JellyhajWidget<R> + KeybindActionWidgetBase, A: Ac
     fn click(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        position: ratatui::prelude::Position,
+        position: Position,
         size: ratatui::prelude::Size,
         kind: MouseEventKind,
         modifier: KeyModifiers,
@@ -335,8 +339,9 @@ impl<R: 'static, N: Named, W: JellyhajWidget<R> + KeybindActionWidgetBase, A: Ac
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         self.inner
-            .render_fallible_inner(area, buf, cx.wrap_with(Wrapper1::new()))
+            .render_fallible_inner(area, buf, cx.wrap_with(Wrapper1::new()), cursor)
     }
 }

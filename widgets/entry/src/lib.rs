@@ -264,6 +264,7 @@ impl<
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let mut outer = Block::bordered()
             .border_type(if self.active {
@@ -277,7 +278,7 @@ impl<
         }
         let inner = outer.inner(area);
         if let Some(image) = &mut self.image {
-            image.render_fallible(inner, buf, cx.wrap_with(EntryWrapper))?;
+            image.render_fallible(inner, buf, cx.wrap_with(EntryWrapper), cursor)?;
         }
         outer.render(area, buf);
         if let Some(watch_status) = self.watch_status.as_ref() {

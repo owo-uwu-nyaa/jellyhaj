@@ -1,7 +1,7 @@
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
-use jellyhaj_widgets_core::{Rect, RenderFlag, Result, WidgetContext, Wrapper};
+use jellyhaj_widgets_core::{Cursor, Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::{buffer::CellWidth, widgets::Widget};
 use valuable::Valuable;
 
@@ -112,6 +112,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for Label {
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         Ok(())
     }
@@ -237,6 +238,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicLabel 
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         Ok(())
     }

@@ -1,13 +1,18 @@
 use std::{
+    io::stdout,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
 
 use futures_util::StreamExt;
-use jellyhaj_widgets_core::{Buffer, Rect, Result};
+use jellyhaj_widgets_core::{Buffer, Cursor, Rect, Result};
 use keybinds::KeybindEvents;
-use ratatui::{DefaultTerminal, prelude::Backend};
+use ratatui::{
+    DefaultTerminal,
+    crossterm::{ExecutableCommand, cursor::SetCursorStyle},
+    prelude::Backend,
+};
 use tokio::{
     task::coop::poll_proceed,
     time::{Instant, Sleep, sleep_until},
@@ -18,16 +23,27 @@ use crate::widgets::{WidgetResult, shaded::widget::ShadedWidget};
 
 pub fn render_to_term<T>(
     term: &mut DefaultTerminal,
-    f: impl FnOnce(Rect, &mut Buffer) -> Result<T>,
+    cursor_kind: &mut SetCursorStyle,
+    f: impl FnOnce(Rect, &mut Buffer, &mut Option<Cursor>) -> Result<T>,
 ) -> Result<Result<T>> {
     term.autoresize()?;
     let mut frame = term.get_frame();
-    let res = f(frame.area(), frame.buffer_mut());
+    let mut cursor = None;
+    let res = f(frame.area(), frame.buffer_mut(), &mut cursor);
     if res.is_err() {
         frame.buffer_mut().reset();
     } else {
         term.flush()?;
-        term.hide_cursor()?;
+        if let Some(cursor) = cursor {
+            if cursor.kind != *cursor_kind {
+                *cursor_kind = cursor.kind;
+                stdout().execute(cursor.kind)?;
+            }
+            term.show_cursor()?;
+            term.set_cursor_position(cursor.position)?;
+        } else {
+            term.hide_cursor()?;
+        }
         term.swap_buffers();
         term.backend_mut().flush()?;
     }
@@ -54,6 +70,7 @@ impl RenderWidget {
         widget: &mut ShadedWidget<Res>,
         events: &mut KeybindEvents,
         term: &mut DefaultTerminal,
+        cursor_kind: &mut SetCursorStyle,
         cx: &mut Context<'_>,
     ) -> Poll<WidgetResult<Res>> {
         let poll_res = self
@@ -73,7 +90,9 @@ impl RenderWidget {
             if *this.render {
                 trace!("rendering widget");
                 *this.render = false;
-                match render_to_term(term, |area, buf| widget.render_shaded(area, buf)) {
+                match render_to_term(term, cursor_kind, |area, buf, cursor| {
+                    widget.render_shaded(area, buf, cursor)
+                }) {
                     Err(e) => {
                         tracing::error!("failed to draw to the terminal:\n{e:?}");
                         return Poll::Ready(WidgetResult::Exit);
@@ -189,7 +208,6 @@ impl RenderStopWidget {
             .project()
             .poll_widget(widget, events, term, cx);
         let mut this = self.project();
-
         loop {
             if let Some(sleep_fut) = this.sleep_fut.as_mut().as_pin_mut()
                 && sleep_fut.poll(cx).is_ready()
@@ -201,7 +219,11 @@ impl RenderStopWidget {
             if *this.render {
                 trace!("rendering widget");
                 *this.render = false;
-                match render_to_term(term, |area, buf| widget.render_stop(area, buf)) {
+                match render_to_term(
+                    term,
+                    &mut SetCursorStyle::DefaultUserShape,
+                    |area, buf, _| widget.render_stop(area, buf),
+                ) {
                     Err(e) => {
                         tracing::error!("failed to draw to the terminal:\n{e:?}");
                         return Poll::Ready(RenderStopRes::Exit);

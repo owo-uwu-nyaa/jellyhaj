@@ -90,6 +90,7 @@ impl<R: 'static, T: AsRef<str> + Valuable + Send + 'static> JellyhajWidget<R> fo
         area: jellyhaj_widgets_core::Rect,
         buf: &mut jellyhaj_widgets_core::Buffer,
         _: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         let outer = Block::bordered()
             .merge_borders(MergeStrategy::Exact)

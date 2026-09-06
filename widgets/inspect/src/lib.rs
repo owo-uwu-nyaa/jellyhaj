@@ -809,6 +809,7 @@ impl<R: ContextRef<StateStack> + 'static> JellyhajWidget<R> for InspectWidget {
             impl jellyhaj_widgets_core::Wrapper<Self::Action>,
             R,
         >,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> jellyhaj_widgets_core::Result<()> {
         Tree::new(&self.items)
             .expect("distinct")

@@ -10,6 +10,7 @@ mod selection;
 mod show_if;
 mod type_assertions;
 
+#[derive(PartialEq, Eq, Debug)]
 struct Paths {
     exports: Path,
     form_component: Path,
@@ -50,16 +51,19 @@ impl Paths {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 struct ShowIf {
     expr: Expr,
     fun: Ident,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 enum FieldKind {
     Item { descr: LitStr },
     Flatten,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 struct FormField {
     pub name: Ident,
     pub ty: Type,
@@ -83,6 +87,7 @@ impl FormField {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct Component {
     fields: Vec<FormField>,
     action_result: Type,
@@ -106,6 +111,7 @@ impl ToTokens for Component {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct Form {
     name: LitStr,
     result_mapper: Type,
@@ -136,5 +142,194 @@ impl ToTokens for Form {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.component.to_tokens(tokens);
         tokens.append_all(self.make_form_data_impl());
+    }
+}
+
+#[cfg(test)]
+
+pub mod tests {
+    use quote::{format_ident, quote};
+    use syn::{Ident, ItemStruct, Result, Type, parse_quote};
+
+    use crate::form::{Component, FieldKind, Form, FormField, Paths, ShowIf};
+
+    use pretty_assertions::assert_eq;
+
+    pub fn example_component() -> Component {
+        let action_result: Type = parse_quote!(crate::ExampleActionResult);
+        let original: ItemStruct = parse_quote!(
+            pub struct Example {
+                #[test_attr]
+                simple1: bool,
+                simple2: &'static str,
+                #[test_attr]
+                skip1: (),
+                flatten1: Comp1,
+                skip2: (),
+                #[test_attr]
+                flatten2: crate::Comp2,
+                simple3: Simple,
+            }
+        );
+        let data = original.ident.clone();
+        let paths = Paths::new(&action_result);
+        let selection = parse_quote!(ExampleSelection);
+        let action = parse_quote!(ExampleAction);
+        let fields = vec![
+            {
+                let enum_id: Ident = parse_quote!(Simple1);
+                FormField {
+                    name: parse_quote!(simple1),
+                    enum_id: enum_id.clone(),
+                    ty: parse_quote!(bool),
+                    show_if: None,
+                    selection: parse_quote!(#selection::#enum_id),
+                    action: parse_quote!(#action::#enum_id),
+                    kind: FieldKind::Item {
+                        descr: parse_quote!("simple 1"),
+                    },
+                }
+            },
+            {
+                let enum_id: Ident = parse_quote!(Simple2);
+                let name: Ident = parse_quote!(simple2);
+                FormField {
+                    name: name.clone(),
+                    enum_id: enum_id.clone(),
+                    ty: parse_quote!(&'static str),
+                    show_if: Some(ShowIf {
+                        expr: parse_quote!(super::test(self.simple1)),
+                        fun: format_ident!("_show_if_{name}"),
+                    }),
+                    selection: parse_quote!(#selection::#enum_id),
+                    action: parse_quote!(#action::#enum_id),
+                    kind: FieldKind::Item {
+                        descr: parse_quote!("simple 2"),
+                    },
+                }
+            },
+            {
+                let enum_id: Ident = parse_quote!(Flatten1);
+                FormField {
+                    name: parse_quote!(flatten1),
+                    enum_id: enum_id.clone(),
+                    ty: parse_quote!(Comp1),
+                    show_if: None,
+                    selection: parse_quote!(#selection::#enum_id),
+                    action: parse_quote!(#action::#enum_id),
+                    kind: FieldKind::Flatten,
+                }
+            },
+            {
+                let enum_id: Ident = parse_quote!(Flatten2);
+                let name: Ident = parse_quote!(flatten2);
+                FormField {
+                    name: name.clone(),
+                    enum_id: enum_id.clone(),
+                    ty: parse_quote!(crate::Comp2),
+                    show_if: Some(ShowIf {
+                        expr: parse_quote!(self.simple1),
+                        fun: format_ident!("_show_if_{name}"),
+                    }),
+                    selection: parse_quote!(#selection::#enum_id),
+                    action: parse_quote!(#action::#enum_id),
+                    kind: FieldKind::Flatten,
+                }
+            },
+            {
+                let enum_id: Ident = parse_quote!(Simple3);
+                FormField {
+                    name: parse_quote!(simple3),
+                    enum_id: enum_id.clone(),
+                    ty: parse_quote!(Simple),
+                    show_if: None,
+                    selection: parse_quote!(#selection::#enum_id),
+                    action: parse_quote!(#action::#enum_id),
+                    kind: FieldKind::Item {
+                        descr: parse_quote!("simple 3"),
+                    },
+                }
+            },
+        ];
+        Component {
+            fields,
+            action_result,
+            data,
+            selection,
+            action,
+            original,
+            paths,
+        }
+    }
+
+    #[test]
+    fn parse_example_component() -> Result<()> {
+        let args = quote! {
+            crate::ExampleActionResult
+        };
+        let input = quote! {
+            pub struct Example{
+                #[form(descr = "simple 1")]
+                #[test_attr]
+                simple1: bool,
+                #[form(descr = "simple 2", show_if(super::test(self.simple1)))]
+                simple2: &'static str,
+                #[test_attr]
+                #[form(skip)]
+                skip1 : (),
+                #[form(flatten)]
+                flatten1 : Comp1,
+                #[form(skip)]
+                skip2 : (),
+                #[test_attr]
+                #[form(flatten, show_if(self.simple1))]
+                flatten2 : crate::Comp2,
+                #[form(descr = "simple 3")]
+                simple3: Simple,
+            }
+        };
+        let parsed = Component::parse(args, input)?;
+        assert_eq!(example_component(), parsed);
+        Ok(())
+    }
+
+    pub fn example_form() -> Form {
+        Form {
+            name: parse_quote!("Example Form"),
+            result_mapper: parse_quote!(Mapper),
+            component: example_component(),
+        }
+    }
+
+    #[test]
+    fn parse_example_form() {
+        let args = quote! {
+            "Example Form", crate::ExampleActionResult, Mapper
+        };
+        let input = quote! {
+            pub struct Example{
+                #[form(descr = "simple 1")]
+                #[test_attr]
+                simple1: bool,
+                #[form(descr = "simple 2", show_if(super::test(self.simple1)))]
+                simple2: &'static str,
+                #[test_attr]
+                #[form(skip)]
+                skip1 : (),
+                #[form(flatten)]
+                flatten1 : Comp1,
+                #[form(skip)]
+                skip2 : (),
+                #[test_attr]
+                #[form(flatten, show_if(self.simple1))]
+                flatten2 : crate::Comp2,
+                #[form(descr = "simple 3")]
+                simple3: Simple,
+            }
+        };
+        assert_eq!(
+            example_form(),
+            Form::parse(args, input).expect("invalid example form")
+        )
     }
 }

@@ -255,6 +255,7 @@ impl<
         area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let outer = Block::bordered().padding(Padding::uniform(1));
         if let Some(dim) = self.items.first().map(|c| c.entry.dimensions()) {
@@ -302,6 +303,7 @@ impl<
                     main,
                     buf,
                     cx.wrap_with(move |action| ChildAction::Entry { index: i, action }),
+                    cursor,
                 )?;
                 let offset = dim.width + 3;
                 let mut descr_area = area;
@@ -312,6 +314,7 @@ impl<
                         descr_area,
                         buf,
                         cx.wrap_with(move |action| ChildAction::Overview { index: i, action }),
+                        cursor,
                     )?;
                 } else {
                     Block::bordered()

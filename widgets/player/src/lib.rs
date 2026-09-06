@@ -268,6 +268,7 @@ impl<R: 'static> JellyhajWidget<R> for PlayerWidget {
         mut area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         let block = Block::bordered()
             .title("Now playing")
@@ -400,6 +401,7 @@ impl<R: 'static> JellyhajWidget<R> for ExitWidget {
         area: Rect,
         buf: &mut ratatui::prelude::Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         Paragraph::new("stopping").centered().render(area, buf);
         Ok(())

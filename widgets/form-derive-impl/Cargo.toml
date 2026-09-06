@@ -13,6 +13,8 @@ convert_case.workspace = true
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+prettydiff = "0.9.0"
+prettyplease = "0.3.0"
 
 [package]
 edition = "2024"

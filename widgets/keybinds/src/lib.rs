@@ -6,7 +6,8 @@ use std::{fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::{CommandMapper, Config, state::Navigation, widgets::KeybindAction};
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetBase, RenderFlag, WidgetContext, Wrapper,
+    ContextRef, Cursor, JellyhajWidget, JellyhajWidgetBase, RenderFlag, Result, WidgetContext,
+    Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
 use keybinds::{BindingMap, Command};
@@ -110,7 +111,7 @@ impl<
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         action: Self::Action,
         render_flag: &mut RenderFlag,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+    ) -> Result<Option<Self::ActionResult>> {
         action::apply_key_event(self, cx, action, render_flag)
     }
 
@@ -123,7 +124,7 @@ impl<
         kind: ratatui::crossterm::event::MouseEventKind,
         modifier: ratatui::crossterm::event::KeyModifiers,
         render_flag: &mut RenderFlag,
-    ) -> jellyhaj_widgets_core::Result<Option<Self::ActionResult>> {
+    ) -> Result<Option<Self::ActionResult>> {
         click::apply_click(self, cx, position, size, kind, modifier, render_flag)
     }
 
@@ -133,8 +134,9 @@ impl<
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-    ) -> jellyhaj_widgets_core::Result<()> {
-        render::render_keybinds(self, area, buf, cx)
+        cursor: &mut Option<Cursor>,
+    ) -> Result<()> {
+        render::render_keybinds(self, area, buf, cx, cursor)
     }
 }
 

@@ -260,6 +260,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
         area: ratatui::prelude::Rect,
         buf: &mut ratatui::prelude::Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         self.current = min(self.current, self.items.len().saturating_sub(1));
         let outer = Block::bordered()
@@ -293,7 +294,7 @@ impl<R: 'static, T: ItemWidget<R>> JellyhajWidget<R> for ItemList<T> {
                 width: self.item_size.width,
                 height: main.height,
             };
-            item.render_item(area, buf, cx.wrap_with(ListWrapper { index: i }))?;
+            item.render_item(area, buf, cx.wrap_with(ListWrapper { index: i }), cursor)?;
         }
         if visible < self.items.len() {
             Scrollbar::new(HorizontalBottom).render(

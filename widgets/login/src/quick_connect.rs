@@ -4,8 +4,8 @@ use color_eyre::eyre::Context;
 use jellyfin::JellyfinClient;
 use jellyhaj_core::state::{ClientOut, LoginState, Navigation, NextScreen};
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect,
-    RenderFlag, Result, Size, WidgetContext, Wrapper,
+    Buffer, Cursor, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position,
+    Rect, RenderFlag, Result, Size, WidgetContext, Wrapper,
     spawn::tracing::{info, info_span},
 };
 use ratatui::{
@@ -148,6 +148,7 @@ impl<F: Future<Output = Result<QuickConectAction>> + Send + 'static, R: 'static>
         area: Rect,
         buf: &mut Buffer,
         _cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        _cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         info!("area: {area:?}");
         info!("rendering quick connect");

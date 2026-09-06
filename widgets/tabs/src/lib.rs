@@ -2,8 +2,8 @@ use std::{cmp::max, fmt::Debug};
 
 use color_eyre::Result;
 use jellyhaj_widgets_core::{
-    Buffer, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position, Rect,
-    RenderFlag, Size, WidgetContext, WidgetTreeVisitor, Wrapper,
+    Buffer, Cursor, JellyhajWidget, JellyhajWidgetBase, KeyModifiers, MouseEventKind, Position,
+    Rect, RenderFlag, Size, WidgetContext, WidgetTreeVisitor, Wrapper,
     ratatui::style::Modifier,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
@@ -89,6 +89,7 @@ pub trait TabContainer<R: 'static>: Tabbed {
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         current: usize,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()>;
 }
 
@@ -221,6 +222,7 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         mut area: Rect,
         buf: &mut Buffer,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         buf[area.as_position()].set_char(if self.current == 0 { '╻' } else { '╷' });
         buf[Position {
@@ -275,7 +277,8 @@ impl<R: 'static, T: TabContainer<R>> JellyhajWidget<R> for TabbedWidgets<T> {
         }
         area.height = area.height.strict_sub(2);
         area.y += 2;
-        self.inner.render_fallible(area, buf, cx, self.current)
+        self.inner
+            .render_fallible(area, buf, cx, self.current, cursor)
     }
 }
 
@@ -284,7 +287,7 @@ pub mod macro_exports {
     pub use super::{TabContainer, Tabbed};
     pub use color_eyre::Result;
     pub use jellyhaj_widgets_core::{
-        Buffer, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers,
+        Buffer, Cursor, JellyhajWidget, JellyhajWidgetBase, JellyhajWidgetExt, KeyModifiers,
         MouseEventKind, Position, Rect, RenderFlag, Size, WidgetContext, WidgetTreeVisitor,
         Wrapper,
     };

@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
-    KeyModifiers, MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
+    Cursor, KeyModifiers, MouseEventKind, Rect, RenderFlag, Result, WidgetContext, Wrapper,
 };
 use ratatui::{crossterm::event::MouseButton, style::Modifier, widgets::Widget};
 
@@ -89,6 +89,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for bool {
         buf: &mut ratatui::prelude::Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()> {
         Ok(())
     }

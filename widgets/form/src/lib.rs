@@ -20,7 +20,8 @@ use jellyhaj_core::state::Navigation;
 #[cfg(feature = "macro")]
 pub use jellyhaj_form_derive::{Selection, form_component, form_widget};
 use jellyhaj_widgets_core::{
-    KeyModifiers, MouseEventKind, RenderFlag, Size, WidgetContext, Wrapper, valuable::Valuable,
+    Cursor, KeyModifiers, MouseEventKind, RenderFlag, Size, WidgetContext, Wrapper,
+    valuable::Valuable,
 };
 use ratatui::{
     buffer::Buffer,
@@ -70,6 +71,11 @@ pub trait FormItemBase<AR: Debug>: Valuable {
         unimplemented!()
     }
 
+    /**
+     * returns true if this form item should capture up, down or quit.
+     * this should never return true unconditionally.
+     * users typically expect that sending quit enough times results in this becoming false.
+     *  */
     fn accepts_movement_action(&self, sel: &Self::SelectionInner) -> bool;
 
     fn popup_area(&self, sel: &Self::SelectionInner, area: Rect, full_area: Size) -> Rect;
@@ -127,6 +133,7 @@ pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
         name: &'static str,
     ) -> Result<()>;
 
+    #[allow(clippy::too_many_arguments)]
     fn render_pass_popup(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -135,5 +142,6 @@ pub trait FormItem<R: 'static, AR: Debug>: FormItemBase<AR> {
         buf: &mut Buffer,
         name: &'static str,
         sel: &mut Self::SelectionInner,
+        cursor: &mut Option<Cursor>,
     ) -> Result<()>;
 }

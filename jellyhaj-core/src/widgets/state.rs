@@ -1,6 +1,7 @@
 use std::{
     cell::{RefCell, UnsafeCell},
     convert::Infallible,
+    io::stdout,
     ops::{Deref, DerefMut},
     pin::Pin,
     rc::Rc,
@@ -14,7 +15,10 @@ use jellyhaj_widgets_core::{
 };
 use keybinds::KeybindEvents;
 use pin_project_lite::pin_project;
-use ratatui::DefaultTerminal;
+use ratatui::{
+    DefaultTerminal,
+    crossterm::{ExecutableCommand, cursor::SetCursorStyle},
+};
 use tokio::task::{JoinHandle, coop::poll_proceed};
 use tracing::{debug, info, instrument, warn};
 
@@ -196,6 +200,7 @@ pin_project! {
         term: &'l mut DefaultTerminal,
         events: &'l mut KeybindEvents,
         external: &'l mut UnboundedReceiver<NextScreen>,
+        cursor_kind: SetCursorStyle,
         external_closed_detected: bool,
         #[pin]
         loop_state: RenderLoopState,
@@ -235,6 +240,7 @@ impl Future for RenderLoop<'_> {
                                 widget.as_deref_mut().expect("polled after return?"),
                                 this.events,
                                 this.term,
+                                this.cursor_kind,
                                 cx,
                             ) {
                                 let widget = widget.take().expect("polled after return?");
@@ -351,9 +357,10 @@ pub fn render_loop<'e>(
     term: &'e mut DefaultTerminal,
     events: &'e mut KeybindEvents,
     external: &'e mut UnboundedReceiver<NextScreen>,
-) -> RenderLoop<'e> {
+) -> Result<RenderLoop<'e>> {
+    stdout().execute(SetCursorStyle::DefaultUserShape)?;
     let loop_state = make_render(widget_creator(initial));
-    RenderLoop {
+    Ok(RenderLoop {
         widget_creator,
         state,
         term,
@@ -361,7 +368,8 @@ pub fn render_loop<'e>(
         external,
         external_closed_detected: false,
         loop_state,
-    }
+        cursor_kind: SetCursorStyle::DefaultUserShape,
+    })
 }
 
 pub struct WidgetPusher {

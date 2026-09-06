@@ -31,6 +31,7 @@ pub fn render_keybinds<
     area: Rect,
     buf: &mut ratatui::buffer::Buffer,
     cx: WidgetContext<'_, KeybindAction<W::Action>, impl Wrapper<KeybindAction<W::Action>>, R>,
+    cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
 ) -> Result<()> {
     let task = cx.wrap_with(KeybindWrapper);
     let len: usize = this.current_map.iter().map(|v| v.len()).sum();
@@ -55,6 +56,7 @@ pub fn render_keybinds<
             },
             buf,
             task,
+            cursor,
         )?;
         let area = Rect {
             x: area.x,
@@ -110,7 +112,7 @@ pub fn render_keybinds<
         }
         block.render(area, buf);
     } else {
-        this.inner.render_fallible(area, buf, task)?;
+        this.inner.render_fallible(area, buf, task, cursor)?;
         let help_prefixes = &Config::get_ref(cx.refs).help_prefixes;
         let len = help_prefixes.len();
         if len != 0 {

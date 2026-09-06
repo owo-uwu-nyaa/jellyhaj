@@ -8,7 +8,7 @@ use crate::widgets::{KeybindAction, WidgetResult};
 use color_eyre::Result;
 use futures_util::Stream;
 use jellyhaj_widgets_core::{
-    ContextRef, JellyhajWidget, JellyhajWidgetExt, Position, RenderFlag, Size, TreeVisitor,
+    ContextRef, Cursor, JellyhajWidget, JellyhajWidgetExt, Position, RenderFlag, Size, TreeVisitor,
     WidgetContext, WidgetTreeVisitor,
     async_task::{EventReceiver, IdWrapper, TaskSubmitter, new_task_pair},
 };
@@ -22,7 +22,12 @@ use spawn::Spawner;
 pub trait ErasedWidget<Res: 'static>: 'static {
     fn name(&self) -> &'static str;
     fn submit_event(&mut self, event: Event, size: Size) -> Option<WidgetResult<Res>>;
-    fn render(&mut self, area: Rect, buffer: &mut Buffer) -> Result<()>;
+    fn render(
+        &mut self,
+        area: Rect,
+        buffer: &mut Buffer,
+        cursor: &mut Option<Cursor>,
+    ) -> Result<()>;
     fn visit(&self, visitor: &mut dyn TreeVisitor);
     fn reset_render_flag(&mut self) -> bool;
     fn poll_next(&mut self, cx: &mut Context<'_>) -> Poll<Option<Option<WidgetResult<Res>>>>;
@@ -102,7 +107,12 @@ impl<R: 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = Keybin
         }
     }
 
-    fn render(&mut self, area: Rect, buffer: &mut Buffer) -> Result<()> {
+    fn render(
+        &mut self,
+        area: Rect,
+        buffer: &mut Buffer,
+        cursor: &mut Option<Cursor>,
+    ) -> Result<()> {
         self.widget.render_fallible(
             area,
             buffer,
@@ -110,6 +120,7 @@ impl<R: 'static, A: Debug + Send + 'static, W: JellyhajWidget<R, Action = Keybin
                 refs: &self.context,
                 submitter: self.submitter.as_ref(),
             },
+            cursor,
         )
     }
 
