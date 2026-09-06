@@ -1,12 +1,19 @@
 [dependencies]
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../core"}
 color-eyre.workspace = true
 ratatui.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-item-grid"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

@@ -310,7 +310,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextField {
         let wrong = self
             .checker
             .as_ref()
-            .map_or_default(|checher| !checher(&self.text));
+            .is_some_and(|checker| !checker(&self.text));
         let text = self.text.as_str();
         if wrong {
             Span::styled(text, Color::Red).render(main, buf);
@@ -505,7 +505,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextFieldDyna
         let wrong = self
             .checker
             .as_ref()
-            .map_or_default(|checher| !checher(&self.text));
+            .is_some_and(|checker| !checker(&self.text));
         let text = self.text.as_str();
         if wrong {
             Span::styled(text, Color::Red).render(main, buf);

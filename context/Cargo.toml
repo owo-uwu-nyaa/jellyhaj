@@ -1,24 +1,31 @@
 [package]
 name = "jellyhaj-context"
-version = "0.1.0"
-edition = "2024"
+
+[package.version ]
+workspace = true
+
+[package.edition ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 [dependencies]
 keybinds = {path = "../keybinds"}
 jellyhaj-core = {path = "../jellyhaj-core"}
-jellyhaj-event-listener = {path = "../event-listener", version = "0.1.0"}
+jellyhaj-event-listener = {path = "../event-listener"}
 player-core = {path = "../player-core"}
 sqlx = {workspace = true}
 parking_lot = {workspace = true}
 config = {path = "../config"}
-image-cache = {path = "../image-cache", version = "0.1.0"}
+image-cache = {path = "../image-cache"}
 jellyfin = {path = "../jellyfin-rs"}
-jellyhaj-widgets-core = {path = "../widgets/core", version = "0.1.0"}
+jellyhaj-widgets-core = {path = "../widgets/core"}
 ratatui-image = {workspace = true}
 ratatui = {workspace = true}
 tokio = {workspace = true, features = ["sync"]}
-spawn = {path = "../spawn", version = "0.1.0"}
-stats-data = {path = "../stats-data", version = "0.1.0"}
+spawn = {path = "../spawn"}
+stats-data = {path = "../stats-data"}
 
 [lints]
 workspace = true

@@ -1,16 +1,23 @@
 [dependencies]
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
-keybinds = {path = "../../keybinds", version = "0.1.0"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-widgets-core = {path = "../core"}
+keybinds = {path = "../../keybinds"}
 color-eyre.workspace = true
 itertools.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-keybinds-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

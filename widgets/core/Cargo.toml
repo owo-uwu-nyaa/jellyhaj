@@ -1,10 +1,10 @@
 [dependencies]
-config = {path = "../../config", version = "0.1.0"}
+config = {path = "../../config"}
 futures-channel = {features = ["sink"], version = "0.3.31"}
 futures-intrusive = "0.5.0"
 futures-util = {features = ["sink"], workspace = true}
-jellyhaj-async-task = {path = "../../async-task", version = "0.1.0"}
-spawn = {path = "../../spawn", version = "0.1.0"}
+jellyhaj-async-task = {path = "../../async-task"}
+spawn = {path = "../../spawn"}
 color-eyre.workspace = true
 parking_lot.workspace = true
 pin-project-lite.workspace = true
@@ -15,9 +15,16 @@ tracing.workspace = true
 valuable.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-widgets-core"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

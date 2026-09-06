@@ -1927,7 +1927,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jellyfin"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "aws-lc-rs",
  "base64",
@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "libmpv"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "arcshift",
  "crossbeam",

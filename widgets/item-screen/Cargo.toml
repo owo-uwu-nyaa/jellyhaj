@@ -1,14 +1,21 @@
 [dependencies]
-jellyhaj-item-list = {path = "../item-list", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyhaj-item-list = {path = "../item-list"}
+jellyhaj-widgets-core = {path = "../core"}
 color-eyre.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-item-screen"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

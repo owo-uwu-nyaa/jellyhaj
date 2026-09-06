@@ -1,14 +1,15 @@
 [dependencies]
-keybinds-derive-impl = {path = "../keybinds-derive-impl", version = "0.1.0"}
+keybinds-derive-impl = {path = "../keybinds-derive-impl"}
 
 [lib]
 proc-macro = true
 
 [package]
-edition = "2024"
 name = "keybinds-derive"
-version = "0.1.0"
 
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
 
 [lints]
 workspace = true

@@ -1,15 +1,22 @@
 [package]
 name = "jellyhaj-metadata-editor-widget"
-version = "0.1.0"
-edition = "2024"
+
+[package.version ]
+workspace = true
+
+[package.edition ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 [dependencies]
 color-eyre.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs", features = ["valuable"] }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-form-widget = { version = "0.1.0", path = "../form" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../keybinds" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+jellyfin = { path = "../../jellyfin-rs", features = ["valuable"] }
+jellyhaj-core = { path = "../../jellyhaj-core" }
+jellyhaj-form-widget = { path = "../form" }
+jellyhaj-keybinds-widget = { path = "../keybinds" }
+jellyhaj-widgets-core = { path = "../core" }
 jiff.workspace = true
 valuable.workspace = true
 

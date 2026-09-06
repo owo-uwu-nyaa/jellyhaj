@@ -1,6 +1,6 @@
 [dependencies]
 futures-util = {features = ["sink"], workspace = true}
-spawn = {path = "../spawn", version = "0.1.0"}
+spawn = {path = "../spawn"}
 color-eyre.workspace = true
 futures-intrusive.workspace = true
 pin-project-lite.workspace = true

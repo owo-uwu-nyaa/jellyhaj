@@ -1,23 +1,30 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-image = {path = "../image", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-image = {path = "../image"}
+jellyhaj-widgets-core = {path = "../core"}
 tokio = { features = ["sync"], workspace = true }
 color-eyre.workspace = true
 ratatui.workspace = true
 tracing.workspace = true
 valuable.workspace = true
 serde_json.workspace = true
-spawn = { version = "0.1.0", path = "../../spawn" }
+spawn = { path = "../../spawn" }
 sqlx.workspace = true
-jellyhaj-event-listener = { version = "0.1.0", path = "../../event-listener" }
+jellyhaj-event-listener = { path = "../../event-listener" }
 crossterm = { workspace = true, features = ["osc52"] }
 
 [package]
-edition = "2024"
 name = "jellyhaj-entry-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

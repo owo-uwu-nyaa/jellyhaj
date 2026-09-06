@@ -1,9 +1,9 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-form-widget = {path = "../form", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-form-widget = {path = "../form"}
+jellyhaj-keybinds-widget = {path = "../keybinds"}
+jellyhaj-widgets-core = {path = "../core"}
 tokio = {features = ["time"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
@@ -14,9 +14,16 @@ parking_lot.workspace = true
 serde_json.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-login-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

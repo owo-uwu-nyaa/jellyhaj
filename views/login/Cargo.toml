@@ -1,13 +1,13 @@
 [dependencies]
-config = {path = "../../config", version = "0.1.0"}
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-loading-widget = {path = "../../widgets/loading", version = "0.1.0"}
-jellyhaj-login-widget = {path = "../../widgets/login", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
-keybinds = {path = "../../keybinds", version = "0.1.0"}
-spawn = {path = "../../spawn", version = "0.1.0"}
+config = {path = "../../config"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds"}
+jellyhaj-loading-widget = {path = "../../widgets/loading"}
+jellyhaj-login-widget = {path = "../../widgets/login"}
+jellyhaj-widgets-core = {path = "../../widgets/core"}
+keybinds = {path = "../../keybinds"}
+spawn = {path = "../../spawn"}
 tokio = { features = ["macros", "process", "sync"], workspace = true }
 color-eyre.workspace = true
 ratatui.workspace = true
@@ -15,15 +15,22 @@ sqlx.workspace = true
 toml.workspace = true
 tracing.workspace = true
 whoami.workspace = true
-jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }
-jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
+jellyhaj-form-widget = { path = "../../widgets/form" }
+jellyhaj-fetch-view = { path = "../fetch" }
 parking_lot.workspace = true
-stats-data = { version = "0.1.0", path = "../../stats-data" }
+stats-data = { path = "../../stats-data" }
 
 [package]
-edition = "2024"
 name = "jellyhaj-login-view"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

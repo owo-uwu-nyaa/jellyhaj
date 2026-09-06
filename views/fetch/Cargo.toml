@@ -1,12 +1,12 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-fetch-widget = {path = "../../widgets/fetch", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-loading-widget = {path = "../../widgets/loading", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
-keybinds = {path = "../../keybinds", version = "0.1.0"}
-spawn = {path = "../../spawn", version = "0.1.0"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-fetch-widget = {path = "../../widgets/fetch"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds"}
+jellyhaj-loading-widget = {path = "../../widgets/loading"}
+jellyhaj-widgets-core = {path = "../../widgets/core"}
+keybinds = {path = "../../keybinds"}
+spawn = {path = "../../spawn"}
 color-eyre.workspace = true
 futures-util.workspace = true
 ratatui.workspace = true
@@ -14,9 +14,16 @@ tokio.workspace = true
 tracing.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-fetch-view"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

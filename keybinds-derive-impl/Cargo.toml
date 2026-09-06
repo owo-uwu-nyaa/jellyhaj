@@ -7,9 +7,10 @@ syn = {features = ["clone-impls", "derive", "extra-traits", "full", "parsing", "
 pretty_assertions = "1.4.1"
 
 [package]
-edition = "2024"
 name = "keybinds-derive-impl"
-version = "0.1.0"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
 
 
 [lints]

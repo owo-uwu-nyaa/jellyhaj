@@ -1,20 +1,27 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-player-widget = {path = "../../widgets/player", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
-player-core = {path = "../../player-core", version = "0.1.0"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-fetch-view = {path = "../fetch"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds"}
+jellyhaj-player-widget = {path = "../../widgets/player"}
+jellyhaj-widgets-core = {path = "../../widgets/core"}
+player-core = {path = "../../player-core"}
 color-eyre.workspace = true
 futures-util.workspace = true
 tracing.workspace = true
-jellyhaj-context = { version = "0.1.0", path = "../../context" }
+jellyhaj-context = { path = "../../context" }
 
 [package]
-edition = "2024"
 name = "jellyhaj-player-view"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 

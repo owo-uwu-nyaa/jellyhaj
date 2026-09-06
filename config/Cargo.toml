@@ -15,12 +15,19 @@ nom.workspace = true
 ratatui-core.workspace = true
 tachyonfx.workspace = true
 valuable.workspace = true
-spawn = { version = "0.1.0", path = "../spawn" }
+spawn = { path = "../spawn" }
 
 [package]
-edition = "2024"
 name = "config"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

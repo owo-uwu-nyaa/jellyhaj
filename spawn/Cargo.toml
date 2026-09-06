@@ -6,9 +6,16 @@ tokio = { features = ["macros", "rt", "signal", "sync", "time", "tracing"], work
 tracing = {workspace = true}
 
 [package]
-edition = "2024"
 name = "spawn"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

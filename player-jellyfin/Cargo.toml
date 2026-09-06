@@ -8,10 +8,11 @@ tokio = {features = ["rt"], workspace = true}
 tracing = {workspace = true}
 
 [package]
-edition = "2024"
 name = "player-jellyfin"
-version = "0.1.0"
 
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
 
 [lints]
 workspace = true

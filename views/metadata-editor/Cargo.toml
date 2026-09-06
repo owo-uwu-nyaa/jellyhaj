@@ -1,18 +1,25 @@
 [package]
 name = "jellyhaj-metadata-editor-view"
-version = "0.1.0"
-edition = "2024"
+
+[package.version ]
+workspace = true
+
+[package.edition ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 [dependencies]
 futures-util.workspace = true
-jellyfin = { version = "0.1.4", path = "../../jellyfin-rs" }
-jellyhaj-context = { version = "0.1.0", path = "../../context" }
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-fetch-view = { version = "0.1.0", path = "../fetch" }
-jellyhaj-form-widget = { version = "0.1.0", path = "../../widgets/form" }
-jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
-jellyhaj-metadata-editor-widget = { version = "0.1.0", path = "../../widgets/metadata-editor" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
+jellyfin = { path = "../../jellyfin-rs" }
+jellyhaj-context = { path = "../../context" }
+jellyhaj-core = { path = "../../jellyhaj-core" }
+jellyhaj-fetch-view = { path = "../fetch" }
+jellyhaj-form-widget = { path = "../../widgets/form" }
+jellyhaj-keybinds-widget = { path = "../../widgets/keybinds" }
+jellyhaj-metadata-editor-widget = { path = "../../widgets/metadata-editor" }
+jellyhaj-widgets-core = { path = "../../widgets/core" }
 
 [lints]
 workspace = true

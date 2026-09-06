@@ -6,12 +6,19 @@ zbus = {workspace = true}
 serde.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-jellyhaj-core = { version = "0.1.0", path = "../jellyhaj-core" }
+jellyhaj-core = { path = "../jellyhaj-core" }
 
 [package]
-edition = "2024"
 name = "player-mpris"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

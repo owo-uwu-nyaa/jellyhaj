@@ -1,16 +1,23 @@
 [dependencies]
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-error-widget = {path = "../../widgets/error", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../../widgets/keybinds", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../../widgets/core", version = "0.1.0"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-error-widget = {path = "../../widgets/error"}
+jellyhaj-keybinds-widget = {path = "../../widgets/keybinds"}
+jellyhaj-widgets-core = {path = "../../widgets/core"}
 color-eyre.workspace = true
 tracing.workspace = true
-spawn = { version = "0.1.0", path = "../../spawn" }
+spawn = { path = "../../spawn" }
 
 [package]
-edition = "2024"
 name = "jellyhaj-error-view"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

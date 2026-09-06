@@ -33,7 +33,6 @@ valuable = ["dep:valuable"]
 [package]
 categories = ["api-bindings"]
 description = "Bindings to the jellyfin web API"
-edition = "2024"
 homepage = "https://github.com/owo-uwu-nya/jellyfhaj/jellyfin"
 include = [
   "**/*.rs",
@@ -44,7 +43,13 @@ keywords = ["jellyfin", "media", "streaming"]
 license = "MIT"
 name = "jellyfin"
 repository = "https://github.com/sargon64/jellyfin-rs"
-version = "0.1.4"
+version = "0.2.0"
+
+[package.edition ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

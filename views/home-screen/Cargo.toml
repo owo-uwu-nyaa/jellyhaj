@@ -1,17 +1,24 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-fetch-view = {path = "../fetch", version = "0.1.0"}
-jellyhaj-home-screen-widget = {path = "../../widgets/home-screen", version = "0.1.0"}
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-fetch-view = {path = "../fetch"}
+jellyhaj-home-screen-widget = {path = "../../widgets/home-screen"}
 tokio = {features = ["macros"], workspace = true}
 color-eyre.workspace = true
 futures-util.workspace = true
-jellyhaj-context = { version = "0.1.0", path = "../../context" }
+jellyhaj-context = {  path = "../../context" }
 
 [package]
-edition = "2024"
 name = "jellyhaj-home-screen-view"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

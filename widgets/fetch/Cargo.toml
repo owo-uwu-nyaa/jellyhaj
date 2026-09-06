@@ -1,16 +1,23 @@
 [dependencies]
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-loading-widget = {path = "../loading", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-loading-widget = {path = "../loading"}
+jellyhaj-widgets-core = {path = "../core"}
 tokio = {features = ["time"], workspace = true}
 color-eyre.workspace = true
 tracing.workspace = true
 valuable.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-fetch-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

@@ -38,13 +38,17 @@ use-bindgen = ["libmpv-sys/use-bindgen"]
 [package]
 authors = ["ParadoxSpiral <paradoxspiral@riseup.net>"]
 description = "Libmpv abstraction that's easy to use and can play next to all codecs and containers"
-edition = "2024"
 keywords = ["libmpv", "media", "mpv", "playback"]
 license = "LGPL-2.1"
 name = "libmpv"
 repository = "https://github.com/ParadoxSpiral/libmpv-rs"
-version = "2.0.1"
-rust-version = "1.91.1"
+version = "3.0.0"
+
+[package.edition ]
+workspace = true
+
+[package.rust-version ]
+workspace = true
 
 
 [lints]

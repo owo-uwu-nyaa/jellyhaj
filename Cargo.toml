@@ -72,9 +72,15 @@ workspace = true
 
 [package]
 description = "kind of fancy jellyfin tui based on ratatui and libmpv"
-edition = "2024"
+edition.workspace = true
 name = "jellyhaj"
 version = "0.2.2"
+rust-version.workspace = true
+
+[workspace.package]
+rust-version = "1.97.1"
+version = "0.1.0"
+edition = "2024"
 
 [profile.release]
 debug = "full"

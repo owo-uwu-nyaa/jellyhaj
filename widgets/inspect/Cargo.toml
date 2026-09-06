@@ -1,8 +1,8 @@
 [dependencies]
 color-eyre.workspace = true
 crossterm = { workspace = true, features = ["osc52"] }
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-widgets-core = {path = "../core"}
 serde_json.workspace = true
 tokio = {features = ["sync"], workspace = true}
 tracing.workspace = true
@@ -10,9 +10,16 @@ tui-tree-widget.workspace = true
 valuable.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-inspect-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

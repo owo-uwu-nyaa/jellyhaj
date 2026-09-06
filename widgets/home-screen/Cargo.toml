@@ -1,20 +1,27 @@
 [dependencies]
-jellyfin = {path = "../../jellyfin-rs", version = "0.1.4"}
-jellyhaj-core = {path = "../../jellyhaj-core", version = "0.1.0"}
-jellyhaj-entry-widget = {path = "../entry", version = "0.1.0"}
-jellyhaj-event-listener = { version = "0.1.0", path = "../../event-listener" }
-jellyhaj-item-screen = {path = "../item-screen", version = "0.1.0"}
-jellyhaj-keybinds-widget = {path = "../keybinds", version = "0.1.0"}
-jellyhaj-widgets-core = {path = "../core", version = "0.1.0"}
-spawn = { version = "0.1.0", path = "../../spawn" }
+jellyfin = {path = "../../jellyfin-rs"}
+jellyhaj-core = {path = "../../jellyhaj-core"}
+jellyhaj-entry-widget = {path = "../entry"}
+jellyhaj-event-listener = { path = "../../event-listener" }
+jellyhaj-item-screen = {path = "../item-screen"}
+jellyhaj-keybinds-widget = {path = "../keybinds"}
+jellyhaj-widgets-core = {path = "../core"}
+spawn = { path = "../../spawn" }
 sqlx.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 valuable.workspace = true
 
 [package]
-edition = "2024"
 name = "jellyhaj-home-screen-widget"
-version = "0.1.0"
+
+[package.edition ]
+workspace = true
+
+[package.version ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 
 [lints]

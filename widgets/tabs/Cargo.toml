@@ -1,12 +1,19 @@
 [package]
 name = "jellyhaj-tabs-widget"
-version = "0.1.0"
-edition = "2024"
+
+[package.version ]
+workspace = true
+
+[package.edition ]
+workspace = true
+
+[package.rust-version]
+workspace = true
 
 [dependencies]
 color-eyre.workspace = true
-jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
-jellyhaj-tabs-widget-macro = { version = "0.1.0", path = "../tabs-macro" }
-jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
+jellyhaj-core = { path = "../../jellyhaj-core" }
+jellyhaj-tabs-widget-macro = { path = "../tabs-macro" }
+jellyhaj-widgets-core = { path = "../core" }
 [lints]
 workspace = true
