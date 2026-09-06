@@ -111,7 +111,7 @@ pub mod support {
             kind: SetCursorStyle::SteadyBar,
         });
     }
-
+    #[must_use]
     pub fn chars(val: &str) -> u16 {
         val.chars().map(|_| 1u16).sum()
     }

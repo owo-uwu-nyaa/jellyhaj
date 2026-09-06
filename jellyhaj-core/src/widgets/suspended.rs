@@ -88,7 +88,7 @@ async unsafe fn run_suspended(
                                     ))));
                                 append_element(
                                     &entry,
-                                    new.clone(),
+                                    new,
                                     &mut token,
                                 );
                             }
@@ -99,7 +99,7 @@ async unsafe fn run_suspended(
                         if let Some(entry) = state_entry.upgrade(){
                             unsafe{
                                 let new = Rc::new(StateEntry::new(StateValue::WithoutTui(next)));
-                                append_element(&entry,new.clone() , &mut token);
+                                append_element(&entry, new, &mut token);
                             }
                         }
                     }
