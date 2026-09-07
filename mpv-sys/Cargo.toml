@@ -1,0 +1,26 @@
+[package]
+name = "mpv-sys"
+rust-version.workspace = true
+version = "0.41.0"
+edition.workspace = true
+build = "build.rs"
+links = "mpv"
+license = "ISC"
+
+[dependencies]
+
+[target.'cfg(unix)'.build-dependencies]
+pkg-config.workspace = true
+
+
+[lints]
+workspace = true
+
+
+[features]
+bindgen = ["dep:bindgen"]
+default = []
+
+[build-dependencies]
+bindgen = { workspace = true, optional = true }
+

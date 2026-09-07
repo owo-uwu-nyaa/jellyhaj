@@ -3,7 +3,6 @@ color-eyre = {workspace = true}
 futures-util = {workspace = true}
 jellyfin = {features = ["valuable"], path = "../jellyfin-rs"}
 jellyhaj-core = { path = "../jellyhaj-core" }
-libmpv = {default-features = false, features = ["tokio"], path = "../libmpv-rs"}
 parking_lot = {workspace = true}
 pin-project-lite = {workspace = true}
 regex.workspace = true
@@ -15,8 +14,8 @@ tracing-core = {workspace = true}
 valuable.workspace = true
 
 [features]
-tracing = ["libmpv/tracing"]
-use-bindgen = ["libmpv/use-bindgen"]
+tracing = []
+use-bindgen = []
 
 [package]
 name = "player-core"

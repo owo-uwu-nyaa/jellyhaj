@@ -83,6 +83,7 @@
                   pkgs.pkg-config
                   pkgs.sqlite-interactive
                   pkgs.tokio-console
+                  pkgs.rust-bindgen
                 ];
                 buildInputs = [
                   pkgs.mpv-unwrapped

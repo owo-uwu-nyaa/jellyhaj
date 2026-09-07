@@ -100,8 +100,8 @@ members = [
   "keybinds",
   "keybinds-derive",
   "keybinds-derive-impl",
-  "libmpv-rs",
-  "libmpv-rs/libmpv-sys",
+  "mpv-async",
+  "mpv-sys",
   "player-core",
   "player-jellyfin",
   "player-mpris",
@@ -154,7 +154,7 @@ ansi-to-tui = "8.0.0"
 arcshift = "0.4.2"
 aws-lc-rs = {default-features = false, version = "1.13.3"}
 base64 = "0.22.1"
-bindgen = "0.69"
+bindgen = "0.73.1"
 bytes = "1.9.0"
 clap = {features = ["cargo", "derive"], version = "4.5.23"}
 color-eyre = "0.6.5"

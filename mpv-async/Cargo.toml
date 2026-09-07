@@ -1,0 +1,15 @@
+[package]
+name = "mpv-async"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+arcshift.workspace = true
+mpv-sys = { path = "../mpv-sys" }
+
+[lints]
+workspace = true
+
+[features]
+bindgen = ["mpv-sys/bindgen"]

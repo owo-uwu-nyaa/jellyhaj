@@ -2,7 +2,6 @@
 color-eyre = {workspace = true}
 dirs = {workspace = true}
 keybinds = {path = "../keybinds"}
-libmpv = {path = "../libmpv-rs"}
 log = {workspace = true}
 serde = {workspace = true}
 sqlx = {workspace = true}
