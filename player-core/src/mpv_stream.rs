@@ -1,23 +1,19 @@
 use std::{
     ffi::{CStr, CString},
-    marker::PhantomPinned,
-    mem,
     ops::Deref,
-    pin::Pin,
     task::{Poll, ready},
 };
 
 use color_eyre::eyre::{Context, Result};
 use futures_util::Stream;
 use jellyfin::JellyfinClient;
-use libmpv::{
-    Format, Mpv, MpvProfile,
-    events::{
-        Event, EventContextAsync, EventContextAsyncExt, EventContextExt, EventStream, PropertyData,
-        mpv_event_id,
-    },
-    node::{MpvNodeArrayRef, ToNode},
+use mpv_async::{
+    Mpv,
+    events::MpvEvent,
+    mpv_node_list,
+    nodes::{MpvFormat, ToMpvNode},
 };
+use pin_project_lite::pin_project;
 use tracing::{info, instrument, trace, warn};
 
 use super::log::log_message;
@@ -38,128 +34,137 @@ pub enum ObservedProperty {
 #[derive(Debug)]
 pub enum ClientCommand {
     Stop,
+    Unpause,
 }
 
 #[derive(Debug)]
-pub enum MpvEvent {
+pub enum Event {
     PropertyChanged(ObservedProperty),
     Command(ClientCommand),
     Seek,
 }
 
-pub struct MpvStream {
-    mpv: Mpv<EventContextAsync>,
-    poll: Option<EventStream<'static, Mpv<EventContextAsync>>>,
-    _pin: PhantomPinned,
+pin_project! {
+    pub struct MpvStream {
+        #[pin]
+        mpv: Mpv,
+    }
 }
 
 impl Deref for MpvStream {
-    type Target = Mpv<EventContextAsync>;
+    type Target = Mpv;
     fn deref(&self) -> &Self::Target {
         &self.mpv
     }
 }
 
 impl Stream for MpvStream {
-    type Item = Result<MpvEvent>;
+    type Item = Result<Event>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        let mpv = unsafe {
-            let this = Pin::get_unchecked_mut(self);
-            if let Some(poll) = &mut this.poll {
-                poll
-            } else {
-                let poll: EventStream<'static, Mpv<EventContextAsync>> =
-                    mem::transmute(this.mpv.events());
-                this.poll.insert(poll)
-            }
-        };
+        let mut this = self.project();
         Poll::Ready(loop {
-            let event = match ready!(mpv.poll_wait_event(cx)).context("waiting for mpv events") {
+            let event = match ready!(this.mpv.poll_wait_event(cx)).context("waiting for mpv events")
+            {
                 Err(e) => break Some(Err(e)),
                 Ok(v) => v,
             };
             trace!(?event);
             match event {
-                Event::LogMessage {
-                    prefix,
-                    level: _,
-                    text,
-                    log_level,
-                } => log_message(prefix, log_level, text),
-                Event::Shutdown => {
+                MpvEvent::Shutdown => {
                     info!("shutdown request received");
                     break None;
                 }
-                Event::Seek => {
-                    break Some(Ok(MpvEvent::Seek));
+                MpvEvent::LogMessage {
+                    prefix,
+                    level,
+                    level_str: _,
+                    text,
+                } => log_message(prefix, level, text),
+                MpvEvent::ClientMessage(client_message) => {
+                    if client_message.len() == 1 && client_message[0] == c"stop-player" {
+                        break Some(Ok(Event::Command(ClientCommand::Stop)));
+                    }
+                    warn!(?client_message, "received unknown client message");
                 }
-                Event::PropertyChange {
-                    name,
-                    change,
-                    reply_userdata,
-                } => match (name, change, reply_userdata) {
-                    ("time-pos", PropertyData::Double(pos), 1) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Position(
-                            pos,
-                        ))));
+                MpvEvent::Seek => break Some(Ok(Event::Seek)),
+                MpvEvent::PropertyChange { userdata, data } => {
+                    trace!(?data, "received property");
+                    match userdata {
+                        1 => {
+                            assert_eq!(data.name, c"time-pos");
+                            if let Some(data) = data.differentiate().float() {
+                                break Some(Ok(Event::PropertyChanged(
+                                    ObservedProperty::Position(data),
+                                )));
+                            }
+                        }
+                        2 => {
+                            assert_eq!(data.name, c"idle-active");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Idle(
+                                data.differentiate().bool().expect("wrong type"),
+                            ))));
+                        }
+                        3 => {
+                            assert_eq!(data.name, c"pause");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Pause(
+                                data.differentiate().bool().expect("wrong type"),
+                            ))));
+                        }
+                        4 => {
+                            assert_eq!(data.name, c"fullscreen");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Fullscreen(
+                                data.differentiate().bool().expect("wrong type"),
+                            ))));
+                        }
+                        5 => {
+                            assert_eq!(data.name, c"window-minimized");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Minimized(
+                                data.differentiate().bool().expect("wrong type"),
+                            ))));
+                        }
+                        6 => {
+                            assert_eq!(data.name, c"playlist-pos");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::PlaylistPos(
+                                data.differentiate().int().expect("wrong type"),
+                            ))));
+                        }
+                        7 => {
+                            assert_eq!(data.name, c"speed");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Speed(
+                                data.differentiate().float().expect("wrong type"),
+                            ))));
+                        }
+                        8 => {
+                            assert_eq!(data.name, c"volume");
+                            break Some(Ok(Event::PropertyChanged(ObservedProperty::Volume(
+                                data.differentiate().int().expect("wrong type"),
+                            ))));
+                        }
+                        9 => {
+                            assert_eq!(data.name, c"duration");
+                            if let Some(data) = data.differentiate().float() {
+                                break Some(Ok(Event::PropertyChanged(
+                                    ObservedProperty::Duration(data),
+                                )));
+                            }
+                        }
+                        _ => {
+                            warn!("unknown property observation: {:?}", data.name);
+                        }
                     }
-                    ("idle-active", PropertyData::Flag(idle), 2) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Idle(idle))));
-                    }
-                    ("pause", PropertyData::Flag(pause), 3) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Pause(
-                            pause,
-                        ))));
-                    }
-                    ("fullscreen", PropertyData::Flag(fullscreen), 4) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Fullscreen(
-                            fullscreen,
-                        ))));
-                    }
-                    ("window-minimized", PropertyData::Flag(minimized), 5) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Minimized(
-                            minimized,
-                        ))));
-                    }
-                    ("playlist-pos", PropertyData::Int64(pos), 6) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(
-                            ObservedProperty::PlaylistPos(pos),
-                        )));
-                    }
-                    ("speed", PropertyData::Double(speed), 7) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Speed(
-                            speed,
-                        ))));
-                    }
-                    ("volume", PropertyData::Int64(volume), 8) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Volume(
-                            volume,
-                        ))));
-                    }
-                    ("duration", PropertyData::Double(duration), 9) => {
-                        break Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Duration(
-                            duration,
-                        ))));
-                    }
-                    (name, val, id) => {
-                        warn!(name, ?val, id, "received unrequested property change event");
-                    }
+                }
+                MpvEvent::QueueOverflow => {
+                    warn!("queue overflow");
+                }
+                MpvEvent::CommandReply { userdata, data: _ } => match userdata {
+                    0 => {}
+                    1 => break Some(Ok(Event::Command(ClientCommand::Unpause))),
+                    v => warn!("inknown command reply {v}"),
                 },
-                Event::ClientMessage(message) => {
-                    let message: Vec<_> = message.into_iter().map(CStr::to_bytes).collect();
-                    match message.as_slice() {
-                        &[b"stop-player"] => {
-                            break Some(Ok(MpvEvent::Command(ClientCommand::Stop)));
-                        }
-                        message => {
-                            warn!(?message, "received unknown client message");
-                        }
-                    }
-                }
                 _ => {}
             }
         })
@@ -171,66 +176,76 @@ impl MpvStream {
     pub fn new(
         jellyfin: &JellyfinClient,
         hwdec: &str,
-        profile: MpvProfile,
+        mpv_config_file: Option<&CStr>,
+        profiles: &[String],
         log_level: &str,
         minimized: bool,
     ) -> Result<Self> {
-        let mpv = Mpv::with_initializer(|mpv| -> Result<()> {
-            mpv.set_option(c"title", c"jellyhaj-player")?;
-            mpv.set_option(c"fullscreen", true)?;
-            mpv.set_option(c"window-minimized", minimized)?;
-            mpv.set_option(c"drag-and-drop", false)?;
-            mpv.set_option(c"osc", true)?;
-            mpv.set_option(c"vo", c"gpu-next")?;
-            mpv.set_option(c"terminal", false)?;
-            let mut header = b"authorization: ".to_vec();
-            header.extend_from_slice(jellyfin.get_auth().header.as_bytes());
-            mpv.set_option(
-                c"http-header-fields",
-                &MpvNodeArrayRef::new(&[CString::new(header)
-                    .context("converting auth header to cstr")?
-                    .to_node()]),
-            )?;
-            mpv.set_option(c"input-default-bindings", true)?;
-            mpv.set_option(c"input-vo-keyboard", true)?;
-            mpv.set_option(
-                c"hwdec",
-                CString::new(hwdec)
-                    .context("converting hwdec to cstr")?
-                    .as_c_str(),
-            )?;
-            mpv.set_option(c"idle", c"yes")?;
-            mpv.with_profile(profile)?;
-            Ok(())
-        })?
-        .enable_async();
-        mpv.set_log_level(&CString::new(log_level).context("converting log level to cstr")?)?;
-        mpv.enable_event(mpv_event_id::PropertyChange)?;
-        mpv.enable_event(mpv_event_id::LogMessage)?;
-        mpv.enable_event(mpv_event_id::QueueOverflow)?;
-        mpv.enable_event(mpv_event_id::ClientMessage)?;
-        mpv.enable_event(mpv_event_id::Seek)?;
-        mpv.observe_property("time-pos", Format::Double, 1)?;
-        mpv.observe_property("idle-active", Format::Flag, 2)?;
-        mpv.observe_property("pause", Format::Flag, 3)?;
-        mpv.observe_property("fullscreen", Format::Flag, 4)?;
-        mpv.observe_property("window-minimized", Format::Flag, 5)?;
-        mpv.observe_property("playlist-pos", Format::Int64, 6)?;
-        mpv.observe_property("speed", Format::Double, 7)?;
-        mpv.observe_property("volume", Format::Int64, 8)?;
-        mpv.observe_property("duration", Format::Double, 9)?;
+        let mpv = Mpv::new()?;
+        mpv.set_property(c"title", c"jellyhaj-player")?;
+        mpv.set_property(c"fullscreen", true)?;
+        mpv.set_property(c"window-minimized", minimized)?;
+        mpv.set_property(c"drag-and-drop", false)?;
+        mpv.set_property(c"osc", true)?;
+        mpv.set_property(c"vo", c"gpu-next")?;
+        mpv.set_property(c"terminal", false)?;
+        let mut header = b"authorization: ".to_vec();
+        header.extend_from_slice(jellyfin.get_auth().header.as_bytes());
+        mpv_node_list!(header;[&CString::new(header)
+                .context("converting auth header to cstr")?]);
+        mpv.set_property(c"http-header-fields", &header.node())?;
+        mpv.set_property(c"input-default-bindings", true)?;
+        mpv.set_property(c"input-vo-keyboard", true)?;
+        mpv.set_property(
+            c"hwdec",
+            CString::new(hwdec)
+                .context("converting hwdec to cstr")?
+                .as_c_str(),
+        )?;
+        mpv.set_property(c"idle", c"yes")?;
+        if let Some(config) = mpv_config_file {
+            mpv_node_list!(cmd;[c"load-config-file", config]);
+            mpv.command(&cmd)?;
+        }
+        let profiles: Vec<CString> = profiles
+            .iter()
+            .map(|s| CString::new(s.as_str()))
+            .collect::<std::result::Result<_, _>>()?;
+        let profiles: Vec<_> = profiles
+            .iter()
+            .map(mpv_async::nodes::ToMpvNode::node)
+            .collect();
+
+        mpv.set_property(
+            c"profile",
+            &mpv_async::nodes::MpvNodeList::new(&profiles).node(),
+        )?;
+        let mpv = mpv.initialize()?;
+        mpv.request_log_messages(
+            &CString::new(log_level).context("converting log level to cstr")?,
+        )?;
+        //mpv.enable_event(mpv_event_id::PropertyChange)?;
+        //mpv.enable_event(mpv_event_id::LogMessage)?;
+        //mpv.enable_event(mpv_event_id::QueueOverflow)?;
+        //mpv.enable_event(mpv_event_id::ClientMessage)?;
+        //mpv.enable_event(mpv_event_id::Seek)?;
+        mpv.observe_property(1, c"time-pos", MpvFormat::Double)?;
+        mpv.observe_property(2, c"idle-active", MpvFormat::Flag)?;
+        mpv.observe_property(3, c"pause", MpvFormat::Flag)?;
+        mpv.observe_property(4, c"fullscreen", MpvFormat::Flag)?;
+        mpv.observe_property(5, c"window-minimized", MpvFormat::Flag)?;
+        mpv.observe_property(6, c"playlist-pos", MpvFormat::Int64)?;
+        mpv.observe_property(7, c"speed", MpvFormat::Double)?;
+        mpv.observe_property(8, c"volume", MpvFormat::Int64)?;
+        mpv.observe_property(9, c"duration", MpvFormat::Double)?;
         mpv.command(&[
-            c"keybind".to_node(),
-            c"q".to_node(),
-            stop_cmd(mpv.client_name()).to_node(),
-            c"on quit stop the player instead".to_node(),
+            c"keybind".node(),
+            c"q".node(),
+            stop_cmd(mpv.client_name()).node(),
+            c"on quit stop the player instead".node(),
         ])?;
         info!("mpv initialized");
-        Ok(Self {
-            mpv,
-            poll: None,
-            _pin: PhantomPinned,
-        })
+        Ok(Self { mpv })
     }
 }
 

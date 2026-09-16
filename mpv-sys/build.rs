@@ -62,6 +62,8 @@ fn link_lib() {
 fn run_bindgen() {
     use std::env::var_os;
 
+    use bindgen::RustTarget;
+
     println!("cargo::rerun-if-env-changed=MPV_INCLUDE_PATH");
     let header_paths = if let Ok(path) = std::env::var("MPV_INCLUDE_PATH") {
         vec![path]
@@ -95,17 +97,24 @@ fn run_bindgen() {
                 .inspect(|p| println!("adding header path {p}"))
                 .map(|p| format!("-I{p}")),
         )
+        .clang_arg("-fretain-comments-from-system-headers")
         .generate_cstr(true)
         .wrap_unsafe_ops(true)
         .rust_edition(bindgen::RustEdition::Edition2024)
-        .allowlist_recursively(false);
+        .rust_target(RustTarget::stable(97, 1).expect("valid version"))
+        .newtype_enum("mpv.*");
+
     let out = std::path::PathBuf::from(var_os("OUT_DIR").expect("no out dir set"));
     let mut client = out.clone();
     client.push("client.rs");
     builder
         .clone()
-        .header_contents("base.h", "#include <mpv/client.h>")
+        .derive_ord(true)
+        .derive_eq(true)
         .allowlist_item("mpv.*")
+        .allowlist_item("MPV.*")
+        .allowlist_file("HEADER_MPV_CLIENT_API_VERSION")
+        .header_contents("client-helper.h", include_str!("client-helper.h"))
         .generate()
         .expect("generating bindings failed")
         .write_to_file(client)
@@ -114,29 +123,24 @@ fn run_bindgen() {
     render.push("render.rs");
     builder
         .clone()
-        .header_contents("base.h", "#include <mpv/render.h>")
         .allowlist_item("mpv_render.*")
+        .allowlist_item("MPV_RENDER.*")
+        .allowlist_item("mpv_opengl.*")
+        .allowlist_item("MPV_OPENGL.*")
+        .allowlist_item("_drmModeAtomicReq")
+        .allowlist_recursively(false)
+        .header_contents("render-helper.h", include_str!("render-helper.h"))
         .generate()
         .expect("generating bindings failed")
         .write_to_file(render)
         .expect("writing bindings");
-    let mut render_gl = out.clone();
-    render_gl.push("render_gl.rs");
-    builder
-        .clone()
-        .header_contents("base.h", "#include <mpv/render_gl.h>")
-        .allowlist_item("mpv_opengl.*")
-        .allowlist_type("_drmModeAtomicReq")
-        .generate()
-        .expect("generating bindings failed")
-        .write_to_file(render_gl)
-        .expect("writing bindings");
     let mut stream_cb = out.clone();
     stream_cb.push("stream_cb.rs");
     builder
-        .clone()
-        .header_contents("base.h", "#include <mpv/stream_cb.h>")
         .allowlist_item("mpv_stream.*")
+        .allowlist_item("MPV_STREAM.*")
+        .allowlist_recursively(false)
+        .header_contents("stream-cb-helper.h", include_str!("stream_cb-helper.h"))
         .generate()
         .expect("generating bindings failed")
         .write_to_file(stream_cb)

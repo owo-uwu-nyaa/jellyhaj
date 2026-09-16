@@ -1,24 +1,31 @@
 use std::{
     collections::{HashMap, HashSet},
+    ffi::CStr,
     sync::LazyLock,
 };
 
-use libmpv::{LogLevel, mpv_log_level};
+use mpv_async::events::MpvLogLevel;
 use parking_lot::RwLock;
-use tracing::{Level, Metadata, field::FieldSet, level_filters::STATIC_MAX_LEVEL};
+use tracing::{Level, Metadata, field::FieldSet, level_filters::STATIC_MAX_LEVEL, warn};
 use tracing_core::{Callsite, LevelFilter, callsite::DefaultCallsite, identify_callsite};
 
-pub fn log_message(prefix: &str, level: LogLevel, text: &str) {
+pub fn log_message(prefix: &CStr, level: MpvLogLevel, text: &CStr) {
     let level = match level {
-        mpv_log_level::Fatal | mpv_log_level::Error => Level::ERROR,
-        mpv_log_level::Warn => Level::WARN,
-        mpv_log_level::Info => Level::INFO,
-        mpv_log_level::V | mpv_log_level::Debug => Level::DEBUG,
-        mpv_log_level::Trace => Level::TRACE,
-        level => panic!("Unknown mpv log level: {level}"),
+        MpvLogLevel::Fatal | MpvLogLevel::Error => Level::ERROR,
+        MpvLogLevel::Warn => Level::WARN,
+        MpvLogLevel::Info => Level::INFO,
+        MpvLogLevel::Verbose | MpvLogLevel::Debug => Level::DEBUG,
+        MpvLogLevel::Trace => Level::TRACE,
+        MpvLogLevel::None => return,
+        MpvLogLevel::Unknown => {
+            warn!("received message with unknown log level");
+            Level::INFO
+        }
     };
+    let prefix = prefix.to_string_lossy();
+    let text = text.to_string_lossy();
     if level <= STATIC_MAX_LEVEL && level <= LevelFilter::current() {
-        let callsite = get_tracing_callsite(prefix, level);
+        let callsite = get_tracing_callsite(&prefix, level);
         let interest = callsite.interest();
         let metadata = callsite.metadata();
         if !interest.is_never()

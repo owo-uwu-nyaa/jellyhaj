@@ -14,11 +14,7 @@ use jellyfin::{
     items::{ItemType, MediaItem},
 };
 use jellyhaj_core::state::NextScreen;
-use libmpv::{
-    Mpv, MpvProfile,
-    events::EventContextAsync,
-    node::{BorrowingCPtr, MpvNodeMapRef, ToNode},
-};
+use mpv_async::{Mpv, mpv_node_list, mpv_node_map};
 use spawn::Spawner;
 use tokio::{
     sync::{
@@ -40,18 +36,24 @@ impl OwnedPlayerHandle {
     pub fn new(
         jellyfin: JellyfinClient,
         hwdec: &str,
-        profile: MpvProfile,
+        profiles: &[String],
         log_level: &str,
         mpv_config_file: Option<&Path>,
         minimized: bool,
         spawn: &Spawner,
         widget_sender: UnboundedSender<NextScreen>,
     ) -> Result<Self> {
-        let mpv = MpvStream::new(&jellyfin, hwdec, profile, log_level, minimized)?;
-        if let Some(mpv_config_file) = mpv_config_file {
-            mpv.load_config(mpv_config_file)
-                .context("loading extra mpv config file")?;
-        }
+        let mpv = MpvStream::new(
+            &jellyfin,
+            hwdec,
+            mpv_config_file
+                .map(|c| CString::new(c.as_os_str().as_encoded_bytes()))
+                .transpose()?
+                .as_deref(),
+            profiles,
+            log_level,
+            minimized,
+        )?;
         let mut position_send_timer = interval(Duration::from_secs(1));
         position_send_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let playlist = Arc::new(Vec::new());
@@ -62,7 +64,6 @@ impl OwnedPlayerHandle {
         spawn.spawn(
             PollState {
                 idle: true,
-                closed: false,
                 mpv,
                 commands: c_recv,
                 position_send_timer,
@@ -95,8 +96,9 @@ impl OwnedPlayerHandle {
     }
 }
 
+#[instrument(skip_all)]
 pub fn set_playlist(
-    mpv: &Mpv<EventContextAsync>,
+    mpv: &Mpv,
     jellyfin: &JellyfinClient,
     id_gen: &mut PlaylistItemIdGen,
     items: Vec<MediaItem>,
@@ -116,28 +118,18 @@ pub fn set_playlist(
     let item = &items[index];
     let uri = jellyfin.get_playback_uri(item)?.to_string();
     debug!("adding {uri} to queue and play it");
-    mpv.command(&[
-        c"loadfile".to_node(),
-        CString::new(uri)
-            .context("converting video url to cstr")?
-            .to_node(),
-        c"append-play".to_node(),
-        0i64.to_node(),
-        MpvNodeMapRef::new(
-            &[
-                BorrowingCPtr::new(c"start"),
-                BorrowingCPtr::new(c"force-media-title"),
-            ],
-            &[
-                CString::new(position.to_string())
-                    .context("converting start to cstr")?
-                    .to_node(),
-                name(item)?.to_node(),
-            ],
-        )
-        .to_node(),
-    ])
-    .context("added main item")?;
+    mpv_node_map!(opt;{
+        c"start": &CString::new(position.to_string()).context("converting start to cstr")?,
+        c"force-media-title": &name(item)?
+    });
+    mpv_node_list!(cmd;[
+        c"loadfile",
+        &CString::new(uri).context("converting video url to cstr")?,
+        c"append-play",
+        0i64,
+        &opt
+    ]);
+    mpv.command(&cmd).context("added main item")?;
     debug!("main file added to playlist at index {index}");
     for item in &items[index + 1..] {
         append(mpv, jellyfin, item)?;
@@ -155,23 +147,18 @@ pub fn set_playlist(
 }
 
 #[instrument(skip_all)]
-fn append(mpv: &Mpv<EventContextAsync>, jellyfin: &JellyfinClient, item: &MediaItem) -> Result<()> {
+fn append(mpv: &Mpv, jellyfin: &JellyfinClient, item: &MediaItem) -> Result<()> {
     let uri = jellyfin.get_playback_uri(item)?.to_string();
     debug!("adding {uri} to queue");
-    mpv.command(&[
-        c"loadfile".to_node(),
-        CString::new(uri)
-            .context("converting video url to cstr")?
-            .to_node(),
-        c"append".to_node(),
-        0i64.to_node(),
-        MpvNodeMapRef::new(
-            &[BorrowingCPtr::new(c"force-media-title")],
-            &[name(item)?.to_node()],
-        )
-        .to_node(),
-    ])?;
-
+    mpv_node_map!(opt; {c"force-media-title": &name(item)?});
+    mpv_node_list!(cmd; [
+        c"loadfile",
+        &CString::new(uri).context("converting video url to cstr")?,
+        c"append",
+        0i64,
+        &opt
+    ]);
+    mpv.command(&cmd)?;
     Ok(())
 }
 

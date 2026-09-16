@@ -85,7 +85,7 @@ pub async fn run_app(
         let mpv_handle = OwnedPlayerHandle::new(
             jellyfin.clone(),
             &config.hwdec,
-            config.mpv_profile,
+            &config.mpv_profiles,
             &config.mpv_log_level,
             config.mpv_config_file.as_deref(),
             true,

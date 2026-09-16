@@ -1,7 +1,6 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 use color_eyre::eyre::{Context, OptionExt, Result};
-use libmpv::MpvProfile;
 use serde::Deserialize;
 use tracing::{info, instrument};
 
@@ -21,7 +20,7 @@ pub struct Config {
     pub keybinds: Keybinds,
     pub login_file: PathBuf,
     pub mpv_log_level: String,
-    pub mpv_profile: MpvProfile,
+    pub mpv_profiles: Vec<String>,
     pub help_prefixes: Vec<String>,
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: u16,
@@ -38,7 +37,8 @@ struct ParseConfig {
     pub keybinds_file: Option<PathBuf>,
     pub effects_file: Option<PathBuf>,
     pub hwdec: String,
-    pub mpv_profile: Option<String>,
+    #[serde(default)]
+    pub mpv_profiles: Vec<String>,
     pub mpv_log_level: String,
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: Option<u16>,
@@ -124,12 +124,6 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
     }
     .context("parsing effects")?;
 
-    let mpv_profile = config
-        .mpv_profile
-        .as_deref()
-        .map_or_else(|| Ok(MpvProfile::default()), MpvProfile::from_str)
-        .context("parsing mpv_profile")?;
-
     let login_file = if let Some(login_file) = config.login_file {
         if login_file.is_absolute() {
             login_file
@@ -149,7 +143,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         hwdec: config.hwdec,
         keybinds,
         mpv_log_level: config.mpv_log_level,
-        mpv_profile,
+        mpv_profiles: config.mpv_profiles,
         help_prefixes,
         mpv_config_file: config.mpv_config_file,
         entry_image_width: config.entry_image_width.unwrap_or(32),

@@ -9,50 +9,55 @@ unsafe extern "C" {
 pub struct mpv_handle {
     _unused: [u8; 0],
 }
-#[doc = " No error happened (used to signal successful operation).\n Keep in mind that many API functions returning error codes can also\n return positive values, which also indicate success. API users can\n hardcode the fact that \">= 0\" means success."]
-pub const mpv_error_MPV_ERROR_SUCCESS: mpv_error = 0;
-#[doc = " The event ringbuffer is full. This means the client is choked, and can't\n receive any events. This can happen when too many asynchronous requests\n have been made, but not answered. Probably never happens in practice,\n unless the mpv core is frozen for some reason, and the client keeps\n making asynchronous requests. (Bugs in the client API implementation\n could also trigger this, e.g. if events become \"lost\".)"]
-pub const mpv_error_MPV_ERROR_EVENT_QUEUE_FULL: mpv_error = -1;
-#[doc = " Memory allocation failed."]
-pub const mpv_error_MPV_ERROR_NOMEM: mpv_error = -2;
-#[doc = " The mpv core wasn't configured and initialized yet. See the notes in\n `mpv_create()`."]
-pub const mpv_error_MPV_ERROR_UNINITIALIZED: mpv_error = -3;
-#[doc = " Generic catch-all error if a parameter is set to an invalid or\n unsupported value. This is used if there is no better error code."]
-pub const mpv_error_MPV_ERROR_INVALID_PARAMETER: mpv_error = -4;
-#[doc = " Trying to set an option that doesn't exist."]
-pub const mpv_error_MPV_ERROR_OPTION_NOT_FOUND: mpv_error = -5;
-#[doc = " Trying to set an option using an unsupported `MPV_FORMAT`."]
-pub const mpv_error_MPV_ERROR_OPTION_FORMAT: mpv_error = -6;
-#[doc = " Setting the option failed. Typically this happens if the provided option\n value could not be parsed."]
-pub const mpv_error_MPV_ERROR_OPTION_ERROR: mpv_error = -7;
-#[doc = " The accessed property doesn't exist."]
-pub const mpv_error_MPV_ERROR_PROPERTY_NOT_FOUND: mpv_error = -8;
-#[doc = " Trying to set or get a property using an unsupported `MPV_FORMAT`."]
-pub const mpv_error_MPV_ERROR_PROPERTY_FORMAT: mpv_error = -9;
-#[doc = " The property exists, but is not available. This usually happens when the\n associated subsystem is not active, e.g. querying audio parameters while\n audio is disabled."]
-pub const mpv_error_MPV_ERROR_PROPERTY_UNAVAILABLE: mpv_error = -10;
-#[doc = " Error setting or getting a property."]
-pub const mpv_error_MPV_ERROR_PROPERTY_ERROR: mpv_error = -11;
-#[doc = " General error when running a command with `mpv_command` and similar."]
-pub const mpv_error_MPV_ERROR_COMMAND: mpv_error = -12;
-#[doc = " Generic error on loading (usually used with `mpv_event_end_file.error`)."]
-pub const mpv_error_MPV_ERROR_LOADING_FAILED: mpv_error = -13;
-#[doc = " Initializing the audio output failed."]
-pub const mpv_error_MPV_ERROR_AO_INIT_FAILED: mpv_error = -14;
-#[doc = " Initializing the video output failed."]
-pub const mpv_error_MPV_ERROR_VO_INIT_FAILED: mpv_error = -15;
-#[doc = " There was no audio or video data to play. This also happens if the\n file was recognized, but did not contain any audio or video streams,\n or no streams were selected."]
-pub const mpv_error_MPV_ERROR_NOTHING_TO_PLAY: mpv_error = -16;
-#[doc = " When trying to load the file, the file format could not be determined,\n or the file was too broken to open it."]
-pub const mpv_error_MPV_ERROR_UNKNOWN_FORMAT: mpv_error = -17;
-#[doc = " Generic error for signaling that certain system requirements are not\n fulfilled."]
-pub const mpv_error_MPV_ERROR_UNSUPPORTED: mpv_error = -18;
-#[doc = " The API function which was called is a stub only."]
-pub const mpv_error_MPV_ERROR_NOT_IMPLEMENTED: mpv_error = -19;
-#[doc = " Unspecified error."]
-pub const mpv_error_MPV_ERROR_GENERIC: mpv_error = -20;
+impl mpv_error {
+    #[doc = " No error happened (used to signal successful operation).\n Keep in mind that many API functions returning error codes can also\n return positive values, which also indicate success. API users can\n hardcode the fact that \">= 0\" means success."]
+    pub const MPV_ERROR_SUCCESS: Self = Self(0);
+    #[doc = " The event ringbuffer is full. This means the client is choked, and can't\n receive any events. This can happen when too many asynchronous requests\n have been made, but not answered. Probably never happens in practice,\n unless the mpv core is frozen for some reason, and the client keeps\n making asynchronous requests. (Bugs in the client API implementation\n could also trigger this, e.g. if events become \"lost\".)"]
+    pub const MPV_ERROR_EVENT_QUEUE_FULL: Self = Self(-1);
+    #[doc = " Memory allocation failed."]
+    pub const MPV_ERROR_NOMEM: Self = Self(-2);
+    #[doc = " The mpv core wasn't configured and initialized yet. See the notes in\n `mpv_create()`."]
+    pub const MPV_ERROR_UNINITIALIZED: Self = Self(-3);
+    #[doc = " Generic catch-all error if a parameter is set to an invalid or\n unsupported value. This is used if there is no better error code."]
+    pub const MPV_ERROR_INVALID_PARAMETER: Self = Self(-4);
+    #[doc = " Trying to set an option that doesn't exist."]
+    pub const MPV_ERROR_OPTION_NOT_FOUND: Self = Self(-5);
+    #[doc = " Trying to set an option using an unsupported `MPV_FORMAT`."]
+    pub const MPV_ERROR_OPTION_FORMAT: Self = Self(-6);
+    #[doc = " Setting the option failed. Typically this happens if the provided option\n value could not be parsed."]
+    pub const MPV_ERROR_OPTION_ERROR: Self = Self(-7);
+    #[doc = " The accessed property doesn't exist."]
+    pub const MPV_ERROR_PROPERTY_NOT_FOUND: Self = Self(-8);
+    #[doc = " Trying to set or get a property using an unsupported `MPV_FORMAT`."]
+    pub const MPV_ERROR_PROPERTY_FORMAT: Self = Self(-9);
+    #[doc = " The property exists, but is not available. This usually happens when the\n associated subsystem is not active, e.g. querying audio parameters while\n audio is disabled."]
+    pub const MPV_ERROR_PROPERTY_UNAVAILABLE: Self = Self(-10);
+    #[doc = " Error setting or getting a property."]
+    pub const MPV_ERROR_PROPERTY_ERROR: Self = Self(-11);
+    #[doc = " General error when running a command with `mpv_command` and similar."]
+    pub const MPV_ERROR_COMMAND: Self = Self(-12);
+    #[doc = " Generic error on loading (usually used with `mpv_event_end_file.error`)."]
+    pub const MPV_ERROR_LOADING_FAILED: Self = Self(-13);
+    #[doc = " Initializing the audio output failed."]
+    pub const MPV_ERROR_AO_INIT_FAILED: Self = Self(-14);
+    #[doc = " Initializing the video output failed."]
+    pub const MPV_ERROR_VO_INIT_FAILED: Self = Self(-15);
+    #[doc = " There was no audio or video data to play. This also happens if the\n file was recognized, but did not contain any audio or video streams,\n or no streams were selected."]
+    pub const MPV_ERROR_NOTHING_TO_PLAY: Self = Self(-16);
+    #[doc = " When trying to load the file, the file format could not be determined,\n or the file was too broken to open it."]
+    pub const MPV_ERROR_UNKNOWN_FORMAT: Self = Self(-17);
+    #[doc = " Generic error for signaling that certain system requirements are not\n fulfilled."]
+    pub const MPV_ERROR_UNSUPPORTED: Self = Self(-18);
+    #[doc = " The API function which was called is a stub only."]
+    pub const MPV_ERROR_NOT_IMPLEMENTED: Self = Self(-19);
+    #[doc = " Unspecified error."]
+    pub const MPV_ERROR_GENERIC: Self = Self(-20);
+}
 #[doc = " List of error codes than can be returned by API functions. 0 and positive\n return values always mean success, negative values are always errors."]
-pub type mpv_error = ::std::os::raw::c_int;
+#[repr(transparent)]
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct mpv_error(pub ::std::os::raw::c_int);
+
 unsafe extern "C" {
     #[doc = " Return a string describing the error. For unknown errors, the string\n \"unknown error\" is returned.\n\n @param error error number, see enum `mpv_error`\n @return A static string describing the error. The string is completely\n         static, i.e. doesn't need to be deallocated, and is valid forever."]
     pub fn mpv_error_string(error: ::std::os::raw::c_int) -> *const ::std::os::raw::c_char;
@@ -114,28 +119,34 @@ unsafe extern "C" {
     #[doc = " Same as `mpv_get_time_ns` but in microseconds."]
     pub fn mpv_get_time_us(ctx: *mut mpv_handle) -> i64;
 }
-#[doc = " Invalid. Sometimes used for empty values. This is always defined to 0,\n so a normal 0-init of `mpv_format` (or e.g. `mpv_node`) is guaranteed to set\n this it to `MPV_FORMAT_NONE` (which makes some things saner as consequence)."]
-pub const mpv_format_MPV_FORMAT_NONE: mpv_format = 0;
-#[doc = " The basic type is char*. It returns the raw property string, like\n using ${=property} in input.conf (see input.rst).\n\n NULL isn't an allowed value.\n\n Warning: although the encoding is usually UTF-8, this is not always the\n          case. File tags often store strings in some legacy codepage,\n          and even filenames don't necessarily have to be in UTF-8 (at\n          least on Linux). If you pass the strings to code that requires\n          valid UTF-8, you have to sanitize it in some way.\n          On Windows, filenames are always UTF-8, and libmpv converts\n          between UTF-8 and UTF-16 when using win32 API functions. See\n          the \"Encoding of filenames\" section for details.\n\n Example for reading:\n\n     char *result = NULL;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_STRING, &result) < 0)\n         goto error;\n     printf(\"%s\\n\", result);\n     mpv_free(result);\n\n Or just use `mpv_get_property_string()`.\n\n Example for writing:\n\n     char *value = \"the new value\";\n     // yep, you pass the address to the variable\n     // (needed for symmetry with other types and mpv_get_property)\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_STRING, &value);\n\n Or just use `mpv_set_property_string()`.\n"]
-pub const mpv_format_MPV_FORMAT_STRING: mpv_format = 1;
-#[doc = " The basic type is char*. It returns the OSD property string, like\n using ${property} in input.conf (see input.rst). In many cases, this\n is the same as the raw string, but in other cases it's formatted for\n display on OSD. It's intended to be human readable. Do not attempt to\n parse these strings.\n\n Only valid when doing read access. The rest works like `MPV_FORMAT_STRING`."]
-pub const mpv_format_MPV_FORMAT_OSD_STRING: mpv_format = 2;
-#[doc = " The basic type is int. The only allowed values are 0 (\"no\")\n and 1 (\"yes\").\n\n Example for reading:\n\n     int result;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_FLAG, &result) < 0)\n         goto error;\n     printf(\"%s\\n\", result ? \"true\" : \"false\");\n\n Example for writing:\n\n     int flag = 1;\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_FLAG, &flag);"]
-pub const mpv_format_MPV_FORMAT_FLAG: mpv_format = 3;
-#[doc = " The basic type is `int64_t`."]
-pub const mpv_format_MPV_FORMAT_INT64: mpv_format = 4;
-#[doc = " The basic type is double."]
-pub const mpv_format_MPV_FORMAT_DOUBLE: mpv_format = 5;
-#[doc = " The type is `mpv_node`.\n\n For reading, you usually would pass a pointer to a stack-allocated\n `mpv_node` value to mpv, and when you're done you call\n `mpv_free_node_contents(&node)`.\n You're expected not to write to the data - if you have to, copy it\n first (which you have to do manually).\n\n For writing, you construct your own `mpv_node`, and pass a pointer to the\n API. The API will never write to your data (and copy it if needed), so\n you're free to use any form of allocation or memory management you like.\n\n Warning: when reading, always check the `mpv_node.format` member. For\n          example, properties might change their type in future versions\n          of mpv, or sometimes even during runtime.\n\n Example for reading:\n\n     mpv_node result;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_NODE, &result) < 0)\n         goto error;\n     printf(\"format=%d\\n\", (int)result.format);\n     mpv_free_node_contents(&result).\n\n Example for writing:\n\n     mpv_node value;\n     value.format = MPV_FORMAT_STRING;\n     value.u.string = \"hello\";\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_NODE, &value);"]
-pub const mpv_format_MPV_FORMAT_NODE: mpv_format = 6;
-#[doc = " Used with `mpv_node` only. Can usually not be used directly."]
-pub const mpv_format_MPV_FORMAT_NODE_ARRAY: mpv_format = 7;
-#[doc = " See `MPV_FORMAT_NODE_ARRAY`."]
-pub const mpv_format_MPV_FORMAT_NODE_MAP: mpv_format = 8;
-#[doc = " A raw, untyped byte array. Only used only with `mpv_node`, and only in\n some very specific situations. (Some commands use it.)"]
-pub const mpv_format_MPV_FORMAT_BYTE_ARRAY: mpv_format = 9;
+
+impl mpv_format {
+    #[doc = " Invalid. Sometimes used for empty values. This is always defined to 0,\n so a normal 0-init of `mpv_format` (or e.g. `mpv_node`) is guaranteed to set\n this it to `MPV_FORMAT_NONE` (which makes some things saner as consequence)."]
+    pub const MPV_FORMAT_NONE: Self = Self(0);
+    #[doc = " The basic type is char*. It returns the raw property string, like\n using ${=property} in input.conf (see input.rst).\n\n NULL isn't an allowed value.\n\n Warning: although the encoding is usually UTF-8, this is not always the\n          case. File tags often store strings in some legacy codepage,\n          and even filenames don't necessarily have to be in UTF-8 (at\n          least on Linux). If you pass the strings to code that requires\n          valid UTF-8, you have to sanitize it in some way.\n          On Windows, filenames are always UTF-8, and libmpv converts\n          between UTF-8 and UTF-16 when using win32 API functions. See\n          the \"Encoding of filenames\" section for details.\n\n Example for reading:\n\n     char *result = NULL;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_STRING, &result) < 0)\n         goto error;\n     printf(\"%s\\n\", result);\n     mpv_free(result);\n\n Or just use `mpv_get_property_string()`.\n\n Example for writing:\n\n     char *value = \"the new value\";\n     // yep, you pass the address to the variable\n     // (needed for symmetry with other types and mpv_get_property)\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_STRING, &value);\n\n Or just use `mpv_set_property_string()`.\n"]
+    pub const MPV_FORMAT_STRING: Self = Self(1);
+    #[doc = " The basic type is char*. It returns the OSD property string, like\n using ${property} in input.conf (see input.rst). In many cases, this\n is the same as the raw string, but in other cases it's formatted for\n display on OSD. It's intended to be human readable. Do not attempt to\n parse these strings.\n\n Only valid when doing read access. The rest works like `MPV_FORMAT_STRING`."]
+    pub const MPV_FORMAT_OSD_STRING: Self = Self(2);
+    #[doc = " The basic type is int. The only allowed values are 0 (\"no\")\n and 1 (\"yes\").\n\n Example for reading:\n\n     int result;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_FLAG, &result) < 0)\n         goto error;\n     printf(\"%s\\n\", result ? \"true\" : \"false\");\n\n Example for writing:\n\n     int flag = 1;\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_FLAG, &flag);"]
+    pub const MPV_FORMAT_FLAG: Self = Self(3);
+    #[doc = " The basic type is `int64_t`."]
+    pub const MPV_FORMAT_INT64: Self = Self(4);
+    #[doc = " The basic type is double."]
+    pub const MPV_FORMAT_DOUBLE: Self = Self(5);
+    #[doc = " The type is `mpv_node`.\n\n For reading, you usually would pass a pointer to a stack-allocated\n `mpv_node` value to mpv, and when you're done you call\n `mpv_free_node_contents(&node)`.\n You're expected not to write to the data - if you have to, copy it\n first (which you have to do manually).\n\n For writing, you construct your own `mpv_node`, and pass a pointer to the\n API. The API will never write to your data (and copy it if needed), so\n you're free to use any form of allocation or memory management you like.\n\n Warning: when reading, always check the `mpv_node.format` member. For\n          example, properties might change their type in future versions\n          of mpv, or sometimes even during runtime.\n\n Example for reading:\n\n     mpv_node result;\n     if (mpv_get_property(ctx, \"property\", MPV_FORMAT_NODE, &result) < 0)\n         goto error;\n     printf(\"format=%d\\n\", (int)result.format);\n     mpv_free_node_contents(&result).\n\n Example for writing:\n\n     mpv_node value;\n     value.format = MPV_FORMAT_STRING;\n     value.u.string = \"hello\";\n     mpv_set_property(ctx, \"property\", MPV_FORMAT_NODE, &value);"]
+    pub const MPV_FORMAT_NODE: Self = Self(6);
+    #[doc = " Used with `mpv_node` only. Can usually not be used directly."]
+    pub const MPV_FORMAT_NODE_ARRAY: Self = Self(7);
+    #[doc = " See `MPV_FORMAT_NODE_ARRAY`."]
+    pub const MPV_FORMAT_NODE_MAP: Self = Self(8);
+    #[doc = " A raw, untyped byte array. Only used only with `mpv_node`, and only in\n some very specific situations. (Some commands use it.)"]
+    pub const MPV_FORMAT_BYTE_ARRAY: Self = Self(9);
+}
+#[repr(transparent)]
 #[doc = " Data format for options and properties. The API functions to get/set\n properties and options support multiple formats, and this enum describes\n them."]
-pub type mpv_format = ::std::os::raw::c_uint;
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct mpv_format(pub ::std::os::raw::c_uint);
+
 #[doc = " Generic data storage.\n\n If mpv writes this struct (e.g. via `mpv_get_property()`), you must not change\n the data. In some cases (`mpv_get_property()`), you have to free it with\n `mpv_free_node_contents()`. If you fill this struct yourself, you're also\n responsible for freeing it, and you must not call `mpv_free_node_contents()`."]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -332,41 +343,46 @@ unsafe extern "C" {
         registered_reply_userdata: u64,
     ) -> ::std::os::raw::c_int;
 }
-#[doc = " Nothing happened. Happens on timeouts or sporadic wakeups."]
-pub const mpv_event_id_MPV_EVENT_NONE: mpv_event_id = 0;
-#[doc = " Happens when the player quits. The player enters a state where it tries\n to disconnect all clients. Most requests to the player will fail, and\n the client should react to this and quit with `mpv_destroy()` as soon as\n possible."]
-pub const mpv_event_id_MPV_EVENT_SHUTDOWN: mpv_event_id = 1;
-#[doc = " See `mpv_request_log_messages()`."]
-pub const mpv_event_id_MPV_EVENT_LOG_MESSAGE: mpv_event_id = 2;
-#[doc = " Reply to a `mpv_get_property_async()` request.\n See also `mpv_event` and `mpv_event_property`."]
-pub const mpv_event_id_MPV_EVENT_GET_PROPERTY_REPLY: mpv_event_id = 3;
-#[doc = " Reply to a `mpv_set_property_async()` request.\n (Unlike `MPV_EVENT_GET_PROPERTY`, `mpv_event_property` is not used.)"]
-pub const mpv_event_id_MPV_EVENT_SET_PROPERTY_REPLY: mpv_event_id = 4;
-#[doc = " Reply to a `mpv_command_async()` or `mpv_command_node_async()` request.\n See also `mpv_event` and `mpv_event_command`."]
-pub const mpv_event_id_MPV_EVENT_COMMAND_REPLY: mpv_event_id = 5;
-#[doc = " Notification before playback start of a file (before the file is loaded).\n See also `mpv_event` and `mpv_event_start_file`."]
-pub const mpv_event_id_MPV_EVENT_START_FILE: mpv_event_id = 6;
-#[doc = " Notification after playback end (after the file was unloaded).\n See also `mpv_event` and `mpv_event_end_file`."]
-pub const mpv_event_id_MPV_EVENT_END_FILE: mpv_event_id = 7;
-#[doc = " Notification when the file has been loaded (headers were read etc.), and\n decoding starts."]
-pub const mpv_event_id_MPV_EVENT_FILE_LOADED: mpv_event_id = 8;
-#[doc = " Triggered by the script-message input command. The command uses the\n first argument of the command as client name (see `mpv_client_name()`) to\n dispatch the message, and passes along all arguments starting from the\n second argument as strings.\n See also `mpv_event` and `mpv_event_client_message`."]
-pub const mpv_event_id_MPV_EVENT_CLIENT_MESSAGE: mpv_event_id = 16;
-#[doc = " Happens after video changed in some way. This can happen on resolution\n changes, pixel format changes, or video filter changes. The event is\n sent after the video filters and the VO are reconfigured. Applications\n embedding a mpv window should listen to this event in order to resize\n the window if needed.\n Note that this event can happen sporadically, and you should check\n yourself whether the video parameters really changed before doing\n something expensive."]
-pub const mpv_event_id_MPV_EVENT_VIDEO_RECONFIG: mpv_event_id = 17;
-#[doc = " Similar to `MPV_EVENT_VIDEO_RECONFIG`. This is relatively uninteresting,\n because there is no such thing as audio output embedding."]
-pub const mpv_event_id_MPV_EVENT_AUDIO_RECONFIG: mpv_event_id = 18;
-#[doc = " Happens when a seek was initiated. Playback stops. Usually it will\n resume with `MPV_EVENT_PLAYBACK_RESTART` as soon as the seek is finished."]
-pub const mpv_event_id_MPV_EVENT_SEEK: mpv_event_id = 20;
-#[doc = " There was a discontinuity of some sort (like a seek), and playback\n was reinitialized. Usually happens on start of playback and after\n seeking. The main purpose is allowing the client to detect when a seek\n request is finished."]
-pub const mpv_event_id_MPV_EVENT_PLAYBACK_RESTART: mpv_event_id = 21;
-#[doc = " Event sent due to `mpv_observe_property()`.\n See also `mpv_event` and `mpv_event_property`."]
-pub const mpv_event_id_MPV_EVENT_PROPERTY_CHANGE: mpv_event_id = 22;
-#[doc = " Happens if the internal per-mpv_handle ringbuffer overflows, and at\n least 1 event had to be dropped. This can happen if the client doesn't\n read the event queue quickly enough with `mpv_wait_event()`, or if the\n client makes a very large number of asynchronous calls at once.\n\n Event delivery will continue normally once this event was returned\n (this forces the client to empty the queue completely)."]
-pub const mpv_event_id_MPV_EVENT_QUEUE_OVERFLOW: mpv_event_id = 24;
-#[doc = " Triggered if a hook handler was registered with `mpv_hook_add()`, and the\n hook is invoked. If you receive this, you must handle it, and continue\n the hook with `mpv_hook_continue()`.\n See also `mpv_event` and `mpv_event_hook`."]
-pub const mpv_event_id_MPV_EVENT_HOOK: mpv_event_id = 25;
-pub type mpv_event_id = ::std::os::raw::c_uint;
+impl mpv_event_id {
+    #[doc = " Nothing happened. Happens on timeouts or sporadic wakeups."]
+    pub const MPV_EVENT_NONE: Self = Self(0);
+    #[doc = " Happens when the player quits. The player enters a state where it tries\n to disconnect all clients. Most requests to the player will fail, and\n the client should react to this and quit with [`mpv_destroy()`] as soon as\n possible."]
+    pub const MPV_EVENT_SHUTDOWN: Self = Self(1);
+    #[doc = " See [`mpv_request_log_messages()`]."]
+    pub const MPV_EVENT_LOG_MESSAGE: Self = Self(2);
+    #[doc = " Reply to a [`mpv_get_property_async()`] request.\n See also [`mpv_event`] and [`mpv_event_property`]."]
+    pub const MPV_EVENT_GET_PROPERTY_REPLY: Self = Self(3);
+    #[doc = " Reply to a [`mpv_set_property_async()`] request.\n (Unlike `MPV_EVENT_GET_PROPERTY`, [`mpv_event_property`] is not used.)"]
+    pub const MPV_EVENT_SET_PROPERTY_REPLY: Self = Self(4);
+    #[doc = " Reply to a [`mpv_command_async()`] or [`mpv_command_node_async()`] request.\n See also [`mpv_event`] and [`mpv_event_command`]."]
+    pub const MPV_EVENT_COMMAND_REPLY: Self = Self(5);
+    #[doc = " Notification before playback start of a file (before the file is loaded).\n See also [`mpv_event`] and [`mpv_event_start_file`]."]
+    pub const MPV_EVENT_START_FILE: Self = Self(6);
+    #[doc = " Notification after playback end (after the file was unloaded).\n See also [`mpv_event`] and [`mpv_event_end_file`]."]
+    pub const MPV_EVENT_END_FILE: Self = Self(7);
+    #[doc = " Notification when the file has been loaded (headers were read etc.), and\n decoding starts."]
+    pub const MPV_EVENT_FILE_LOADED: Self = Self(8);
+    #[doc = " Triggered by the script-message input command. The command uses the\n first argument of the command as client name (see [`mpv_client_name()`]) to\n dispatch the message, and passes along all arguments starting from the\n second argument as strings.\n See also [`mpv_event`] and [`mpv_event_client_message`]."]
+    pub const MPV_EVENT_CLIENT_MESSAGE: Self = Self(16);
+    #[doc = " Happens after video changed in some way. This can happen on resolution\n changes, pixel format changes, or video filter changes. The event is\n sent after the video filters and the VO are reconfigured. Applications\n embedding a mpv window should listen to this event in order to resize\n the window if needed.\n Note that this event can happen sporadically, and you should check\n yourself whether the video parameters really changed before doing\n something expensive."]
+    pub const MPV_EVENT_VIDEO_RECONFIG: Self = Self(17);
+    #[doc = " Similar to `MPV_EVENT_VIDEO_RECONFIG`. This is relatively uninteresting,\n because there is no such thing as audio output embedding."]
+    pub const MPV_EVENT_AUDIO_RECONFIG: Self = Self(18);
+    #[doc = " Happens when a seek was initiated. Playback stops. Usually it will\n resume with `MPV_EVENT_PLAYBACK_RESTART` as soon as the seek is finished."]
+    pub const MPV_EVENT_SEEK: Self = Self(20);
+    #[doc = " There was a discontinuity of some sort (like a seek), and playback\n was reinitialized. Usually happens on start of playback and after\n seeking. The main purpose is allowing the client to detect when a seek\n request is finished."]
+    pub const MPV_EVENT_PLAYBACK_RESTART: Self = Self(21);
+    #[doc = " Event sent due to [`mpv_observe_property()`].\n See also [`mpv_event`] and [`mpv_event_property`]."]
+    pub const MPV_EVENT_PROPERTY_CHANGE: Self = Self(22);
+    #[doc = " Happens if the internal per-mpv_handle ringbuffer overflows, and at\n least 1 event had to be dropped. This can happen if the client doesn't\n read the event queue quickly enough with [`mpv_wait_event()`], or if the\n client makes a very large number of asynchronous calls at once.\n\n Event delivery will continue normally once this event was returned\n (this forces the client to empty the queue completely)."]
+    pub const MPV_EVENT_QUEUE_OVERFLOW: Self = Self(24);
+    #[doc = " Triggered if a hook handler was registered with [`mpv_hook_add()`], and the\n hook is invoked. If you receive this, you must handle it, and continue\n the hook with [`mpv_hook_continue()`].\n See also [`mpv_event`] and [`mpv_event_hook`]."]
+    pub const MPV_EVENT_HOOK: Self = Self(25);
+}
+#[repr(transparent)]
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct mpv_event_id(pub ::std::os::raw::c_uint);
+
 unsafe extern "C" {
     #[doc = " Return a string describing the event. For unknown events, NULL is returned.\n\n Note that all events actually returned by the API will also yield a non-NULL\n string with this function.\n\n @param event event ID, see see enum `mpv_event_id`\n @return A static string giving a short symbolic name of the event. It\n         consists of lower-case alphanumeric characters and can include \"-\"\n         characters. This string is suitable for use in e.g. scripting\n         interfaces.\n         The string is completely static, i.e. doesn't need to be deallocated,\n         and is valid forever."]
     pub fn mpv_event_name(event: mpv_event_id) -> *const ::std::os::raw::c_char;
@@ -381,23 +397,28 @@ pub struct mpv_event_property {
     #[doc = " Received property value. Depends on the format. This is like the\n pointer argument passed to `mpv_get_property()`.\n\n For example, for `MPV_FORMAT_STRING` you get the string with:\n\n    char *value = *(char **)(event_property->data);\n\n Note that this is set to NULL if retrieving the property failed (the\n format will be `MPV_FORMAT_NONE`)."]
     pub data: *mut ::std::os::raw::c_void,
 }
-pub const mpv_log_level_MPV_LOG_LEVEL_NONE: mpv_log_level = 0;
-#[doc = " \"no\"    - disable absolutely all messages"]
-pub const mpv_log_level_MPV_LOG_LEVEL_FATAL: mpv_log_level = 10;
-#[doc = " \"fatal\" - critical/aborting errors"]
-pub const mpv_log_level_MPV_LOG_LEVEL_ERROR: mpv_log_level = 20;
-#[doc = " \"error\" - simple errors"]
-pub const mpv_log_level_MPV_LOG_LEVEL_WARN: mpv_log_level = 30;
-#[doc = " \"warn\"  - possible problems"]
-pub const mpv_log_level_MPV_LOG_LEVEL_INFO: mpv_log_level = 40;
-#[doc = " \"info\"  - informational message"]
-pub const mpv_log_level_MPV_LOG_LEVEL_V: mpv_log_level = 50;
-#[doc = " \"v\"     - noisy informational message"]
-pub const mpv_log_level_MPV_LOG_LEVEL_DEBUG: mpv_log_level = 60;
-#[doc = " \"debug\" - very noisy technical information"]
-pub const mpv_log_level_MPV_LOG_LEVEL_TRACE: mpv_log_level = 70;
+impl mpv_log_level {
+    pub const MPV_LOG_LEVEL_NONE: Self = Self(0);
+    #[doc = " \"no\"    - disable absolutely all messages"]
+    pub const MPV_LOG_LEVEL_FATAL: Self = Self(10);
+    #[doc = " \"fatal\" - critical/aborting errors"]
+    pub const MPV_LOG_LEVEL_ERROR: Self = Self(20);
+    #[doc = " \"error\" - simple errors"]
+    pub const MPV_LOG_LEVEL_WARN: Self = Self(30);
+    #[doc = " \"warn\"  - possible problems"]
+    pub const MPV_LOG_LEVEL_INFO: Self = Self(40);
+    #[doc = " \"info\"  - informational message"]
+    pub const MPV_LOG_LEVEL_V: Self = Self(50);
+    #[doc = " \"v\"     - noisy informational message"]
+    pub const MPV_LOG_LEVEL_DEBUG: Self = Self(60);
+    #[doc = " \"debug\" - very noisy technical information"]
+    pub const MPV_LOG_LEVEL_TRACE: Self = Self(70);
+}
+#[repr(transparent)]
 #[doc = " Numeric log levels. The lower the number, the more important the message is.\n `MPV_LOG_LEVEL_NONE` is never used when receiving messages. The string in\n the comment after the value is the name of the log level as used for the\n `mpv_request_log_messages()` function.\n Unused numeric values are unused, but reserved for future use."]
-pub type mpv_log_level = ::std::os::raw::c_uint;
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct mpv_log_level(pub ::std::os::raw::c_uint);
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct mpv_event_log_message {
@@ -410,18 +431,23 @@ pub struct mpv_event_log_message {
     #[doc = " The same contents as the level field, but as a numeric ID.\n Since API version 1.6."]
     pub log_level: mpv_log_level,
 }
-#[doc = " The end of file was reached. Sometimes this may also happen on\n incomplete or corrupted files, or if the network connection was\n interrupted when playing a remote file. It also happens if the\n playback range was restricted with --end or --frames or similar."]
-pub const mpv_end_file_reason_MPV_END_FILE_REASON_EOF: mpv_end_file_reason = 0;
-#[doc = " Playback was stopped by an external action (e.g. playlist controls)."]
-pub const mpv_end_file_reason_MPV_END_FILE_REASON_STOP: mpv_end_file_reason = 2;
-#[doc = " Playback was stopped by the quit command or player shutdown."]
-pub const mpv_end_file_reason_MPV_END_FILE_REASON_QUIT: mpv_end_file_reason = 3;
-#[doc = " Some kind of error happened that lead to playback abort. Does not necessarily happen on incomplete or broken files (in these cases, both\n `MPV_END_FILE_REASON_ERROR` or `MPV_END_FILE_REASON_EOF` are possible).\n\n `mpv_event_end_file.error` will be set."]
-pub const mpv_end_file_reason_MPV_END_FILE_REASON_ERROR: mpv_end_file_reason = 4;
-#[doc = " The file was a playlist or similar. When the playlist is read, its\n entries will be appended to the playlist after the entry of the current\n file, the entry of the current file is removed, and a `MPV_EVENT_END_FILE`\n event is sent with reason set to `MPV_END_FILE_REASON_REDIRECT`. Then\n playback continues with the playlist contents.\n Since API version 1.18."]
-pub const mpv_end_file_reason_MPV_END_FILE_REASON_REDIRECT: mpv_end_file_reason = 5;
+impl mpv_end_file_reason {
+    #[doc = " The end of file was reached. Sometimes this may also happen on\n incomplete or corrupted files, or if the network connection was\n interrupted when playing a remote file. It also happens if the\n playback range was restricted with --end or --frames or similar."]
+    pub const MPV_END_FILE_REASON_EOF: Self = Self(0);
+    #[doc = " Playback was stopped by an external action (e.g. playlist controls)."]
+    pub const MPV_END_FILE_REASON_STOP: Self = Self(2);
+    #[doc = " Playback was stopped by the quit command or player shutdown."]
+    pub const MPV_END_FILE_REASON_QUIT: Self = Self(3);
+    #[doc = " Some kind of error happened that lead to playback abort. Does not\n necessarily happen on incomplete or broken files (in these cases, both\n `MPV_END_FILE_REASON_ERROR` or `MPV_END_FILE_REASON_EOF` are possible).\n\n `mpv_event_end_file.error` will be set."]
+    pub const MPV_END_FILE_REASON_ERROR: Self = Self(4);
+    #[doc = " The file was a playlist or similar. When the playlist is read, its\n entries will be appended to the playlist after the entry of the current\n file, the entry of the current file is removed, and a `MPV_EVENT_END_FILE`\n event is sent with reason set to `MPV_END_FILE_REASON_REDIRECT`. Then\n playback continues with the playlist contents.\n Since API version 1.18."]
+    pub const MPV_END_FILE_REASON_REDIRECT: Self = Self(5);
+}
+#[repr(transparent)]
 #[doc = " Since API version 1.9."]
-pub type mpv_end_file_reason = ::std::os::raw::c_uint;
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct mpv_end_file_reason(pub ::std::os::raw::c_uint);
+
 #[doc = " Since API version 1.108."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -467,13 +493,13 @@ pub struct mpv_event_command {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct mpv_event {
-    #[doc = " One of `mpv_event`. Keep in mind that later ABI compatible releases might\n add new event types. These should be ignored by the API user."]
+    #[doc = " One of [`mpv_event`]. Keep in mind that later ABI compatible releases might\n add new event types. These should be ignored by the API user."]
     pub event_id: mpv_event_id,
-    #[doc = " This is mainly used for events that are replies to (asynchronous)\n requests. It contains a status code, which is >= 0 on success, or < 0\n on error (a `mpv_error` value). Usually, this will be set if an\n asynchronous request fails.\n Used for:\n  `MPV_EVENT_GET_PROPERTY_REPLY`\n  `MPV_EVENT_SET_PROPERTY_REPLY`\n  `MPV_EVENT_COMMAND_REPLY`"]
+    #[doc = " This is mainly used for events that are replies to (asynchronous)\n requests. It contains a status code, which is >= 0 on success, or < 0\n on error (a [`mpv_error`] value). Usually, this will be set if an\n asynchronous request fails.\n Used for:\n  `MPV_EVENT_GET_PROPERTY_REPLY`\n  `MPV_EVENT_SET_PROPERTY_REPLY`\n  `MPV_EVENT_COMMAND_REPLY`"]
     pub error: ::std::os::raw::c_int,
     #[doc = " If the event is in reply to a request (made with this API and this\n API handle), this is set to the `reply_userdata` parameter of the request\n call. Otherwise, this field is 0.\n Used for:\n  `MPV_EVENT_GET_PROPERTY_REPLY`\n  `MPV_EVENT_SET_PROPERTY_REPLY`\n  `MPV_EVENT_COMMAND_REPLY`\n  `MPV_EVENT_PROPERTY_CHANGE`\n  `MPV_EVENT_HOOK`"]
     pub reply_userdata: u64,
-    #[doc = " The meaning and contents of the data member depend on the `event_id`:\n  `MPV_EVENT_GET_PROPERTY_REPLY`:     `mpv_event_property`*\n  `MPV_EVENT_PROPERTY_CHANGE`:        `mpv_event_property`*\n  `MPV_EVENT_LOG_MESSAGE`:            `mpv_event_log_message`*\n  `MPV_EVENT_CLIENT_MESSAGE`:         `mpv_event_client_message`*\n  `MPV_EVENT_START_FILE`:             `mpv_event_start_file`* (since v1.108)\n  `MPV_EVENT_END_FILE`:               `mpv_event_end_file`*\n  `MPV_EVENT_HOOK`:                   `mpv_event_hook`*\n  `MPV_EVENT_COMMAND_REPLY`*          `mpv_event_command`*\n  other: NULL\n\n Note: future enhancements might add new event structs for existing or new\n       event types."]
+    #[doc = " The meaning and contents of the data member depend on the `event_id`:\n- `MPV_EVENT_GET_PROPERTY_REPLY`:     [`mpv_event_property`]*\n- `MPV_EVENT_PROPERTY_CHANGE`:        [`mpv_event_property`]\n- `MPV_EVENT_LOG_MESSAGE`:            [`mpv_event_log_message`]\n- `MPV_EVENT_CLIENT_MESSAGE`:         [`mpv_event_client_message`]*\n- `MPV_EVENT_START_FILE`:             [`mpv_event_start_file`] (since v1.108)\n- `MPV_EVENT_END_FILE`:               [`mpv_event_end_file`]\n- `MPV_EVENT_HOOK`:                   [`mpv_event_hook`]\n- `MPV_EVENT_COMMAND_REPLY`;          [`mpv_event_command`]\n- other: NULL\n\n Note: future enhancements might add new event structs for existing or new\n       event types."]
     pub data: *mut ::std::os::raw::c_void,
 }
 unsafe extern "C" {
@@ -528,3 +554,6 @@ unsafe extern "C" {
     #[doc = " Respond to a `MPV_EVENT_HOOK` event. You must call this after you have handled\n the event. There is no way to \"cancel\" or \"stop\" the hook.\n\n Calling this will will typically unblock the player for whatever the hook\n is responsible for (e.g. for the \"on_load\" hook it lets it continue\n playback).\n\n It is explicitly undefined behavior to call this more than once for each\n `MPV_EVENT_HOOK`, to pass an incorrect ID, or to call this on a `mpv_handle`\n different from the one that registered the handler and received the event.\n\n @param id This must be the value of the `mpv_event_hook.id` field for the\n           corresponding `MPV_EVENT_HOOK`.\n @return error code"]
     pub fn mpv_hook_continue(ctx: *mut mpv_handle, id: u64) -> ::std::os::raw::c_int;
 }
+
+#[doc = " API version of the generated bindings"]
+pub const HEADER_MPV_CLIENT_API_VERSION: ::std::os::raw::c_ulong = 131077;

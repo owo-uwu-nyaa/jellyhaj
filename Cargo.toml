@@ -100,7 +100,7 @@ members = [
   "keybinds",
   "keybinds-derive",
   "keybinds-derive-impl",
-  "mpv-async",
+  "mpv-async", "mpv-async-macros",
   "mpv-sys",
   "player-core",
   "player-jellyfin",

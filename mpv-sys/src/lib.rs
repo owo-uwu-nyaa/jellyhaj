@@ -4,6 +4,7 @@
     clippy::pub_underscore_fields,
     clippy::unreadable_literal
 )]
+#![cfg_attr(feature = "bindgen", allow(clippy::doc_markdown, clippy::use_self))]
 
 /*!
  * Mechanisms provided by this API
@@ -331,17 +332,8 @@ pub mod render {
      * Further notes:
      * - `MPV_RENDER_PARAM_FLIP_Y` is currently ignored (unsupported)
      * - `MPV_RENDER_PARAM_DEPTH` is ignored (meaningless)
-     */
-
-    #[cfg(not(feature = "bindgen"))]
-    include!("render.rs");
-    #[cfg(feature = "bindgen")]
-    include!(concat!(env!("OUT_DIR"), "/render.rs"));
-    use crate::mpv_handle;
-}
-
-pub mod render_gl {
-    /*!
+     *
+     *
      * OpenGL backend
      * --------------
      *
@@ -415,145 +407,78 @@ pub mod render_gl {
      * Once these things are setup, hardware decoding can be enabled/disabled at
      * any time by setting the "hwdec" property.
      */
+
     #[cfg(not(feature = "bindgen"))]
-    include!("render_gl.rs");
+    include!("render.rs");
     #[cfg(feature = "bindgen")]
-    include!(concat!(env!("OUT_DIR"), "/render_gl.rs"));
+    include!(concat!(env!("OUT_DIR"), "/render.rs"));
+    use crate::mpv_handle;
 }
 
 pub mod stream_cb {
     /*!
+     * Warning: this API is not stable yet.
+     *
      * Overview
      * --------
      *
-     * This API can be used to make mpv render using supported graphic APIs (such
-     * as OpenGL). It can be used to handle video display.
+     * This API can be used to make mpv read from a stream with a custom
+     * implementation. This interface is inspired by funopen on BSD and
+     * fopencookie on linux. The stream is backed by user-defined callbacks
+     * which can implement customized open, read, seek, size and close behaviors.
      *
-     * The renderer needs to be created with `mpv_render_context_create()` before
-     * you start playback (or otherwise cause a VO to be created). Then (with most
-     * backends) `mpv_render_context_render()` can be used to explicitly render the
-     * current video frame. Use `mpv_render_context_set_update_callback()` to get
-     * notified when there is a new frame to draw.
+     * Usage
+     * -----
      *
-     * Preferably rendering should be done in a separate thread. If you call
-     * normal libmpv API functions on the renderer thread, deadlocks can result
-     * (these are made non-fatal with timeouts, but user experience will obviously
-     * suffer). See "Threading" section below.
+     * Register your stream callbacks with the `mpv_stream_cb_add_ro()` function. You
+     * have to provide a `mpv_stream_cb_open_ro_fn` callback to it (`open_fn` argument).
      *
-     * You can output and embed video without this API by setting the mpv "wid"
-     * option to a native window handle (see "Embedding the video window" section
-     * in the client.h header). In general, using the render API is recommended,
-     * because window embedding can cause various issues, especially with GUI
-     * toolkits and certain platforms.
+     * Once registered, you can `loadfile myprotocol://myfile`. Your `open_fn` will be
+     * invoked with the URI and you must fill out the provided `mpv_stream_cb_info`
+     * struct. This includes your stream callbacks (like `read_fn`), and an opaque
+     * cookie, which will be passed as the first argument to all the remaining
+     * stream callbacks.
      *
-     * Supported backends
-     * ------------------
+     * Note that your custom callbacks must not invoke libmpv APIs as that would
+     * cause a deadlock. (Unless you call a different `mpv_handle` than the one the
+     * callback was registered for, and the `mpv_handles` refer to different mpv
+     * instances.)
      *
-     * OpenGL: via `MPV_RENDER_API_TYPE_OPENGL`, see `render_gl.h` header.
-     * Software: via `MPV_RENDER_API_TYPE_SW`, see section "Software renderer"
+     * Stream lifetime
+     * ---------------
      *
-     * Threading
-     * ---------
+     * A stream remains valid until its close callback has been called. It's up to
+     * libmpv to call the close callback, and the libmpv user cannot close it
+     * directly with the `stream_cb` API.
      *
-     * You are recommended to do rendering on a separate thread than normal libmpv
-     * use.
+     * For example, if you consider your custom stream to become suddenly invalid
+     * (maybe because the underlying stream died), libmpv will continue using your
+     * stream. All you can do is returning errors from each callback, until libmpv
+     * gives up and closes it.
      *
-     * The `mpv_render`_* functions can be called from any thread, under the
-     * following conditions:
-     *  - only one of the `mpv_render`_* functions can be called at the same time
-     *    (unless they belong to different mpv cores created by `mpv_create()`)
-     *  - never can be called from within the callbacks set with
-     *    `mpv_set_wakeup_callback()` or `mpv_render_context_set_update_callback()`
-     *  - if the OpenGL backend is used, for all functions the OpenGL context
-     *    must be "current" in the calling thread, and it must be the same OpenGL
-     *    context as the `mpv_render_context` was created with. Otherwise, undefined
-     *    behavior will occur.
-     *  - the thread does not call libmpv API functions other than the `mpv_render`_*
-     *    functions, except APIs which are declared as safe (see below). Likewise,
-     *    there must be no lock or wait dependency from the render thread to a
-     *    thread using other libmpv functions. Basically, the situation that your
-     *    render thread waits for a "not safe" libmpv API function to return must
-     *    not happen. If you ignore this requirement, deadlocks can happen, which
-     *    are made non-fatal with timeouts; then playback quality will be degraded,
-     *    and the message `mpv_render_context_render()` not being called or stuck.
-     *    is logged. If you set `MPV_RENDER_PARAM_ADVANCED_CONTROL`, you promise that
-     *    this won't happen, and must absolutely guarantee it, or a real deadlock
-     *    will freeze the mpv core thread forever.
+     * Protocol registration and lifetime
+     * ----------------------------------
      *
-     * libmpv functions which are safe to call from a render thread are:
-     *  - functions marked with "Safe to be called from mpv render API threads."
-     *  - client.h functions which don't have an explicit or implicit `mpv_handle`
-     *    parameter
-     *  - `mpv_render`_* functions; but only for the same `mpv_render_context` pointer.
-     *    If the pointer is different, `mpv_render_context_free()` is not safe. (The
-     *    reason is that if `MPV_RENDER_PARAM_ADVANCED_CONTROL` is set, it may have
-     *    to process still queued requests from the core, which it can do only for
-     *    the current context, while requests for other contexts would deadlock.
-     *    Also, it may have to wait and block for the core to terminate the video
-     *    chain to make sure no resources are used after context destruction.)
-     *  - if the `mpv_handle` parameter refers to a different mpv core than the one
-     *    you're rendering for (very obscure, but allowed)
+     * Protocols remain registered until the mpv instance is terminated. This means
+     * in particular that it can outlive the `mpv_handle` that was used to register
+     * it, but once `mpv_terminate_destroy()` is called, your registered callbacks
+     * will not be called again.
      *
-     * Note about old libmpv version:
+     * Protocol unregistration is finished after the mpv core has been destroyed
+     * (e.g. after `mpv_terminate_destroy()` has returned).
      *
-     *      Before API version 1.105 (basically in mpv 0.29.x), simply enabling
-     *      MPV_RENDER_PARAM_ADVANCED_CONTROL could cause deadlock issues. This can
-     *      be worked around by setting the "vd-lavc-dr" option to "no".
-     *      In addition, you were required to call all mpv_render*() API functions
-     *      from the same thread on which mpv_render_context_create() was originally
-     *      run (for the same the mpv_render_context). Not honoring it led to UB
-     *      (deadlocks, use of invalid mp_thread handles), even if you moved your GL
-     *      context to a different thread correctly.
-     *      These problems were addressed in API version 1.105 (mpv 0.30.0).
+     * If you do not call `mpv_terminate_destroy()` yourself (e.g. plugin-style code),
+     * you will have to deal with the registration or even streams outliving your
+     * code. Here are some possible ways to do this:
+     * - call `mpv_terminate_destroy()`, which destroys the core, and will make sure
+     *   all streams are closed once this function returns
+     * - you refcount all resources your stream "cookies" reference, so that it
+     *   doesn't matter if streams live longer than expected
+     * - create "cancellation" semantics: after your protocol has been unregistered,
+     *   notify all your streams that are still opened, and make them drop all
+     *   referenced resources - then return errors from the stream callbacks as
+     *   long as the stream is still opened
      *
-     * Context and handle lifecycle
-     * ----------------------------
-     *
-     * Video initialization will fail if the render context was not initialized yet
-     * (with `mpv_render_context_create()`), or it will revert to a VO that creates
-     * its own window.
-     *
-     * Currently, there can be only 1 `mpv_render_context` at a time per mpv core.
-     *
-     * Calling `mpv_render_context_free()` while a VO is using the render context is
-     * active will disable video.
-     *
-     * You must free the context with `mpv_render_context_free()` before the mpv core
-     * is destroyed. If this doesn't happen, undefined behavior will result.
-     *
-     * Software renderer
-     * -----------------
-     *
-     * `MPV_RENDER_API_TYPE_SW` provides an extremely simple (but slow) renderer to
-     * memory surfaces. You probably don't want to use this. Use other render API
-     * types, or other methods of video embedding.
-     *
-     * Use `mpv_render_context_create()` with `MPV_RENDER_PARAM_API_TYPE` set to
-     * `MPV_RENDER_API_TYPE_SW`.
-     *
-     * Call `mpv_render_context_render()` with various `MPV_RENDER_PARAM_SW`_* fields
-     * to render the video frame to an in-memory surface. The following fields are
-     * required: `MPV_RENDER_PARAM_SW_SIZE`, `MPV_RENDER_PARAM_SW_FORMAT`,
-     * `MPV_RENDER_PARAM_SW_STRIDE`, `MPV_RENDER_PARAM_SW_POINTER`.
-     *
-     * This method of rendering is very slow, because everything, including color
-     * conversion, scaling, and OSD rendering, is done on the CPU, single-threaded.
-     * In particular, large video or display sizes, as well as presence of OSD or
-     * subtitles can make it too slow for realtime. As with other software rendering
-     * VOs, setting "sw-fast" may help. Enabling or disabling zimg may help,
-     * depending on the platform.
-     *
-     * In addition, certain multimedia job creation measures like HDR may not work
-     * properly, and will have to be manually handled by for example inserting
-     * filters.
-     *
-     * This API is not really suitable to extract individual frames from video etc.
-     * (basically non-playback uses) - there are better libraries for this. It can
-     * be used this way, but it may be clunky and tricky.
-     *
-     * Further notes:
-     * - `MPV_RENDER_PARAM_FLIP_Y` is currently ignored (unsupported)
-     * - `MPV_RENDER_PARAM_DEPTH` is ignored (meaningless)
      */
     #[cfg(not(feature = "bindgen"))]
     include!("stream_cb.rs");

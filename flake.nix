@@ -86,7 +86,7 @@
                   pkgs.rust-bindgen
                 ];
                 buildInputs = [
-                  pkgs.mpv-unwrapped
+                  (pkgs.mpv-unwrapped.overrideAttrs { separateDebugInfo = true; })
                   pkgs.sqlite
                   pkgs.chafa
                   pkgs.glib

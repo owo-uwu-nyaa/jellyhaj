@@ -1,5 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 
+use std::ffi::CStr;
 use std::mem;
 use std::sync::LazyLock;
 use std::{ffi::CString, sync::Arc, task::Poll};
@@ -9,9 +10,8 @@ use futures_util::Stream;
 use jellyfin::items::MediaItem;
 use jellyfin::{JellyfinClient, items::ItemType};
 use jellyhaj_core::state::NextScreen;
-use libmpv::Mpv;
-use libmpv::events::EventContextAsync;
-use libmpv::node::{BorrowingCPtr, MpvNode, MpvNodeMapRef, ToNode};
+use mpv_async::nodes::MpvOwnedNode;
+use mpv_async::{Mpv, mpv_node_list, mpv_node_map};
 use regex::Regex;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
@@ -27,7 +27,7 @@ use crate::mpv_stream::ClientCommand;
 use crate::state::EventReceiver;
 use crate::{
     Command, PlayerState, PlaylistItem,
-    mpv_stream::{MpvEvent, MpvStream, ObservedProperty},
+    mpv_stream::{Event, MpvStream, ObservedProperty},
 };
 use crate::{Events, PlaylistItemId, PlaylistItemIdGen};
 use color_eyre::{
@@ -37,7 +37,6 @@ use color_eyre::{
 
 pin_project_lite::pin_project! {
     pub(crate) struct PollState{
-        pub(crate) closed: bool,
         #[pin]
         pub(crate) mpv: MpvStream,
         pub(crate) jellyfin: JellyfinClient,
@@ -79,27 +78,34 @@ static ID_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .expect("constructing regex failed")
 });
 
-fn extract_id(download_url: &str) -> &str {
+fn extract_id(download_url: &CStr) -> &str {
+    let download_url = download_url.to_str().expect("non unicode url");
     let Some(id) = ID_REGEX.captures(download_url) else {
-        panic!("url did not match regex: {download_url:?}")
+        panic!("url did not match regex: {download_url}")
     };
     let (_, [id]) = id.extract();
     id
 }
 
-fn assert_shadow_playlist_state(
-    mpv: &Mpv<EventContextAsync>,
-    shadow: &[Arc<PlaylistItem>],
-) -> Result<()> {
-    let prop: MpvNode = mpv.get_property("playlist")?;
+fn assert_shadow_playlist_state(mpv: &Mpv, shadow: &[Arc<PlaylistItem>]) -> Result<()> {
+    let prop: MpvOwnedNode = mpv.get_property(c"playlist")?;
     let mut mpv_playlist = prop
-        .as_ref()
-        .to_array()
+        .differentiate()
+        .array()
         .expect("property should be an array")
-        .into_iter()
-        .flat_map(|v| v.to_map().expect("playlist item should be a map"))
-        .filter_map(|(k, v)| if k == c"filename" { Some(v) } else { None })
-        .map(|s| s.to_str().expect("filename should be a str"))
+        .iter()
+        .flat_map(|v| {
+            v.differentiate()
+                .map()
+                .expect("playlist item should be a map")
+                .iter()
+                .filter_map(|(k, v)| if k == c"filename" { Some(v) } else { None })
+        })
+        .map(|s| {
+            s.differentiate()
+                .string()
+                .expect("filename should be a str")
+        })
         .map(extract_id);
     let mut shadow_playlist = shadow.iter().map(|i| i.item.id.as_str());
     for index in 0usize.. {
@@ -142,149 +148,145 @@ impl Future for PollState {
     ) -> std::task::Poll<Self::Output> {
         let mut this = self.project();
         let span = error_span!("commands").entered();
-        if !*this.closed {
-            if this.stop.poll(cx).is_ready() {
-                info!("mpv stopped");
-                this.mpv
-                    .quit()
-                    .context("quitting mpv")
-                    .trace_error(this.widget_sender);
-                *this.closed = true;
-            } else {
-                while let Poll::Ready(val) = this.commands.poll_recv(cx) {
-                    match val {
-                        None => {
-                            info!("all senders are closed");
-                            this.mpv
-                                .quit()
-                                .context("quitting mpv")
-                                .trace_error(this.widget_sender);
-                            *this.closed = true;
-                            break;
-                        }
-                        Some(Command::Pause(pause)) => this
-                            .mpv
-                            .set_pause(pause)
-                            .context("setting pause on mpv")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Fullscreen(fullscreen)) => this
-                            .mpv
-                            .set_fullscreen(fullscreen)
-                            .context("setting fullscreen")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Minimized(minimized)) => this
-                            .mpv
-                            .set_minimized(minimized)
-                            .context("setting window minimized")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Next) => this
-                            .mpv
-                            .playlist_next_force()
-                            .context("skipping to next item")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Previous) => this
-                            .mpv
-                            .playlist_previous_weak()
-                            .context("moving to previous item")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Seek(seek)) => this
-                            .mpv
-                            .seek_absolute(seek)
-                            .context("seeking")
-                            .trace_error(this.widget_sender),
-                        Some(Command::SeekRelative(seek)) => this
-                            .mpv
-                            .seek(seek, c"relative")
-                            .context("seeking relative")
-                            .trace_error(this.widget_sender),
-                        Some(Command::Play(id)) => {
-                            if let Some(index) = index_of(this.playlist, id) {
-                                match i64::try_from(index).context("Index is an invalid index") {
-                                    Err(e) => warn!("error converting {index}\n{e:?}"),
-                                    Ok(index) => {
-                                        play_index(&this.mpv, index)
-                                            .trace_error(this.widget_sender);
-                                    }
-                                }
+        if this.stop.poll(cx).is_ready() {
+            info!("mpv stopped");
+            return Poll::Ready(());
+        }
+        while let Poll::Ready(val) = this.commands.poll_recv(cx) {
+            match val {
+                None => {
+                    info!("all senders are closed");
+                    return Poll::Ready(());
+                }
+                Some(Command::Pause(pause)) => this
+                    .mpv
+                    .set_property_async(c"pause", pause, 2)
+                    .context("setting pause on mpv")
+                    .trace_error(this.widget_sender),
+                Some(Command::Fullscreen(fullscreen)) => this
+                    .mpv
+                    .set_property_async(c"fullscreen", fullscreen, 3)
+                    .context("setting fullscreen")
+                    .trace_error(this.widget_sender),
+                Some(Command::Minimized(minimized)) => this
+                    .mpv
+                    .set_property_async(c"window-minimized", minimized, 4)
+                    .context("setting window minimized")
+                    .trace_error(this.widget_sender),
+                Some(Command::Next) => {
+                    mpv_node_list!(cmd;[c"playlist-next",c"force"]);
+                    this.mpv
+                        .command_async(&cmd, 0)
+                        .context("skipping to next item")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::Previous) => {
+                    mpv_node_list!(cmd;[c"playlist-prev",c"weak"]);
+                    this.mpv
+                        .command_async(&cmd, 0)
+                        .context("moving to previous item")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::Seek(seek)) => {
+                    mpv_node_list!(cmd;[c"seek",seek,c"absolute"]);
+                    this.mpv
+                        .command_async(&cmd, 0)
+                        .context("seeking")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::SeekRelative(seek)) => {
+                    mpv_node_list!(cmd;[c"seek",seek,c"relative"]);
+                    this.mpv
+                        .command_async(&cmd, 0)
+                        .context("seeking relative")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::Play(id)) => {
+                    if let Some(index) = index_of(this.playlist, id) {
+                        match i64::try_from(index).context("Index is an invalid index") {
+                            Err(e) => warn!("error converting {index}\n{e:?}"),
+                            Ok(index) => {
+                                play_index(&this.mpv, index).trace_error(this.widget_sender);
                             }
                         }
-                        Some(Command::Speed(speed)) => this
-                            .mpv
-                            .set_property(c"speed", speed)
-                            .context("setting playback speed")
-                            .trace_error(this.widget_sender),
-                        Some(Command::AddTrack { item, after, play }) => {
-                            insert_at(
-                                this.playlist,
-                                &this.mpv,
-                                this.jellyfin,
-                                item,
-                                after,
-                                this.playlist_id_gen,
-                                play,
-                                this.send_events,
-                            )
-                            .context("adding item to playlist")
-                            .trace_error(this.widget_sender);
-                        }
-                        Some(Command::Stop) => {
-                            stop(&this.mpv, this.playlist, this.index, this.send_events)
-                                .context("stopping player")
-                                .trace_error(this.widget_sender);
-                        }
-                        Some(Command::ReplacePlaylist { items, first }) => {
-                            replace_playlist(
-                                &this.mpv,
-                                this.jellyfin,
-                                this.playlist_id_gen,
-                                this.playlist,
-                                items,
-                                first,
-                                this.send_events,
-                                this.index,
-                            )
-                            .trace_error(this.widget_sender);
-                        }
-                        Some(Command::Remove(id)) => {
-                            remove_playlist_item(
-                                this.playlist,
-                                &this.mpv,
-                                id,
-                                this.send_events,
-                                this.index,
-                            )
-                            .trace_error(this.widget_sender);
-                        }
-                        Some(Command::TogglePause) => {
-                            this.mpv
-                                .set_pause(!*this.paused)
-                                .context("toggle pause on player")
-                                .trace_error(this.widget_sender);
-                        }
-                        Some(Command::Volume(volume)) => this
-                            .mpv
-                            .set_property(c"volume", volume)
-                            .context("setting volume")
-                            .trace_error(this.widget_sender),
-                        Some(Command::GetEventReceiver(sender)) => {
-                            sender
-                                .send(EventReceiver {
-                                    state: PlayerState {
-                                        playlist: this.playlist.clone(),
-                                        current: *this.index,
-                                        pause: *this.paused,
-                                        stopped: *this.idle,
-                                        position: *this.position,
-                                        speed: *this.speed,
-                                        fullscreen: *this.fullscreen,
-                                        volume: *this.volume,
-                                        duration: *this.duration,
-                                    },
-                                    receive: this.send_events.subscribe(),
-                                })
-                                .trace_send_error();
-                        }
                     }
+                }
+                Some(Command::Speed(speed)) => this
+                    .mpv
+                    .set_property_async(c"speed", speed, 5)
+                    .context("setting playback speed")
+                    .trace_error(this.widget_sender),
+                Some(Command::AddTrack { item, after, play }) => {
+                    insert_at(
+                        this.playlist,
+                        &this.mpv,
+                        this.jellyfin,
+                        item,
+                        after,
+                        this.playlist_id_gen,
+                        play,
+                        this.send_events,
+                    )
+                    .context("adding item to playlist")
+                    .trace_error(this.widget_sender);
+                }
+                Some(Command::Stop) => {
+                    stop(&this.mpv, this.playlist, this.index, this.send_events)
+                        .context("stopping player")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::ReplacePlaylist { items, first }) => {
+                    replace_playlist(
+                        &this.mpv,
+                        this.jellyfin,
+                        this.playlist_id_gen,
+                        this.playlist,
+                        items,
+                        first,
+                        this.send_events,
+                        this.index,
+                    )
+                    .trace_error(this.widget_sender);
+                }
+                Some(Command::Remove(id)) => {
+                    remove_playlist_item(
+                        this.playlist,
+                        &this.mpv,
+                        id,
+                        this.send_events,
+                        this.index,
+                    )
+                    .trace_error(this.widget_sender);
+                }
+                Some(Command::TogglePause) => {
+                    mpv_node_list!(cmd;[c"cycle",c"pause"]);
+                    this.mpv
+                        .command_async(&cmd, 0)
+                        .context("toggle pause on player")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Command::Volume(volume)) => this
+                    .mpv
+                    .set_property(c"volume", volume)
+                    .context("setting volume")
+                    .trace_error(this.widget_sender),
+                Some(Command::GetEventReceiver(sender)) => {
+                    sender
+                        .send(EventReceiver {
+                            state: PlayerState {
+                                playlist: this.playlist.clone(),
+                                current: *this.index,
+                                pause: *this.paused,
+                                stopped: *this.idle,
+                                position: *this.position,
+                                speed: *this.speed,
+                                fullscreen: *this.fullscreen,
+                                volume: *this.volume,
+                                duration: *this.duration,
+                            },
+                            receive: this.send_events.subscribe(),
+                        })
+                        .trace_send_error();
                 }
             }
         }
@@ -297,7 +299,7 @@ impl Future for PollState {
                     return Poll::Ready(());
                 }
                 Some(Err(e)) => warn!("Error form mpv: {e:?}"),
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::PlaylistPos(position)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::PlaylistPos(position)))) => {
                     assert_shadow_playlist_state(&this.mpv, this.playlist)
                         .trace_error(this.widget_sender);
                     *this.index = if position == -1 {
@@ -318,7 +320,7 @@ impl Future for PollState {
                         .trace_send_error();
                     *this.position = 0.0;
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Idle(idle)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Idle(idle)))) => {
                     *this.idle = idle;
                     if idle {
                         *this.index = None;
@@ -330,52 +332,58 @@ impl Future for PollState {
                         .send(Events::Stopped(idle))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::Seek)) => {
+                Some(Ok(Event::Seek)) => {
                     *this.seeked = true;
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Position(pos)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Position(pos)))) => {
                     let old = mem::replace(this.position, pos);
                     //seek if seek event or jump greater than 5 seconds
                     if mem::replace(this.seeked, false) || (old - pos).abs() > 5.0 {
                         this.send_events.send(Events::Seek(pos)).trace_send_error();
                     }
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Pause(paused)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Pause(paused)))) => {
                     *this.paused = paused;
                     this.send_events
                         .send(Events::Paused(paused))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Fullscreen(fullscreen)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Fullscreen(fullscreen)))) => {
                     *this.fullscreen = fullscreen;
                     this.send_events
                         .send(Events::Fullscreen(fullscreen))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Minimized(minimized)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Minimized(minimized)))) => {
                     *this.minimized = minimized;
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Speed(speed)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Speed(speed)))) => {
                     *this.speed = speed;
                     this.send_events
                         .send(Events::Speed(speed))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Volume(volume)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Volume(volume)))) => {
                     *this.volume = volume;
                     this.send_events
                         .send(Events::Volume(volume))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::PropertyChanged(ObservedProperty::Duration(duration)))) => {
+                Some(Ok(Event::PropertyChanged(ObservedProperty::Duration(duration)))) => {
                     *this.duration = duration;
                     this.send_events
                         .send(Events::Duration(duration))
                         .trace_send_error();
                 }
-                Some(Ok(MpvEvent::Command(ClientCommand::Stop))) => {
+                Some(Ok(Event::Command(ClientCommand::Stop))) => {
                     stop(&this.mpv, this.playlist, this.index, this.send_events)
                         .context("stopping player")
+                        .trace_error(this.widget_sender);
+                }
+                Some(Ok(Event::Command(ClientCommand::Unpause))) => {
+                    this.mpv
+                        .set_property_async(c"pause", false, 6)
+                        .context("unpausing")
                         .trace_error(this.widget_sender);
                 }
             }
@@ -393,9 +401,10 @@ impl Future for PollState {
 }
 
 fn play_index(mpv: &MpvStream, index: i64) -> Result<()> {
-    mpv.playlist_play_index(index)
-        .context("setting current playlist index")?;
-    mpv.unpause().context("un pausing player")
+    mpv_node_list!(cmd;[c"playlist-play-index",index]);
+    // userdata 1 issues Unpause
+    mpv.command_async(&cmd, 1)
+        .context("setting current playlist index")
 }
 
 fn stop(
@@ -404,7 +413,8 @@ fn stop(
     index: &mut Option<usize>,
     send_events: &broadcast::Sender<Events>,
 ) -> Result<()> {
-    mpv.stop()?;
+    mpv_node_list!(cmd;[c"stop"]);
+    mpv.command(&cmd)?;
     *index = None;
     send_events.send(Events::Current(None)).trace_send_error();
     *playlist = Arc::new(Vec::new());
@@ -426,7 +436,8 @@ fn remove_playlist_item(
     cur_index: &mut Option<usize>,
 ) -> Result<()> {
     let index = index_of(playlist, id).ok_or_eyre("no such playlist item")?;
-    mpv.playlist_remove_index(index.try_into().context("converting index to i64")?)
+    mpv_node_list!(cmd;[c"playlist-remove", i64::try_from(index).context("index is extremely large")?]);
+    mpv.command(&cmd)
         .context("removing item from mpv playlist")?;
     let mut playlist_vec = Vec::clone(playlist);
     playlist_vec.remove(index);
@@ -458,13 +469,15 @@ fn replace_playlist(
         bail!("could not set playlist because first {first} is out of bounds.");
     }
     info!("replacing playlist with new list of length {}", items.len());
-    mpv.playlist_clear()?;
+    mpv_node_list!(cmd;[c"playlist-clear"]);
+    mpv.command(&cmd)?;
     *index = None;
     send_events.send(Events::Current(None)).trace_send_error();
     *playlist = Arc::new(
         set_playlist(mpv, jellyfin, playlist_id_gen, items, first).context("replacing playlist")?,
     );
-    mpv.playlist_play_index(first.try_into()?)?;
+    mpv_node_list!(cmd;[c"playlist-play-index",i64::try_from(first)?]);
+    mpv.command_async(&cmd, 1)?;
     assert_shadow_playlist_state(mpv, playlist)?;
     send_events
         .send(Events::ReplacePlaylist {
@@ -477,7 +490,6 @@ fn replace_playlist(
             new_playlist: playlist.clone(),
         })
         .trace_send_error();
-    mpv.unpause()?;
     Ok(())
 }
 
@@ -508,27 +520,18 @@ fn insert_at(
 
     debug!("adding {uri} to queue");
     let at = i64::try_from(index).context("converting index to i64")?;
-    mpv.command(&[
-        c"loadfile".to_node(),
-        CString::new(uri)
-            .context("converting video url to cstr")?
-            .to_node(),
-        c"insert-at".to_node(),
-        at.to_node(),
-        MpvNodeMapRef::new(
-            &[
-                BorrowingCPtr::new(c"start"),
-                BorrowingCPtr::new(c"force-media-title"),
-            ],
-            &[
-                CString::new(position.to_string())
-                    .context("converting start to cstr")?
-                    .to_node(),
-                name(&item)?.to_node(),
-            ],
-        )
-        .to_node(),
-    ])?;
+    mpv_node_map!(opt;{
+        c"start": &CString::new(position.to_string()).context("converting start to cstr")?,
+        c"force-media-title": &name(&item)?
+    });
+    mpv_node_list!(cmd;[
+        c"loadfile",
+        &CString::new(uri)
+            .context("converting video url to cstr")?,
+        at,
+        &opt
+    ]);
+    mpv.command(&cmd)?;
 
     let id = mk_id.next();
     let mut playlist_vec = Vec::clone(playlist);
@@ -543,7 +546,8 @@ fn insert_at(
         })
         .trace_send_error();
     if play {
-        mpv.playlist_play_index(at).context("playing new item")?;
+        mpv_node_list!(cmd;[c"playlist-play-index",at]);
+        mpv.command_async(&cmd, 1).context("playing new item")?;
     }
     Ok(())
 }

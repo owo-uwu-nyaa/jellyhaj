@@ -6,10 +6,19 @@ edition.workspace = true
 
 [dependencies]
 arcshift.workspace = true
+futures-core = { workspace = true, optional = true }
+mpv-async-macros = { version = "0.1.0", path = "../mpv-async-macros", optional = true }
 mpv-sys = { path = "../mpv-sys" }
+tracing = { workspace = true, optional = true }
+valuable = { workspace = true, optional = true }
 
 [lints]
 workspace = true
 
 [features]
+default = ["macros"]
 bindgen = ["mpv-sys/bindgen"]
+macros = ["dep:mpv-async-macros"]
+tracing = ["dep:tracing"]
+stream = ["dep:futures-core"]
+valuable = ["dep:valuable"]
