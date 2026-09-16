@@ -186,7 +186,7 @@ unsafe impl Send for MpvNodeMapRef<'_> {}
 unsafe impl Sync for MpvNodeMapRef<'_> {}
 
 impl<'r> MpvNodeMapRef<'r> {
-    pub fn iter(&self) -> impl Iterator<Item = (&'r CStr, &'r MpvNode)> + Clone + 'r {
+    pub fn iter(&self) -> impl Iterator<Item = (&'r CStr, &'r MpvNode)> + Clone + use<'r> {
         let keys = self.keys;
         let nodes = self.nodes;
         std::range::Range::from(0..self.len)
