@@ -24,7 +24,6 @@ let
     ./config/effects.toml
     ./migrations
     ./jellyhaj.desktop
-    ./libmpv-rs/test-data
     ./widgets/form-derive-impl/test-files
   ];
   src = lib.fileset.toSource {
