@@ -274,15 +274,15 @@ pub mod render {
      *
      * Note about old libmpv version:
      *
-     *      Before API version 1.105 (basically in mpv 0.29.x), simply enabling
-     *      MPV_RENDER_PARAM_ADVANCED_CONTROL could cause deadlock issues. This can
-     *      be worked around by setting the "vd-lavc-dr" option to "no".
-     *      In addition, you were required to call all mpv_render*() API functions
-     *      from the same thread on which mpv_render_context_create() was originally
-     *      run (for the same the mpv_render_context). Not honoring it led to UB
-     *      (deadlocks, use of invalid mp_thread handles), even if you moved your GL
-     *      context to a different thread correctly.
-     *      These problems were addressed in API version 1.105 (mpv 0.30.0).
+     * Before API version 1.105 (basically in mpv 0.29.x), simply enabling
+     * MPV_RENDER_PARAM_ADVANCED_CONTROL could cause deadlock issues. This can
+     * be worked around by setting the "vd-lavc-dr" option to "no".
+     * In addition, you were required to call all mpv_render*() API functions
+     * from the same thread on which mpv_render_context_create() was originally
+     * run (for the same the mpv_render_context). Not honoring it led to UB
+     * (deadlocks, use of invalid mp_thread handles), even if you moved your GL
+     * context to a different thread correctly.
+     * These problems were addressed in API version 1.105 (mpv 0.30.0).
      *
      * Context and handle lifecycle
      * ----------------------------
@@ -362,12 +362,12 @@ pub mod render {
      * defaults. Likewise, mpv will attempt to leave the OpenGL context with
      * standard defaults. The following state is excluded from this:
      *
-     *      - the glViewport state
-     *      - the glScissor state (but GL_SCISSOR_TEST is in its default value)
-     *      - glBlendFuncSeparate() state (but GL_BLEND is in its default value)
-     *      - glClearColor() state
-     *      - mpv may overwrite the callback set with glDebugMessageCallback()
-     *      - mpv always disables GL_DITHER at init
+     * - the glViewport state
+     * - the glScissor state (but GL_SCISSOR_TEST is in its default value)
+     * - glBlendFuncSeparate() state (but GL_BLEND is in its default value)
+     * - glClearColor() state
+     * - mpv may overwrite the callback set with glDebugMessageCallback()
+     * - mpv always disables GL_DITHER at init
      *
      * Messing with the state could be avoided by creating shared OpenGL contexts,
      * but this is avoided for the sake of compatibility and interoperability.

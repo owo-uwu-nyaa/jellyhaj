@@ -418,7 +418,7 @@ impl ToMpvNode<'static> for f64 {
  * # Usage
  *
  * ```
- * # use mpv_async::stack_node_list;
+ * # use mpv_async::mpv_node_list;
  * // construct empty list in variable `name`
  * mpv_node_list!(name; []);
  * // with actual values
