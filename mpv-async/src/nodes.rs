@@ -178,7 +178,7 @@ unsafe impl Sync for MpvNodeRef<'_> {}
 pub struct MpvNodeMapRef<'r> {
     len: usize,
     nodes: *const MpvNode,
-    keys: *const *const i8,
+    keys: *const *const c_char,
     lifetime: PhantomData<&'r MpvNode>,
 }
 
@@ -487,7 +487,7 @@ impl<'r> ToMpvNode<'r> for &'r MpvNodeList<'r> {
 
 #[repr(transparent)]
 pub struct CStrPtr<'r> {
-    inner: *mut i8,
+    inner: *mut c_char,
     inner_lifetime: PhantomData<&'r MpvNode>,
 }
 
@@ -777,7 +777,7 @@ unsafe impl ToFormat for &CStr {
 
 #[repr(transparent)]
 pub struct MpvString {
-    inner: *const i8,
+    inner: *const c_char,
 }
 
 impl Deref for MpvString {
