@@ -261,11 +261,11 @@ pub struct TermColors {
 }
 
 fn parse_response(haystack: &[u8]) -> Option<TermColors> {
-    let [r1, g1, b1, r2, b2, g2] = COLOR_REGEX.captures(haystack)?.extract().1;
     fn parse(s: &[u8]) -> u8 {
         let val = u8::from_str_radix(str::from_utf8(s).unwrap(), 16).unwrap();
         if s.len() == 1 { val | (val << 4) } else { val }
     }
+    let [r1, g1, b1, r2, b2, g2] = COLOR_REGEX.captures(haystack)?.extract().1;
     Some(TermColors {
         fg: Color::Rgb(parse(r1), parse(g1), parse(b1)),
         bg: Color::Rgb(parse(r2), parse(g2), parse(b2)),

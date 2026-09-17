@@ -108,25 +108,26 @@ pub enum MpvEventId {
 }
 
 impl MpvEventId {
-    pub fn to_raw(self) -> mpv_event_id {
+    #[must_use]
+    pub const fn to_raw(self) -> mpv_event_id {
         match self {
-            MpvEventId::None => mpv_event_id::MPV_EVENT_NONE,
-            MpvEventId::Shutdown => mpv_event_id::MPV_EVENT_SHUTDOWN,
-            MpvEventId::LogMessage => mpv_event_id::MPV_EVENT_LOG_MESSAGE,
-            MpvEventId::GetPropertyReply => mpv_event_id::MPV_EVENT_GET_PROPERTY_REPLY,
-            MpvEventId::SetPropertyReply => mpv_event_id::MPV_EVENT_SET_PROPERTY_REPLY,
-            MpvEventId::CommandReply => mpv_event_id::MPV_EVENT_COMMAND_REPLY,
-            MpvEventId::StartFile => mpv_event_id::MPV_EVENT_START_FILE,
-            MpvEventId::EndFile => mpv_event_id::MPV_EVENT_END_FILE,
-            MpvEventId::FileLoaded => mpv_event_id::MPV_EVENT_FILE_LOADED,
-            MpvEventId::ClientMessage => mpv_event_id::MPV_EVENT_CLIENT_MESSAGE,
-            MpvEventId::VideoReconfig => mpv_event_id::MPV_EVENT_VIDEO_RECONFIG,
-            MpvEventId::AudioReconfig => mpv_event_id::MPV_EVENT_AUDIO_RECONFIG,
-            MpvEventId::Seek => mpv_event_id::MPV_EVENT_SEEK,
-            MpvEventId::PlaybackRestart => mpv_event_id::MPV_EVENT_PLAYBACK_RESTART,
-            MpvEventId::PropertyChange => mpv_event_id::MPV_EVENT_PROPERTY_CHANGE,
-            MpvEventId::QueueOverflow => mpv_event_id::MPV_EVENT_QUEUE_OVERFLOW,
-            MpvEventId::Hook => mpv_event_id::MPV_EVENT_HOOK,
+            Self::None => mpv_event_id::MPV_EVENT_NONE,
+            Self::Shutdown => mpv_event_id::MPV_EVENT_SHUTDOWN,
+            Self::LogMessage => mpv_event_id::MPV_EVENT_LOG_MESSAGE,
+            Self::GetPropertyReply => mpv_event_id::MPV_EVENT_GET_PROPERTY_REPLY,
+            Self::SetPropertyReply => mpv_event_id::MPV_EVENT_SET_PROPERTY_REPLY,
+            Self::CommandReply => mpv_event_id::MPV_EVENT_COMMAND_REPLY,
+            Self::StartFile => mpv_event_id::MPV_EVENT_START_FILE,
+            Self::EndFile => mpv_event_id::MPV_EVENT_END_FILE,
+            Self::FileLoaded => mpv_event_id::MPV_EVENT_FILE_LOADED,
+            Self::ClientMessage => mpv_event_id::MPV_EVENT_CLIENT_MESSAGE,
+            Self::VideoReconfig => mpv_event_id::MPV_EVENT_VIDEO_RECONFIG,
+            Self::AudioReconfig => mpv_event_id::MPV_EVENT_AUDIO_RECONFIG,
+            Self::Seek => mpv_event_id::MPV_EVENT_SEEK,
+            Self::PlaybackRestart => mpv_event_id::MPV_EVENT_PLAYBACK_RESTART,
+            Self::PropertyChange => mpv_event_id::MPV_EVENT_PROPERTY_CHANGE,
+            Self::QueueOverflow => mpv_event_id::MPV_EVENT_QUEUE_OVERFLOW,
+            Self::Hook => mpv_event_id::MPV_EVENT_HOOK,
         }
     }
 }

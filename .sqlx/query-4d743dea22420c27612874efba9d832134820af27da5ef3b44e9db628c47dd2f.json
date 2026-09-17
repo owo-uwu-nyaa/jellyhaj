@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "select access_token, session_id from creds where server_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "access_token",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "creds",
+            "name": "access_token"
+          }
+        }
+      },
+      {
+        "name": "session_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "creds",
+            "name": "session_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4d743dea22420c27612874efba9d832134820af27da5ef3b44e9db628c47dd2f"
+}

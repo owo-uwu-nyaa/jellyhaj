@@ -52,6 +52,7 @@ async fn get_unique(db: &mut SqliteConnection) -> Result<UniqueId> {
 
 struct StoredCreds {
     access_token: String,
+    session_id: String,
 }
 
 async fn get_stored_creds(
@@ -62,7 +63,7 @@ async fn get_stored_creds(
     if store {
         sqlx::query_as!(
             StoredCreds,
-            "select access_token from creds where server_id = ?",
+            "select access_token, session_id from creds where server_id = ?",
             server_id
         )
         .fetch_optional(db)
@@ -118,7 +119,11 @@ pub async fn connect_server(
         .await
         .context("retrieving stored authentication key")?
     {
-        match client.auth_key(creds.access_token).get_self().await {
+        match client
+            .auth_key(creds.access_token, creds.session_id)
+            .get_self()
+            .await
+        {
             Ok(client) => {
                 return Ok(NextScreen::AuthFinished {
                     state,

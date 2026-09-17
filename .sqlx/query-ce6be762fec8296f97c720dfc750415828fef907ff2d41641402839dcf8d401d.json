@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "insert into creds (access_token, session_id, server_id) values (?,?,?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "ce6be762fec8296f97c720dfc750415828fef907ff2d41641402839dcf8d401d"
+}

@@ -81,6 +81,7 @@ pub struct Auth {
 #[derive(Debug, Clone)]
 pub struct KeyAuth {
     pub access_key: String,
+    pub session_id: String,
     pub header: HeaderValue,
     pub device_id: String,
 }
@@ -113,6 +114,7 @@ impl AuthStatus for KeyAuth {
 }
 pub trait Authed: AuthStatus {
     fn token(&self) -> &str;
+    fn session_id(&self) -> &str;
     fn device_id(&self) -> &str;
     fn header(&self) -> &HeaderValue;
 }
@@ -128,6 +130,10 @@ impl Authed for Auth {
     fn device_id(&self) -> &str {
         &self.device_id
     }
+
+    fn session_id(&self) -> &str {
+        &self.session_id
+    }
 }
 
 impl Authed for KeyAuth {
@@ -140,6 +146,10 @@ impl Authed for KeyAuth {
 
     fn device_id(&self) -> &str {
         &self.device_id
+    }
+
+    fn session_id(&self) -> &str {
+        &self.session_id
     }
 }
 
@@ -212,10 +222,14 @@ impl JellyfinClient {
         client_info: ClientInfo,
         device_name: impl Into<Cow<'static, str>>,
         key: String,
+        session_id: String,
         unique: UniqueId,
         concurrency: usize,
     ) -> Result<JellyfinClient<KeyAuth>> {
-        Ok(Self::new(url, client_info, device_name, unique, concurrency)?.auth_key(key))
+        Ok(
+            Self::new(url, client_info, device_name, unique, concurrency)?
+                .auth_key(key, session_id),
+        )
     }
 }
 

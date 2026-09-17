@@ -147,9 +147,11 @@ async fn store_login_result(
 ) -> Result<Navigation> {
     if config.store_access_token {
         let token = client.get_auth().token();
+        let session_id = &client.get_auth().session_id;
         sqlx::query!(
-            "insert into creds (access_token, server_id) values (?,?)",
+            "insert into creds (access_token, session_id, server_id) values (?,?,?)",
             token,
+            session_id,
             server_id
         )
         .execute(&mut *db.lock().await)

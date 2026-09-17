@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use aws_lc_rs::digest;
 use color_eyre::Result as EyreResult;
-use color_eyre::eyre::eyre;
-use futures_util::future::try_join;
 use http::{HeaderValue, header::AUTHORIZATION};
 use serde::Serialize;
 
@@ -15,7 +13,6 @@ use crate::{
     client_with_auth,
     connect::JsonResponseHelper,
     request::{NoQuery, RequestBuilderExt},
-    session::{SessionInfo, SessionsQuery},
     user::{User, UserAuth},
 };
 
@@ -29,7 +26,7 @@ struct AuthUserNameReq<'a> {
 }
 impl JellyfinClient<NoAuth> {
     #[must_use]
-    pub fn auth_key(self, key: String) -> JellyfinClient<KeyAuth> {
+    pub fn auth_key(self, key: String, session_id: String) -> JellyfinClient<KeyAuth> {
         let device_id = make_client_id(
             &self.inner.client.unique,
             &self.inner.client.client_info,
@@ -47,6 +44,7 @@ impl JellyfinClient<NoAuth> {
                 access_key: key,
                 header: auth_header,
                 device_id,
+                session_id,
             },
         )
     }
@@ -152,30 +150,16 @@ impl JellyfinClient<KeyAuth> {
                 .deserialize()
                 .await
         };
-        let sessions = async {
-            self.get_sessions(&SessionsQuery {
-                device_id: self.get_auth().device_id().into(),
-                ..Default::default()
-            })
-            .deserialize()
-            .await
-        };
-        let (user, mut sessions): (User, Vec<SessionInfo>) = match try_join(user, sessions).await {
+        let user = match user.await {
             Ok(v) => v,
             Err(e) => return Err((self, e)),
-        };
-        if sessions.len() > 1 {
-            return Err((self, eyre!("The current device has more than 1 session")));
-        }
-        let Some(session) = sessions.pop() else {
-            return Err((self, eyre!("The current device has no associated sessions")));
         };
         let auth = Auth {
             user,
             access_token: self.inner.auth.access_key.clone(),
             header: self.inner.auth.header.clone(),
             device_id: self.inner.auth.device_id.clone(),
-            session_id: session.id,
+            session_id: self.inner.auth.session_id.clone(),
         };
         Ok(make_auth_or_return(self, auth))
     }

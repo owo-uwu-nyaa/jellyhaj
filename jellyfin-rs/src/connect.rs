@@ -39,7 +39,7 @@ use tokio_rustls::{
     client::TlsStream,
     rustls::{ClientConfig, RootCertStore, pki_types::ServerName},
 };
-use tracing::{Instrument, error, error_span, info_span, warn};
+use tracing::{Instrument, debug, error, error_span, info_span, warn};
 
 use crate::Result;
 
@@ -277,6 +277,7 @@ impl Connection {
                                 Box::pin(self.config.connection()).await?
                             }
                             ConnectionInner::H2(send_request) => {
+                                debug!("sending request http 2");
                                 if let Err(e) = send_request.ready().await {
                                     error!("error sending request: {e:?}");
                                     retries += 1;
@@ -286,6 +287,7 @@ impl Connection {
                                 }
                             }
                             ConnectionInner::H1(send_request) => {
+                                debug!("sending request http 1");
                                 if let Err(e) = send_request.ready().await {
                                     error!("error sending request: {e:?}");
                                     retries += 1;
