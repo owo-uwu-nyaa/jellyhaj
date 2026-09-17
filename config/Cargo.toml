@@ -10,11 +10,11 @@ toml = {workspace = true}
 tracing = {workspace = true}
 crossterm.workspace = true
 nix = {workspace = true, features = ["poll"]}
-nom.workspace = true
 ratatui-core.workspace = true
 tachyonfx.workspace = true
 valuable.workspace = true
 spawn = { path = "../spawn" }
+regex.workspace = true
 
 [package]
 name = "config"

@@ -3,12 +3,11 @@
 use std::{
     collections::HashMap,
     io::{Read, Write},
-    num::NonZeroUsize,
-    sync::Mutex,
+    sync::{LazyLock, Mutex},
 };
 
 use color_eyre::{Result, eyre::Context};
-use nom::{IResult, Parser, branch::alt, bytes::streaming::tag, sequence::preceded};
+use log::info;
 use ratatui_core::style::Color;
 use serde::{Deserialize, de::Visitor};
 use tachyonfx::{Effect, dsl::EffectDsl};
@@ -261,77 +260,55 @@ pub struct TermColors {
     pub bg: Color,
 }
 
-fn parse_hex_digit(i: &[u8]) -> IResult<&[u8], u8> {
-    let res = match i.first().copied() {
-        Some(v @ b'0'..=b'9') => v - b'0',
-        Some(v @ b'a'..=b'f') => v - b'a' + 10,
-        Some(v @ b'A'..=b'F') => v - b'A' + 10,
-        Some(_) => {
-            return IResult::Err(nom::Err::Error(nom::error::Error::new(
-                i,
-                nom::error::ErrorKind::HexDigit,
-            )));
-        }
-        None => {
-            return IResult::Err(nom::Err::Incomplete(nom::Needed::Size(
-                NonZeroUsize::new(1).unwrap(),
-            )));
-        }
+fn parse_response(haystack: &[u8]) -> Option<TermColors> {
+    let [r1, g1, b1, r2, b2, g2] = COLOR_REGEX.captures(haystack)?.extract().1;
+    fn parse(s: &[u8]) -> u8 {
+        let val = u8::from_str_radix(str::from_utf8(s).unwrap(), 16).unwrap();
+        if s.len() == 1 { val | (val << 4) } else { val }
+    }
+    Some(TermColors {
+        fg: Color::Rgb(parse(r1), parse(g1), parse(b1)),
+        bg: Color::Rgb(parse(r2), parse(g2), parse(b2)),
+    })
+}
+
+macro_rules! color_pat {
+    ($start:literal, $mid:literal, $end:literal, $sep:literal, $col:literal) => {
+        concat!(
+            $start, $col, $sep, $col, $sep, $col, $mid, $col, $sep, $col, $sep, $col, $end
+        )
     };
-    Ok((&i[1..], res))
 }
 
-fn parse_hex<const N: usize>(mut i: &[u8]) -> IResult<&[u8], [u8; N]> {
-    let mut res = [0u8; N];
-    for r in res.iter_mut().take(N) {
-        let (ri, rv) = parse_hex_digit(i)?;
-        i = ri;
-        *r = rv;
-    }
-    Ok((i, res))
-}
+static COLOR_REGEX: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
+    regex::bytes::Regex::new(color_pat!(
+        //start
+        r"\x1b]10;rgb:",
+        //mid
+        r"(?:(?:\x1b\\|\x07)\x1b]11)?;rgb:",
+        //end
+        r"(?:\x1b\\|\x07)",
+        //sep
+        "/",
+        //color
+        r"(?:([0-9a-f])|([0-9a-f]{2})(?:(?:[0-9a-f]{2})?))"
+    ))
+    .expect("invalid regex")
+});
 
-fn parse_single_color(i: &[u8]) -> IResult<&[u8], u8> {
-    const fn map_1(i: [u8; 1]) -> u8 {
-        let i = i[0];
-        i | (i << 4)
-    }
-    const fn map_2(i: [u8; 2]) -> u8 {
-        let i1 = i[0];
-        let i2 = i[1];
-        (i1 << 4) | i2
-    }
-    const fn map_4(i: [u8; 4]) -> u8 {
-        (i[3]) | ((i[2]) << 4)
-    }
-    let c4 = nom::combinator::map(parse_hex::<4>, map_4);
-    let c2 = nom::combinator::map(parse_hex::<2>, map_2);
-    let c1 = nom::combinator::map(parse_hex::<1>, map_1);
-    alt((c4, c2, c1)).parse(i)
-}
+#[cfg(test)]
+mod tests {
+    use crate::effects::COLOR_REGEX;
 
-fn parse_color(i: &[u8]) -> IResult<&[u8], Color> {
-    let (i, _) = tag("rgb:")(i)?;
-    let (i, r) = parse_single_color(i)?;
-    let (i, _) = tag("/")(i)?;
-    let (i, g) = parse_single_color(i)?;
-    let (i, _) = tag("/")(i)?;
-    let (i, b) = parse_single_color(i)?;
-    Ok((i, Color::Rgb(r, g, b)))
-}
-
-fn parse_response(i: &[u8]) -> IResult<&[u8], TermColors> {
-    let mut terminator = alt((tag("\x1b\\"), tag("\x07")));
-    let mut separator = alt((
-        tag(";"),
-        preceded(alt((tag("\x1b\\"), tag("\x07"))), tag("\x1b]11;")),
-    ));
-    let (i, _) = tag("\x1b]10;")(i)?;
-    let (i, fg) = parse_color(i)?;
-    let (i, _) = separator.parse(i)?;
-    let (i, bg) = parse_color(i)?;
-    let (i, _) = terminator.parse(i)?;
-    Ok((i, TermColors { fg, bg }))
+    const EXAMPLE: &[u8] = b"\x1b]10;rgb:ebeb/fafa/fafa\x1b\\\x1b]11;rgb:2121/2323/3737\x1b\\";
+    #[test]
+    fn color_matches() {
+        assert!(COLOR_REGEX.is_match(EXAMPLE));
+    }
+    #[test]
+    fn regex_captures() {
+        assert_eq!(Some(7), COLOR_REGEX.static_captures_len());
+    }
 }
 
 const DEFAULT_COLORS: TermColors = TermColors {
@@ -352,7 +329,7 @@ pub fn parse_colors() -> Result<TermColors> {
     #[cfg(unix)]
     {
         use crossterm::tty::IsTty;
-
+        info!("querying color");
         if (!cfg!(test)) && std::io::stdin().is_tty() {
             let _guard = if crossterm::terminal::is_raw_mode_enabled()
                 .context("querying raw mode failed")?
@@ -368,7 +345,7 @@ pub fn parse_colors() -> Result<TermColors> {
             std::io::stdout().flush().context("flushing stdout")?;
             let mut stdin = std::io::stdin().lock();
             let mut read = 0usize;
-            let mut out = [0u8; 50];
+            let mut out = [0u8; 128];
             loop {
                 use std::os::fd::AsFd;
 
@@ -377,20 +354,20 @@ pub fn parse_colors() -> Result<TermColors> {
                 if 1 == nix::poll::poll(&mut [PollFd::new(stdin.as_fd(), PollFlags::POLLIN)], 100u8)
                     .context("polling stdin")?
                 {
-                    read += stdin
+                    let new = stdin
                         .read(&mut out[read..])
                         .context("failed reading stdin")?;
-                    match parse_response(&out[..read]) {
-                        Ok((_, v)) => break Ok(v),
-                        Err(nom::Err::Incomplete(_)) => continue,
-                        Err(nom::Err::Error(e) | nom::Err::Failure(e)) => {
-                            break Err(color_eyre::Report::msg(format!("{e:?}"))
-                                .wrap_err("error parsing terminal colors"));
-                        }
+                    if new == 0 {
+                        break Ok(DEFAULT_COLORS);
                     }
+                    read += new;
+                    if let Some(v) = parse_response(&out[..read]) {
+                        break Ok(v);
+                    }
+                } else {
+                    tracing::warn!("querying terminal colors received timeout");
+                    break Ok(DEFAULT_COLORS);
                 }
-                tracing::warn!("querying terminal colors received timeout");
-                break Ok(DEFAULT_COLORS);
             }
         } else {
             Ok(DEFAULT_COLORS)

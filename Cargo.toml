@@ -174,7 +174,6 @@ image = {default-features = false, features = ["png", "webp"], version = "0.25.5
 itertools = "0.15.0"
 log = "0.4.26"
 nix = "0.31.2"
-nom = "8.0.0"
 parking_lot = "0.12.3"
 pin-project-lite = "0.2.16"
 pkg-config = "0.3.31"
