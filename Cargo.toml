@@ -147,7 +147,7 @@ members = [
   "widgets/stats",
   "widgets/tabs",
   "widgets/tabs-macro"
-]
+, "xtask"]
 
 [workspace.dependencies]
 ansi-to-tui = "8.0.0"
@@ -157,6 +157,8 @@ base64 = "0.22.1"
 bindgen = "0.73.1"
 bytes = "1.9.0"
 clap = {features = ["cargo", "derive"], version = "4.5.23"}
+clap_complete = "4.6.11"
+clap_complete_nushell = "4.6.2"
 color-eyre = "0.6.5"
 convert_case = "0.10.0"
 crossterm = {features = ["event-stream"], version = "0.29.0"}

@@ -19,6 +19,7 @@ use rayon::ThreadPoolBuilder;
 use tracing::{error, error_span, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
+include!("args.rs");
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -200,47 +201,4 @@ fn main() -> Result<()> {
             })
         }
     }
-}
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    #[command(subcommand)]
-    action: Option<Action>,
-    /// alternative config file
-    #[arg(short, long)]
-    config: Option<PathBuf>,
-    #[arg(short = 'b', long)]
-    use_builtin_config: bool,
-    #[arg(short, long)]
-    features: bool,
-}
-
-#[derive(Debug, Subcommand)]
-enum Action {
-    CheckKeybinds {
-        /// keybinds config to check
-        file: PathBuf,
-    },
-    CheckEffects {
-        /// effects file to check
-        file: PathBuf,
-    },
-    CheckConfig {
-        /// effects file to check
-        file: PathBuf,
-    },
-
-    Print {
-        /// what should be printed
-        #[command(subcommand)]
-        what: PrintAction,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-enum PrintAction {
-    ConfigDir,
-    Keybinds,
-    Config,
 }

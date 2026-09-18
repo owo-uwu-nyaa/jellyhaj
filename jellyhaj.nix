@@ -9,6 +9,9 @@
   glib,
   aws-lc,
   versionCheckHook,
+  installShellFiles,
+  makeSetupHook,
+  rust,
   withMpris ? stdenv.hostPlatform.isLinux, # enable media player dbus interface
   withJournald ? stdenv.hostPlatform.isLinux,
   withTools ? false, # add developement tools
@@ -30,7 +33,6 @@ let
     root = ./.;
     inherit fileset;
   };
-
 in
 rustPlatform.buildRustPackage {
   pname = "jellyhaj";
@@ -41,6 +43,7 @@ rustPlatform.buildRustPackage {
   };
   nativeBuildInputs = [
     rustPlatform.bindgenHook
+    installShellFiles
     pkg-config
   ];
   buildInputs = [
@@ -52,6 +55,13 @@ rustPlatform.buildRustPackage {
   ];
   postBuild = lib.optionalString stdenv.hostPlatform.isLinux ''
     install -Dm644 $src/jellyhaj.desktop $out/share/applications/jellyhaj.desktop       
+  '';
+  postInstall = ''
+    echo Generating jellyhaj completions
+    mkdir completion
+    cargo run --package xtask -- print-completions completion bash zsh fish nushell
+    installShellCompletion completion/*
+    echo Finished generating jellyhaj completions
   '';
   nativeInstallCheckInputs = [ versionCheckHook ];
   versionCheckProgramArg = "--version";
