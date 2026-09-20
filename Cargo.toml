@@ -196,7 +196,7 @@ sqlx = {default-features = false, features = ["macros", "migrate", "runtime-toki
 strum = {features = ["derive"], version = "0.28.0"}
 syn = {default-features = false, version = "3.0.3"}
 tachyonfx = {features = ["sendable", "std-duration"], version = "0.25.0"}
-textwrap = {features = [], version = "0.16.2"}
+textwrap = {features = ["hyphenation"], version = "0.16.2"}
 tokio = {version = "1.53.1"}
 tokio-rustls = {default-features = false, features = ["aws_lc_rs", "logging"], version = "0.26.2"}
 tokio-util = "0.7.13"
