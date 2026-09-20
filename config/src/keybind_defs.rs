@@ -15,6 +15,7 @@ pub struct Keybinds {
     pub error: BindingMap<ErrorCommand>,
     pub item_details: BindingMap<ItemDetailsCommand>,
     pub item_list_details: BindingMap<ItemListDetailsCommand>,
+    pub editor: BindingMap<EditorCommand>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Command, Valuable)]
@@ -182,6 +183,20 @@ pub enum ItemListDetailsCommand {
     #[command(flatten)]
     Entry(EntryCommand),
     RefreshParentItem,
+    #[command(flatten)]
+    Global(GlobalCommand),
+}
+
+#[derive(Debug, Clone, Copy, Command, Valuable)]
+pub enum EditorCommand {
+    Finish,
+    NewLine,
+    Delete,
+    Up,
+    Down,
+    Left,
+    Right,
+    Quit,
     #[command(flatten)]
     Global(GlobalCommand),
 }

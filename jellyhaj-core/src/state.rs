@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Arc};
+use std::{borrow::Cow, convert::Infallible, sync::Arc};
 
 use color_eyre::Result;
 use color_eyre::eyre::Report;
@@ -61,6 +61,11 @@ pub enum NextScreen {
         index: usize,
     },
     Error(Report),
+    Editor {
+        title: Cow<'static, str>,
+        text: String,
+        res: Arc<dyn ErasedSubmitter<String>>,
+    },
     ItemDetails(Box<MediaItem>),
     ItemListDetails(Box<MediaItem>, Vec<MediaItem>),
     FetchItemListDetails(Box<MediaItem>),

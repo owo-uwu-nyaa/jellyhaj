@@ -1,5 +1,5 @@
 [package]
-name = "jellyhaj-editor-widget"
+name = "jellyhaj-helper-widget"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,6 @@ edition.workspace = true
 [dependencies]
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../core" }
-textwrap.workspace = true
 tracing.workspace = true
 valuable.workspace = true
 

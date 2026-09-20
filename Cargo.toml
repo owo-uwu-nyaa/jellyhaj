@@ -57,6 +57,8 @@ clap.workspace = true
 color-eyre.workspace = true
 ratatui.workspace = true
 tui-logger.workspace = true
+jellyhaj-editor-view = { version = "0.1.0", path = "views/editor" }
+jellyhaj-helper-view = { version = "0.1.0", path = "views/helper" }
 
 [features]
 attach = ["dep:libc"]
@@ -107,9 +109,9 @@ members = [
   "player-mpris",
   "serde-json-ratatui",
   "spawn",
-  "stats-data",
+  "stats-data", "views/editor",
   "views/error",
-  "views/fetch",
+  "views/fetch", "views/helper",
   "views/home-screen",
   "views/http-client",
   "views/inspect",
@@ -128,7 +130,7 @@ members = [
   "widgets/fetch",
   "widgets/form",
   "widgets/form-derive",
-  "widgets/form-derive-impl",
+  "widgets/form-derive-impl", "widgets/helper",
   "widgets/home-screen",
   "widgets/image",
   "widgets/inspect",

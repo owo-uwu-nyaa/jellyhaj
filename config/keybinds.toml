@@ -101,6 +101,12 @@ right = "next-tab"
 r = "reload"
 "C-r" = "refresh-parent-item"
 
+[editor]
+template = ["m","g"]
+enter = "new-line"
+"C-s" = "finish"
+backspace = "delete"
+
 [template.q]
 q = "quit"
 

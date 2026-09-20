@@ -158,6 +158,7 @@ pub enum EditorAction {
     Down,
     Left,
     Right,
+    Quit,
 }
 
 impl JellyhajWidgetBase for Editor {
@@ -329,6 +330,7 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
                 }
                 Ok(None)
             }
+            EditorAction::Quit => Ok(Some(Navigation::PopContext)),
         }
     }
 

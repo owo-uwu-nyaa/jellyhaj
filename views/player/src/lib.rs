@@ -6,15 +6,15 @@ use jellyfin::{
     playlist::GetPlaylistItemsQuery,
     shows::GetEpisodesQuery,
 };
-use jellyhaj_context::{ContextRef, Spawner, TuiContext};
+use jellyhaj_context::TuiContext;
 use jellyhaj_core::{
-    CommandMapper, Config,
+    CommandMapper,
     keybinds::MpvCommand,
     state::{LoadPlay, Navigation, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
-use jellyhaj_player_widget::{ExitWidget, PlayerAction, PlayerWidget};
+use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
 use jellyhaj_widgets_core::outer::{Named, OuterWidget};
 use player_core::Command;
 
@@ -216,8 +216,4 @@ async fn fetch_series(cx: &JellyfinClient, series_id: &str) -> Result<Vec<MediaI
     })
     .await?;
     Ok(res)
-}
-
-pub fn render_exit<R: ContextRef<Spawner> + ContextRef<Config> + 'static>(cx: R) -> Erased {
-    make_new_erased(cx, ExitWidget)
 }

@@ -79,6 +79,9 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         NextScreen::NewGenre(submitter) => {
             jellyhaj_metadata_editor_view::make_new_genre(cx, submitter)
         }
+        NextScreen::Editor { title, text, res } => {
+            jellyhaj_editor_view::make_editor(cx, title, text, res)
+        }
         NextScreen::SelectServer { .. }
         | NextScreen::ConnectToServer { .. }
         | NextScreen::SelectAuthMethod { .. }
@@ -90,7 +93,7 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
             jellyhaj_error_view::render_error(cx, &eyre!("already logged in"))
         }
         NextScreen::Logout => jellyhaj_login_view::render_logout(cx),
-        NextScreen::Exit => jellyhaj_player_view::render_exit(cx),
+        NextScreen::Exit => jellyhaj_helper_view::make_exit(cx),
     }
 }
 
@@ -169,6 +172,9 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
             client,
             server_id,
         } => jellyhaj_login_view::render_auth_finished(cx, state, out, client, server_id),
+        NextScreen::Editor { title, text, res } => {
+            jellyhaj_editor_view::make_editor(cx, title, text, res)
+        }
         NextScreen::LoadHomeScreen
         | NextScreen::HomeScreen { .. }
         | NextScreen::LoadUserView(_)
@@ -194,6 +200,6 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::Logout => {
             jellyhaj_error_view::render_error(cx, &eyre!("This requires beeing logged in"))
         }
-        NextScreen::Exit => jellyhaj_player_view::render_exit(cx),
+        NextScreen::Exit => jellyhaj_helper_view::make_exit(cx),
     }
 }
