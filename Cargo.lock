@@ -1097,6 +1097,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
+name = "editor"
+version = "0.1.0"
+dependencies = [
+ "jellyhaj-core",
+ "jellyhaj-widgets-core",
+ "textwrap",
+ "tracing",
+ "valuable",
+]
+
+[[package]]
 name = "either"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -15,7 +15,6 @@ pub mod support {
 
     use crossterm::cursor::SetCursorStyle;
     use jellyhaj_widgets_core::{Cursor, RenderFlag};
-    use ratatui::buffer::CellWidth;
     use tracing::{instrument, trace};
 
     use crate::FormAction;
@@ -103,8 +102,7 @@ pub mod support {
         position.x += 1;
         position.y += 1;
         let index = char_index(text, pos);
-        let behind = &text[0..index];
-        position.x += behind.cell_width();
+        position.x += *pos;
         trace!("setting position to ({},{})", position.x, position.y);
         *cursor = Some(Cursor {
             position,

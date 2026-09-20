@@ -122,7 +122,7 @@ members = [
   "views/quick-connect",
   "views/refresh-item",
   "views/stats",
-  "widgets/core",
+  "widgets/core", "widgets/editor",
   "widgets/entry",
   "widgets/error",
   "widgets/fetch",
