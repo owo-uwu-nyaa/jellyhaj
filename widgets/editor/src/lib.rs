@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::min, sync::Arc};
+use std::{borrow::Cow, cmp::min};
 
 use jellyhaj_core::state::Navigation;
 use jellyhaj_widgets_core::{
@@ -20,7 +20,7 @@ pub struct Editor {
     line: u16,
     col: u16,
     width: u16,
-    res: Arc<dyn ErasedSubmitter<String>>,
+    res: Box<dyn ErasedSubmitter<String>>,
 }
 const _: () = {
     static FIELDS: &[NamedField] = &[
@@ -61,7 +61,7 @@ impl Editor {
     pub fn new(
         title: Cow<'static, str>,
         text: &str,
-        res: Arc<dyn ErasedSubmitter<String>>,
+        res: Box<dyn ErasedSubmitter<String>>,
     ) -> Self {
         let lines: Vec<String> = text.split('\n').map(ToOwned::to_owned).collect();
         let split = vec![vec![]; lines.len()];

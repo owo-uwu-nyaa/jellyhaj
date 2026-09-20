@@ -64,7 +64,7 @@ pub enum NextScreen {
     Editor {
         title: Cow<'static, str>,
         text: String,
-        res: Arc<dyn ErasedSubmitter<String>>,
+        res: Box<dyn ErasedSubmitter<String>>,
     },
     ItemDetails(Box<MediaItem>),
     ItemListDetails(Box<MediaItem>, Vec<MediaItem>),

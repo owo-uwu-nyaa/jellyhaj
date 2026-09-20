@@ -11,6 +11,7 @@ ratatui.workspace = true
 valuable.workspace = true
 tracing.workspace = true
 textwrap.workspace = true
+jellyhaj-editor-view = { path = "../../views/editor" }
 
 [features]
 serde = ["dep:serde"]

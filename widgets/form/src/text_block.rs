@@ -1,7 +1,9 @@
-use std::{borrow::Cow, cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow, sync::Arc};
+use std::{borrow::Cow, cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
 
-use jellyhaj_core::state::{Navigation, NextScreen};
-use jellyhaj_widgets_core::{Position, Rect, RenderFlag, Result, WidgetContext, Wrapper};
+use jellyhaj_core::{Config, state::Navigation};
+use jellyhaj_widgets_core::{
+    ContextRef, Position, Rect, RenderFlag, Result, WidgetContext, Wrapper,
+};
 use ratatui::{
     prelude::Buffer,
     widgets::{
@@ -71,7 +73,7 @@ fn render_lines(main: Rect, height: u16, lines: &[String], buf: &mut Buffer) {
     }
 }
 
-impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextBlock {
+impl<R: ContextRef<Config> + 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextBlock {
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -95,13 +97,14 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextBlock {
                 }
                 FormAction::Left | FormAction::Right | FormAction::Delete => {}
                 FormAction::Enter => {
-                    return Ok(Some(ControlFlow::Break(Navigation::Push(
-                        NextScreen::Editor {
-                            title: self.title.into(),
-                            text: self.text.clone(),
-                            res: Arc::new(cx.submitter.erased()),
-                        },
-                    ))));
+                    return Ok(Some(ControlFlow::Break(
+                        jellyhaj_editor_view::make_editor_push_nav(
+                            cx.refs.as_ref(),
+                            self.title.into(),
+                            self.text.clone(),
+                            Box::new(cx.submitter.erased()),
+                        ),
+                    )));
                 }
                 FormAction::Inner(v) => match v {},
             }

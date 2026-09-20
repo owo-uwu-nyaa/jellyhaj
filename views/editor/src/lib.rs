@@ -5,7 +5,6 @@ use std::{
     mem::{self, ManuallyDrop},
     ops::{ControlFlow, Deref},
     path::PathBuf,
-    sync::Arc,
 };
 
 use eyre::{WrapErr, bail, eyre};
@@ -13,11 +12,10 @@ use eyre::{WrapErr, bail, eyre};
 use jellyhaj_core::{
     CommandMapper, Config,
     keybinds::EditorCommand,
-    state::Navigation,
+    state::{Navigation, NextScreen},
     widgets::shaded::widget::{Erased, make_new_erased},
 };
 use jellyhaj_editor_widget::{Editor, EditorAction};
-use jellyhaj_helper_widget::ReadyWidget;
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext, Result,
@@ -56,19 +54,14 @@ impl Named for Name {
     const NAME: &str = "editor";
 }
 
-#[allow(clippy::needless_pass_by_value)]
-pub fn make_editor(
-    cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static,
+pub fn make_editor_push_nav(
+    config: &Config,
     title: Cow<'static, str>,
     text: String,
-    res: Arc<dyn ErasedSubmitter<String>>,
-) -> Erased {
-    let config = Config::get_ref(&cx);
+    res: Box<dyn ErasedSubmitter<String>>,
+) -> Navigation {
     if config.editor.is_empty() {
-        let widget = Editor::new(title, &text, res);
-        let widget = KeybindWidget::new(widget, config.keybinds.editor.clone(), Mapper);
-        let widget = OuterWidget::<Name, _>::new(widget);
-        make_new_erased(cx, widget)
+        Navigation::Push(NextScreen::Editor { title, text, res })
     } else {
         let editor = config.editor.clone();
         let task = async move {
@@ -95,11 +88,22 @@ pub fn make_editor(
             res.spawn_value_infallible(content);
             dir.delete().await
         };
-        make_new_erased(
-            cx,
-            ReadyWidget::new(Box::new(Navigation::PushWithoutTui(Box::pin(task)))),
-        )
+        Navigation::PushWithoutTui(Box::pin(task))
     }
+}
+
+#[allow(clippy::needless_pass_by_value)]
+pub fn make_editor(
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + 'static,
+    title: Cow<'static, str>,
+    text: String,
+    res: Box<dyn ErasedSubmitter<String>>,
+) -> Erased {
+    let config = Config::get_ref(&cx);
+    let widget = Editor::new(title, &text, res);
+    let widget = KeybindWidget::new(widget, config.keybinds.editor.clone(), Mapper);
+    let widget = OuterWidget::<Name, _>::new(widget);
+    make_new_erased(cx, widget)
 }
 
 #[allow(clippy::unnecessary_wraps)]
