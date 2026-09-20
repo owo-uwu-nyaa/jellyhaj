@@ -9,7 +9,7 @@ mod valuable;
 
 use std::{
     cell::UnsafeCell,
-    ffi::{CStr, c_int, c_uint, c_void},
+    ffi::{CStr, c_int, c_uint, c_ulong, c_void},
     fmt::{Debug, Display},
     mem::{self, ManuallyDrop},
     ptr::{self, NonNull, null},
@@ -19,11 +19,12 @@ use std::{
 
 use arcshift::ArcShift;
 use mpv_sys::{
-    mpv_client_name, mpv_command_node, mpv_command_node_async, mpv_create, mpv_create_client,
-    mpv_create_weak_client, mpv_del_property, mpv_error, mpv_format, mpv_get_property,
-    mpv_get_property_async, mpv_handle, mpv_hook_add, mpv_load_config_file, mpv_node,
-    mpv_observe_property, mpv_request_log_messages, mpv_set_property, mpv_set_property_async,
-    mpv_set_wakeup_callback, mpv_terminate_destroy, mpv_unobserve_property, mpv_wait_event,
+    HEADER_MPV_CLIENT_API_VERSION, mpv_client_name, mpv_command_node, mpv_command_node_async,
+    mpv_create, mpv_create_client, mpv_create_weak_client, mpv_del_property, mpv_error, mpv_format,
+    mpv_get_property, mpv_get_property_async, mpv_handle, mpv_hook_add, mpv_load_config_file,
+    mpv_node, mpv_observe_property, mpv_request_log_messages, mpv_set_property,
+    mpv_set_property_async, mpv_set_wakeup_callback, mpv_terminate_destroy, mpv_unobserve_property,
+    mpv_wait_event,
 };
 
 #[cfg(feature = "macros")]
@@ -40,6 +41,46 @@ use crate::{
         ToMpvNode,
     },
 };
+
+fn check_mpv_version() -> Result<()> {
+    #[allow(clippy::cast_possible_truncation)]
+    const fn major_minor(v: c_ulong) -> (u16, u16) {
+        let minor_mask: c_ulong = 0xffff;
+        let major_mask: c_ulong = 0xffff_0000;
+        let minor = v & minor_mask;
+        let major = v & major_mask;
+        let major = major >> 16;
+        (major as u16, minor as u16)
+    }
+    let (h_major, h_minor) = major_minor(HEADER_MPV_CLIENT_API_VERSION);
+    let (a_major, a_minor) = major_minor(unsafe { mpv_sys::mpv_client_api_version() });
+    #[cfg(feature = "tracing")]
+    tracing::info!(
+        "Detected mpv client api version {a_major}.{a_minor}. Compiled against {h_major}.{h_minor}"
+    );
+    'err: {
+        if h_major != a_major {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                header = h_major,
+                library = a_major,
+                "Mpv cliant api major version mismatch detected"
+            );
+            break 'err;
+        }
+        if h_minor > a_minor {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                header = h_minor,
+                library = a_minor,
+                "Mpv client api minor version mismatch detected"
+            );
+            break 'err;
+        }
+        return Ok(());
+    };
+    Err(Error::new(mpv_error::MPV_ERROR_UNSUPPORTED))
+}
 
 unsafe extern "C" fn wakeup_callback(d: *mut c_void) {
     //TODO investigate multi threading
@@ -130,6 +171,7 @@ impl Mpv<Initializing> {
 
 impl Mpv {
     pub fn new() -> Result<Mpv<Initializing>> {
+        check_mpv_version()?;
         let handle = unsafe { NonNull::new(mpv_create()) }
             .ok_or(Error::new(mpv_error::MPV_ERROR_GENERIC))?;
         Ok(Mpv {

@@ -172,7 +172,7 @@ impl Stream for MpvStream {
 }
 
 impl MpvStream {
-    #[instrument(skip_all)]
+    #[instrument(skip_all, name = "new_mpv_stream")]
     pub fn new(
         jellyfin: &JellyfinClient,
         hwdec: &str,
