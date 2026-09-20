@@ -30,6 +30,7 @@ pub struct Config {
     pub store_access_token: bool,
     pub dev_store_jellyfin_events: bool,
     pub editor: Arc<[OsString]>,
+    pub force_image_fallback: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -50,6 +51,8 @@ struct ParseConfig {
     pub dev_store_jellyfin_events: bool,
     #[serde(default)]
     pub editor: Vec<OsString>,
+    #[serde(default)]
+    pub force_image_fallback: bool,
 }
 
 #[instrument]
@@ -156,6 +159,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         store_access_token: config.store_access_token.unwrap_or(false),
         dev_store_jellyfin_events: config.dev_store_jellyfin_events,
         editor: config.editor.into(),
+        force_image_fallback: config.force_image_fallback,
     })
 }
 

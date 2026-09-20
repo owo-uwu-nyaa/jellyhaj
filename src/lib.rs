@@ -56,8 +56,11 @@ pub async fn run_app(
 ) -> Result<()> {
     let cache = config::cache().await?;
     let config = init_config(config_file, use_builtin_config)?;
-    let image_picker =
-        Picker::from_query_stdio().context("getting information for image display")?;
+    let image_picker = if config.force_image_fallback {
+        Picker::halfblocks()
+    } else {
+        Picker::from_query_stdio().context("getting information for image display")?
+    };
     let mut events = KeybindEvents::new()?;
 
     let config = Arc::new(config);

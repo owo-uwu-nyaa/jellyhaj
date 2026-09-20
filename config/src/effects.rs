@@ -331,7 +331,7 @@ const DEFAULT_COLORS: TermColors = TermColors {
 
 /**
 This function queries the terminal for the current foreground and background colors.
-It reads and writes to the terminal so running it concurrently might fail.
+It reads and writes to the terminal so running it concurrently with something else might fail.
 TODO: currently only supports unix
  */
 pub fn parse_colors() -> Result<TermColors> {
