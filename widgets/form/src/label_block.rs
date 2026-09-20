@@ -13,13 +13,13 @@ use valuable::Valuable;
 use crate::{FormAction, FormItem, FormItemBase};
 use ansi_to_tui::IntoText;
 
+#[must_use]
 #[derive(Debug, Valuable)]
 pub struct LabelBlock {
     pub text: String,
 }
 
 impl LabelBlock {
-    #[must_use]
     pub const fn new(text: String) -> Self {
         Self { text }
     }
@@ -116,15 +116,13 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
                 }
                 FormAction::Delete => {}
                 FormAction::Enter => {
-                    if sel.is_some() {
-                        let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
-                    } else {
-                        *sel = Some(Position::ORIGIN.into());
-                        render_flag.set();
-                    }
+                    let _ = execute!(stdout(), CopyToClipboard::to_clipboard_from(&self.text));
                 }
                 FormAction::Quit => *sel = None,
             }
+        } else if let FormAction::Enter = action {
+            *sel = Some(Position::ORIGIN.into());
+            render_flag.set();
         }
         Ok(None)
     }
@@ -135,7 +133,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
         action: Self::Action,
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
-        unreachable!()
+        match action {}
     }
 
     fn apply_click_active(

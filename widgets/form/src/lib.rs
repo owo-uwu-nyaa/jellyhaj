@@ -11,6 +11,7 @@ mod offset;
 pub mod secret_field;
 pub mod selection;
 pub mod seperator;
+pub mod text_block;
 pub mod text_field;
 
 use std::{convert::Infallible, fmt::Debug, ops::ControlFlow};

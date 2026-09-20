@@ -2266,6 +2266,7 @@ dependencies = [
  "jellyhaj-widgets-core",
  "ratatui",
  "serde",
+ "textwrap",
  "tracing",
  "tui-scrollview",
  "valuable",
