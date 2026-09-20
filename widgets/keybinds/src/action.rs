@@ -55,12 +55,6 @@ pub fn apply_key_event<
                 Ok(None)
             }
             KeyEvent {
-                code: KeyCode::Char('c'),
-                modifiers: KeyModifiers::CONTROL,
-                kind: KeyEventKind::Press,
-                state: _,
-            } => Ok(Some(ControlFlow::Break(Navigation::Exit))),
-            KeyEvent {
                 code,
                 modifiers,
                 kind: KeyEventKind::Press | KeyEventKind::Repeat,

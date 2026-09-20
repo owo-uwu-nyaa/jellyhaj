@@ -10,8 +10,6 @@
   aws-lc,
   versionCheckHook,
   installShellFiles,
-  makeSetupHook,
-  rust,
   withMpris ? stdenv.hostPlatform.isLinux, # enable media player dbus interface
   withJournald ? stdenv.hostPlatform.isLinux,
   withTools ? false, # add developement tools

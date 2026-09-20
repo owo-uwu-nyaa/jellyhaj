@@ -131,6 +131,7 @@ e = "edit-metadata"
 
 [template.g]
 "C-A-l" = "logout"
+"C-c" = "exit"
 
 [template.g.s]
 name = "show-"

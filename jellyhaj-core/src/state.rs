@@ -183,6 +183,7 @@ impl From<GlobalCommand> for Navigation {
             GlobalCommand::ShowHome => NextScreen::LoadHomeScreen,
             GlobalCommand::HttpClient => NextScreen::HttpClient,
             GlobalCommand::Logout => NextScreen::Logout,
+            GlobalCommand::Exit => NextScreen::Exit,
         })
     }
 }
