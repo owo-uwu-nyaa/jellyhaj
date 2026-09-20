@@ -254,7 +254,7 @@ impl Drop for RawModeGuard {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TermColors {
     pub fg: Color,
     pub bg: Color,
@@ -265,7 +265,7 @@ fn parse_response(haystack: &[u8]) -> Option<TermColors> {
         let val = u8::from_str_radix(str::from_utf8(s).unwrap(), 16).unwrap();
         if s.len() == 1 { val | (val << 4) } else { val }
     }
-    let [r1, g1, b1, r2, b2, g2] = COLOR_REGEX.captures(haystack)?.extract().1;
+    let [r1, g1, b1, r2, g2, b2] = COLOR_REGEX.captures(haystack)?.extract().1;
     Some(TermColors {
         fg: Color::Rgb(parse(r1), parse(g1), parse(b1)),
         bg: Color::Rgb(parse(r2), parse(g2), parse(b2)),
@@ -298,7 +298,9 @@ static COLOR_REGEX: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::COLOR_REGEX;
+    use ratatui_core::style::Color;
+
+    use crate::effects::{COLOR_REGEX, TermColors, parse_response};
 
     const EXAMPLE: &[u8] = b"\x1b]10;rgb:ebeb/fafa/fafa\x1b\\\x1b]11;rgb:2121/2323/3737\x1b\\";
     #[test]
@@ -308,6 +310,17 @@ mod tests {
     #[test]
     fn regex_captures() {
         assert_eq!(Some(7), COLOR_REGEX.static_captures_len());
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(
+            Some(TermColors {
+                fg: Color::Rgb(0xeb, 0xfa, 0xfa),
+                bg: Color::Rgb(0x21, 0x23, 0x37)
+            }),
+            parse_response(EXAMPLE)
+        );
     }
 }
 
