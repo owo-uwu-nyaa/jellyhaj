@@ -5,12 +5,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+eyre = "0.6.14"
+getrandom.workspace = true
 jellyhaj-core = { version = "0.1.0", path = "../../jellyhaj-core" }
 jellyhaj-editor-widget = { version = "0.1.0", path = "../../widgets/editor" }
 jellyhaj-helper-widget = { version = "0.1.0", path = "../../widgets/helper" }
 jellyhaj-keybinds-widget = { version = "0.1.0", path = "../../widgets/keybinds" }
 jellyhaj-widgets-core = { version = "0.1.0", path = "../../widgets/core" }
-tokio = { workspace = true, features = ["process"] }
+tokio = { workspace = true, features = ["process", "rt"] }
 
 [lints]
 workspace = true

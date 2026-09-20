@@ -2120,6 +2120,8 @@ dependencies = [
 name = "jellyhaj-editor-view"
 version = "0.1.0"
 dependencies = [
+ "eyre",
+ "getrandom 0.4.3",
  "jellyhaj-core",
  "jellyhaj-editor-widget",
  "jellyhaj-helper-widget",

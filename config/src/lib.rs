@@ -29,7 +29,7 @@ pub struct Config {
     pub effects: EffectStore,
     pub store_access_token: bool,
     pub dev_store_jellyfin_events: bool,
-    pub editor: Option<Arc<[OsString]>>,
+    pub editor: Arc<[OsString]>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,7 +48,8 @@ struct ParseConfig {
     pub store_access_token: Option<bool>,
     #[serde(default)]
     pub dev_store_jellyfin_events: bool,
-    pub editor: Option<Vec<OsString>>,
+    #[serde(default)]
+    pub editor: Vec<OsString>,
 }
 
 #[instrument]
@@ -154,7 +155,7 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
         effects,
         store_access_token: config.store_access_token.unwrap_or(false),
         dev_store_jellyfin_events: config.dev_store_jellyfin_events,
-        editor: config.editor.map(Into::into),
+        editor: config.editor.into(),
     })
 }
 
