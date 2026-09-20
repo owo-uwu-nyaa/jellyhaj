@@ -2,6 +2,11 @@
 # By modifying this file you can theme all views entirely or only specific ones.
 # Be careful with effects that blank out parts of the buffer in start or main, they interact badly with the images
 
+[main]
+effect = """
+fx::paint_bg(bg, 4294967295).with_filter(CellFilter::BgColor(Color::Reset))
+"""
+fps = 0
 
 # define animations for all widgets
 # [main] is applied first, then start
