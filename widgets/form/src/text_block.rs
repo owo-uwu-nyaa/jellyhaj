@@ -1,13 +1,13 @@
 use std::{borrow::Cow, cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow, sync::Arc};
 
-use color_eyre::eyre::Context;
 use jellyhaj_core::state::{Navigation, NextScreen};
-use jellyhaj_widgets_core::{
-    Position, Rect, RenderFlag, Result, WidgetContext, Wrapper, async_task::ErasedSubmitter,
-};
+use jellyhaj_widgets_core::{Position, Rect, RenderFlag, Result, WidgetContext, Wrapper};
 use ratatui::{
     prelude::Buffer,
-    widgets::{Block, BorderType, Padding, Widget, WidgetRef},
+    widgets::{
+        Block, BorderType, Padding, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        StatefulWidget, Widget, WidgetRef,
+    },
 };
 use valuable::Valuable;
 
@@ -23,7 +23,7 @@ pub struct TextBlock {
 }
 
 impl TextBlock {
-    pub fn new(text: String) -> Self {
+    pub const fn new(text: String) -> Self {
         Self {
             text,
             split: vec![],
@@ -34,14 +34,14 @@ impl TextBlock {
 }
 
 impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextBlock {
-    type SelectionInner = Option<u16>;
+    type SelectionInner = Option<usize>;
 
     type Ret = Infallible;
 
     type Action = String;
 
     fn height(&self) -> u16 {
-        10
+        12
     }
 
     fn height_buf(&self) -> u16 {
@@ -83,19 +83,17 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextBlock {
             match action {
                 FormAction::Quit => {
                     render_flag.set();
-                    *sel = None
+                    *sel = None;
                 }
                 FormAction::Up => {
                     render_flag.set();
-                    *pos = pos.saturating_sub(1)
+                    *pos = pos.saturating_sub(1);
                 }
                 FormAction::Down => {
                     render_flag.set();
-                    *pos = pos.saturating_add(1)
+                    *pos = pos.saturating_add(1);
                 }
-                FormAction::Left => {}
-                FormAction::Right => {}
-                FormAction::Delete => {}
+                FormAction::Left | FormAction::Right | FormAction::Delete => {}
                 FormAction::Enter => {
                     return Ok(Some(ControlFlow::Break(Navigation::Push(
                         NextScreen::Editor {
@@ -204,14 +202,21 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for TextBlock {
         cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         if let Some(sel) = sel {
+            let outer = area;
             area.height -= 4;
             area.width -= 4;
             area.x += 2;
             area.y += 2;
-            let max: u16 = self.split.len().try_into().context("text lines as u16")?;
-            let max = max.saturating_sub(area.height);
+            let max = self.split.len().saturating_sub(area.height.into());
             *sel = min(*sel, max);
-            render_lines(area, area.height, &self.split[(usize::from(*sel))..], buf);
+            render_lines(area, area.height, &self.split[*sel..], buf);
+            if max > 1 {
+                Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
+                    outer,
+                    buf,
+                    &mut ScrollbarState::new(max).position(*sel),
+                );
+            }
         }
         Ok(())
     }

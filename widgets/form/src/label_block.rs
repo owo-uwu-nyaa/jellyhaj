@@ -120,7 +120,7 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for LabelBlock {
                 }
                 FormAction::Quit => *sel = None,
             }
-        } else if let FormAction::Enter = action {
+        } else if matches!(action, FormAction::Enter) {
             *sel = Some(Position::ORIGIN.into());
             render_flag.set();
         }
