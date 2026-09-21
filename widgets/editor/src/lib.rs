@@ -9,7 +9,7 @@ use jellyhaj_widgets_core::{
         widgets::{Block, Padding, Widget, WidgetRef},
     },
 };
-use tracing::instrument;
+use tracing::{instrument, trace};
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
 
 #[derive(Debug)]
@@ -226,7 +226,7 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
     ) {
     }
 
-    #[instrument(level = "trace", ret, skip(_cx))]
+    #[instrument(level = "trace", ret, err, skip(_cx))]
     fn apply_action(
         &mut self,
         _cx: jellyhaj_widgets_core::WidgetContext<
@@ -252,6 +252,7 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
                 self.lines.insert(line + 1, new);
                 self.split.insert(line + 1, vec![]);
                 self.line = self.line.strict_add(1);
+                self.col = 0;
                 self.rewrap();
                 Ok(None)
             }
@@ -271,9 +272,13 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
                         let len = chars(&self.lines[line - 1]);
                         let cur = self.lines.remove(line);
                         let _ = self.split.remove(line);
-                        self.line -= 1;
                         self.col = len;
                         self.lines[line - 1].push_str(&cur);
+                        trace!(
+                            col = self.col,
+                            line_len = chars(&self.lines[line - 1]),
+                            "lines combined"
+                        );
                     } else {
                         let line = &mut self.lines[line];
                         let index = char_index(line, &mut self.col);
@@ -373,22 +378,28 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
         let main = outer.inner(area);
         let line: usize = self.line.into();
         let start_off = (main.height - 1).div_ceil(2);
-        let end_off = (main.height - 1) / 2;
         let mut col = self.col;
         let split_index = self.split[line]
             .iter()
             .map(|s| chars(s))
             .enumerate()
             .find(|(_, chars)| {
-                if *chars <= col {
+                trace!(chars, col, "finding line");
+                if *chars >= col {
                     true
                 } else {
-                    col -= chars;
+                    col -= *chars;
                     false
                 }
             })
             .expect("col out of bounds")
             .0;
+        let start_off = min(
+            start_off,
+            u16::try_from(split_index + self.split[0..line].iter().map(|l| l.len()).sum::<usize>())
+                .unwrap_or(u16::MAX),
+        );
+        let end_off = main.height - 1 - start_off;
         {
             let mut area = main;
             area.height = 1;

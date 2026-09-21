@@ -5,7 +5,7 @@ use jellyhaj_core::state::{Navigation, NextScreen};
 use jellyhaj_form_widget::{
     FormAction, Selection,
     button::{ActionCreator, Button},
-    form::{Form, FormResultMapper, component::FormComponent},
+    form::{Form, FormResultMapper, component::FormComponentBase},
     form_widget,
 };
 use jellyhaj_widgets_core::{RenderFlag, Result, WidgetContext, Wrapper};
@@ -50,11 +50,11 @@ impl FormResultMapper<RefreshItem> for RefreshItemResultMapper {
 
     fn map(
         state: &mut Form<RefreshItem>,
-        form_result: <RefreshItem as FormComponent>::AR,
+        form_result: <RefreshItem as FormComponentBase>::AR,
         _cx: WidgetContext<
             '_,
-            FormAction<<RefreshItem as FormComponent>::Action>,
-            impl Wrapper<FormAction<<RefreshItem as FormComponent>::Action>>,
+            FormAction<<RefreshItem as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<RefreshItem as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,

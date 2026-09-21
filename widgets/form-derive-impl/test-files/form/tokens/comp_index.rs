@@ -1,6 +1,6 @@
 fn index(
     &self,
-    sel: &Self::Selector,
+    sel: &ExampleSelection,
 ) -> ::jellyhaj_form_widget::macro_impl::exports::usize {
     match sel {
         ExampleSelection::Simple1(_) => 0usize,

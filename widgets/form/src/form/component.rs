@@ -11,11 +11,10 @@ use crate::form::helpers::{
 
 use color_eyre::Result;
 
-pub trait FormComponent: Sized + Send + Unpin + Valuable + 'static {
+pub trait FormComponentBase: Sized + Send + Unpin + Valuable + 'static {
     type Selector: Debug + Send + Valuable + Default;
     type AR: Debug + From<Infallible>;
     type Action: Debug + Send + 'static;
-
     fn with_selection<W: WithSelection<Self::AR>>(
         &self,
         base_index: usize,
@@ -28,14 +27,21 @@ pub trait FormComponent: Sized + Send + Unpin + Valuable + 'static {
         this: &mut Self::Selector,
         with: W,
     );
-    fn with_selection_mut_cx<R: 'static, T: Default, W: WithSelectionMutCX<R, Self::AR, T>>(
+    fn show_if(&self, index: usize) -> bool;
+    fn index(&self, sel: &Self::Selector) -> usize;
+    fn total_size(&self) -> usize;
+    fn make_selection_default(&self, base_index: usize, index: usize) -> Self::Selector;
+}
+
+pub trait FormComponent<R: 'static>: FormComponentBase {
+    fn with_selection_mut_cx<T: Default, W: WithSelectionMutCX<R, Self::AR, T>>(
         &mut self,
         base_index: usize,
         this: &mut Self::Selector,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         with: W,
     ) -> Result<T>;
-    fn with_index_mut<R: 'static, W: WithIndexMut<R, Self::AR>>(
+    fn with_index_mut<W: WithIndexMut<R, Self::AR>>(
         &mut self,
         base_index: usize,
         this: &mut Self::Selector,
@@ -43,28 +49,25 @@ pub trait FormComponent: Sized + Send + Unpin + Valuable + 'static {
         index: usize,
         with: W,
     ) -> Result<()>;
-    fn with_iter<R: 'static, W: WithIterItems<R, Self::AR>>(
+    fn with_iter<W: WithIterItems<R, Self::AR>>(
         &self,
         base_index: usize,
         with: &mut W,
     ) -> Result<()>;
-    fn with_iter_mut<R: 'static, W: WithIterItemsMut<R, Self::AR>>(
+    fn with_iter_mut<W: WithIterItemsMut<R, Self::AR>>(
         &mut self,
         base_index: usize,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         with: &mut W,
         show: bool,
     ) -> Result<()>;
-    fn with_action_mut<R: 'static, T, W: WithActionMut<R, Self::AR, T>>(
+    fn with_action_mut<T, W: WithActionMut<R, Self::AR, T>>(
         &mut self,
         base_index: usize,
         action: Self::Action,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
         with: W,
     ) -> Result<Option<T>>;
-    fn show_if(&self, index: usize) -> bool;
-    fn index(&self, sel: &Self::Selector) -> usize;
-    fn total_size(&self) -> usize;
 }
 
 #[derive(Debug, Clone, Copy, Valuable, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -99,12 +102,92 @@ impl<V: Debug + Send + 'static> Wrapper<V> for VecActionWrapper {
 
 #[derive(Valuable, Debug)]
 #[must_use]
-pub struct ComponentVec<F: FormComponent> {
+pub struct ComponentVec<F: FormComponentBase> {
     inner: Vec<(ComponentId, F)>,
     id_gen: usize,
 }
 
-impl<F: FormComponent> ComponentVec<F> {
+impl<F: FormComponentBase> FormComponentBase for ComponentVec<F>
+where
+    F::Selector: Default,
+{
+    type Selector = VecSelector<F::Selector>;
+
+    type AR = F::AR;
+
+    type Action = VecAction<F::Action>;
+
+    fn with_selection<W: WithSelection<Self::AR>>(
+        &self,
+        mut base_index: usize,
+        this: &Self::Selector,
+        with: W,
+    ) -> bool {
+        if self.inner.is_empty() {
+            return false;
+        }
+        let index = self.find(this.index);
+        base_index += index_offset(&self.inner, index);
+        self.inner[index]
+            .1
+            .with_selection(base_index, &this.inner, with)
+    }
+
+    fn with_selection_mut<W: WithSelectionMut<Self::AR>>(
+        &mut self,
+        mut base_index: usize,
+        this: &mut Self::Selector,
+        with: W,
+    ) {
+        if self.inner.is_empty() {
+            return;
+        }
+        let index = self.find(this.index);
+        base_index += index_offset(&self.inner, index);
+        self.inner[index]
+            .1
+            .with_selection_mut(base_index, &mut this.inner, with);
+    }
+    fn show_if(&self, mut index: usize) -> bool {
+        for inner in self.iter() {
+            let total = inner.total_size();
+            if index < total {
+                return inner.show_if(index);
+            }
+            index -= total;
+        }
+        panic!("index is out of bounds")
+    }
+
+    fn index(&self, sel: &Self::Selector) -> usize {
+        let index = self.find(sel.index);
+        index_offset(&self.inner, index) + self.inner[index].1.index(&sel.inner)
+    }
+
+    fn total_size(&self) -> usize {
+        self.iter()
+            .map(FormComponentBase::total_size)
+            .sum::<usize>()
+    }
+
+    fn make_selection_default(&self, mut base_index: usize, index: usize) -> Self::Selector {
+        let mut rel_index = index.strict_sub(base_index);
+        for (i, inner) in &self.inner {
+            let total_size = inner.total_size();
+            if rel_index < total_size {
+                return VecSelector {
+                    index: *i,
+                    inner: inner.make_selection_default(base_index, index),
+                };
+            }
+            rel_index -= total_size;
+            base_index += total_size;
+        }
+        Self::Selector::default()
+    }
+}
+
+impl<F: FormComponentBase> ComponentVec<F> {
     fn find(&self, id: ComponentId) -> usize {
         if let Ok(i) = self.inner.binary_search_by_key(&id, |v| v.0) {
             i
@@ -158,61 +241,23 @@ impl<F: FormComponent> ComponentVec<F> {
     }
 }
 
-impl<F: FormComponent> Default for ComponentVec<F> {
+impl<F: FormComponentBase> Default for ComponentVec<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F: FormComponent> FromIterator<F> for ComponentVec<F> {
+impl<F: FormComponentBase> FromIterator<F> for ComponentVec<F> {
     fn from_iter<T: IntoIterator<Item = F>>(iter: T) -> Self {
         Self::new_with(iter)
     }
 }
 
-impl<F: FormComponent> FormComponent for ComponentVec<F>
+impl<R: 'static, F: FormComponent<R>> FormComponent<R> for ComponentVec<F>
 where
     F::Selector: Default,
 {
-    type Selector = VecSelector<F::Selector>;
-
-    type AR = F::AR;
-
-    type Action = VecAction<F::Action>;
-
-    fn with_selection<W: WithSelection<Self::AR>>(
-        &self,
-        mut base_index: usize,
-        this: &Self::Selector,
-        with: W,
-    ) -> bool {
-        if self.inner.is_empty() {
-            return false;
-        }
-        let index = self.find(this.index);
-        base_index += index_offset(&self.inner, index);
-        self.inner[index]
-            .1
-            .with_selection(base_index, &this.inner, with)
-    }
-
-    fn with_selection_mut<W: WithSelectionMut<Self::AR>>(
-        &mut self,
-        mut base_index: usize,
-        this: &mut Self::Selector,
-        with: W,
-    ) {
-        if self.inner.is_empty() {
-            return;
-        }
-        let index = self.find(this.index);
-        base_index += index_offset(&self.inner, index);
-        self.inner[index]
-            .1
-            .with_selection_mut(base_index, &mut this.inner, with);
-    }
-
-    fn with_selection_mut_cx<R: 'static, T: Default, W: WithSelectionMutCX<R, Self::AR, T>>(
+    fn with_selection_mut_cx<T: Default, W: WithSelectionMutCX<R, Self::AR, T>>(
         &mut self,
         mut base_index: usize,
         this: &mut Self::Selector,
@@ -232,7 +277,7 @@ where
         )
     }
 
-    fn with_index_mut<R: 'static, W: WithIndexMut<R, Self::AR>>(
+    fn with_index_mut<W: WithIndexMut<R, Self::AR>>(
         &mut self,
         mut base_index: usize,
         this: &mut Self::Selector,
@@ -264,7 +309,7 @@ where
         Ok(())
     }
 
-    fn with_iter<R: 'static, W: WithIterItems<R, Self::AR>>(
+    fn with_iter<W: WithIterItems<R, Self::AR>>(
         &self,
         mut base_index: usize,
         with: &mut W,
@@ -277,7 +322,7 @@ where
         Ok(())
     }
 
-    fn with_iter_mut<R: 'static, W: WithIterItemsMut<R, Self::AR>>(
+    fn with_iter_mut<W: WithIterItemsMut<R, Self::AR>>(
         &mut self,
         mut base_index: usize,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
@@ -296,7 +341,7 @@ where
         })
     }
 
-    fn with_action_mut<R: 'static, T, W: WithActionMut<R, Self::AR, T>>(
+    fn with_action_mut<T, W: WithActionMut<R, Self::AR, T>>(
         &mut self,
         mut base_index: usize,
         action: Self::Action,
@@ -314,32 +359,12 @@ where
             with,
         )
     }
-
-    fn show_if(&self, mut index: usize) -> bool {
-        for inner in self.iter() {
-            let total = inner.total_size();
-            if index < total {
-                return inner.show_if(index);
-            }
-            index -= total;
-        }
-        panic!("index is out of bounds")
-    }
-
-    fn index(&self, sel: &Self::Selector) -> usize {
-        let index = self.find(sel.index);
-        index_offset(&self.inner, index) + self.inner[index].1.index(&sel.inner)
-    }
-
-    fn total_size(&self) -> usize {
-        self.iter().map(FormComponent::total_size).sum::<usize>()
-    }
 }
 
-fn index_offset<T, C: FormComponent>(this: &[(T, C)], index: usize) -> usize {
+fn index_offset<T, C: FormComponentBase>(this: &[(T, C)], index: usize) -> usize {
     this[0..index]
         .iter()
         .map(|(_, v)| v)
-        .map(FormComponent::total_size)
+        .map(FormComponentBase::total_size)
         .sum::<usize>()
 }

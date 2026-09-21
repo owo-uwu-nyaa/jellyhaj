@@ -10,26 +10,27 @@ use tracing::{Span, field, instrument};
 
 use crate::{
     FormAction, FormItem, FormItemBase,
-    form::{Form, FormData, component::FormComponent},
+    form::{
+        Form, FormData,
+        component::{FormComponent, FormComponentBase},
+    },
 };
 
-impl<Data: FormData> Form<Data> {
-    pub(crate) fn dispatch_active_action<R: 'static>(
-        &mut self,
-        cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
-        action: FormAction<Infallible>,
-        render_flag: &mut RenderFlag,
-    ) -> Result<Option<ControlFlow<Navigation, Data::AR>>> {
-        self.data.with_selection_mut_cx(
-            0,
-            &mut self.sel,
-            cx.wrap_with(FormAction::Inner),
-            ApplyMovement {
-                action,
-                render_flag,
-            },
-        )
-    }
+pub(crate) fn dispatch_active_action<R: 'static, Data: FormData + FormComponent<R>>(
+    this: &mut Form<Data>,
+    cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
+    action: FormAction<Infallible>,
+    render_flag: &mut RenderFlag,
+) -> Result<Option<ControlFlow<Navigation, Data::AR>>> {
+    this.data.with_selection_mut_cx(
+        0,
+        &mut this.sel,
+        cx.wrap_with(FormAction::Inner),
+        ApplyMovement {
+            action,
+            render_flag,
+        },
+    )
 }
 
 /**
@@ -243,26 +244,6 @@ impl<AR: Debug> WithSelection<AR> for AcceptsMovementAction {
     }
 }
 
-pub(crate) struct SelectionDefault;
-
-impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for SelectionDefault {
-    #[instrument(
-        skip(self, cx, state),
-        name = "selection_default",
-        level = "trace",
-        ret
-    )]
-    fn with_mut<I: FormItem<R, AR>>(
-        self,
-        cx: WidgetContext<'_, I::Action, impl Wrapper<I::Action>, R>,
-        state: &mut I,
-        name: &'static str,
-        index: usize,
-    ) -> Result<I::SelectionInner> {
-        Ok(I::SelectionInner::default())
-    }
-}
-
 pub(crate) struct ClickCurrent<'s> {
     pub(crate) kind: MouseEventKind,
     pub(crate) modifier: KeyModifiers,
@@ -384,7 +365,7 @@ impl<R: 'static, AR: Debug> WithIndexMut<R, AR> for &mut ClickItem<'_, AR> {
     }
 }
 
-pub(crate) struct CalcHeight<'s, S: FormComponent> {
+pub(crate) struct CalcHeight<'s, S: FormComponentBase> {
     pub(crate) data: &'s S,
     pub(crate) store: &'s mut Vec<u16>,
     pub(crate) height: u16,

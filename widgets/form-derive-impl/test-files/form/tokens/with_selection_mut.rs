@@ -3,7 +3,7 @@ fn with_selection_mut<
 >(
     &mut self,
     base_index: ::jellyhaj_form_widget::macro_impl::exports::usize,
-    this: &mut Self::Selector,
+    this: &mut ExampleSelection,
     with: W,
 ) {
     match this {

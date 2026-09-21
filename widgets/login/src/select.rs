@@ -9,7 +9,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponentBase},
     form_widget,
     label::Label,
 };
@@ -40,11 +40,11 @@ impl FormResultMapper<SelectData> for SelectResultMapper {
 
     fn map(
         state: &mut Form<SelectData>,
-        form_result: <SelectData as FormComponent>::AR,
+        form_result: <SelectData as FormComponentBase>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            FormAction<<SelectData as FormComponent>::Action>,
-            impl Wrapper<FormAction<<SelectData as FormComponent>::Action>>,
+            FormAction<<SelectData as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<SelectData as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,

@@ -1,7 +1,7 @@
 fn with_selection<W: ::jellyhaj_form_widget::form::helpers::WithSelection<Self::AR>>(
     &self,
     base_index: ::jellyhaj_form_widget::macro_impl::exports::usize,
-    this: &Self::Selector,
+    this: &ExampleSelection,
     with: W,
 ) -> ::jellyhaj_form_widget::macro_impl::exports::bool {
     match this {

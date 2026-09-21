@@ -1,10 +1,7 @@
-fn with_index_mut<
-    R: 'static,
-    W: ::jellyhaj_form_widget::form::helpers::WithIndexMut<R, Self::AR>,
->(
+fn with_index_mut<W: ::jellyhaj_form_widget::form::helpers::WithIndexMut<R, Self::AR>>(
     &mut self,
     mut base_index: ::jellyhaj_form_widget::macro_impl::exports::usize,
-    this: &mut Self::Selector,
+    this: &mut ExampleSelection,
     cx: ::jellyhaj_form_widget::macro_impl::exports::WidgetContext<
         '_,
         Self::Action,

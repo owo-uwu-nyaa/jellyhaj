@@ -2,30 +2,32 @@ pub mod genre;
 
 use std::{
     convert::Infallible,
+    fmt::Debug,
     str::FromStr,
     sync::{Arc, LazyLock},
 };
 
-use jellyfin::items::{MediaItem, MetadataEditor, MetadataUpdate};
+use jellyfin::items::{Culture, MediaItem, MetadataEditor, MetadataUpdate};
 use jellyhaj_core::{
-    Config,
     keybinds::FormCommand,
     state::{Navigation, NextScreen},
 };
 use jellyhaj_form_widget::{
-    FormAction,
+    FormAction, Selection,
     button::{Button, DynamicButton},
     form::{
         Form, FormCommandMapper, FormResultMapper,
-        component::{ComponentVec, FormComponent},
+        component::{ComponentVec, FormComponentBase},
     },
     form_component, form_widget,
+    selection::{DynamicSelection, DynamicSelectionItem},
     seperator::Seperator,
+    text_block::TextBlock,
     text_field::{TextField, TextFieldDynamic},
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
-    ContextRef, Result, WidgetContext, Wrapper,
+    Config, ContextRef, Result, WidgetContext, Wrapper,
     async_task::ErasedSubmitter,
     mapper::{ActionMapper, ActionMapperBase},
     outer::UnwrapWidget,
@@ -40,11 +42,11 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
 
     fn map(
         state: &mut Form<ModifyMetadata>,
-        form_result: <ModifyMetadata as FormComponent>::AR,
+        form_result: <ModifyMetadata as FormComponentBase>::AR,
         _cx: WidgetContext<
             '_,
-            FormAction<<ModifyMetadata as FormComponent>::Action>,
-            impl Wrapper<FormAction<<ModifyMetadata as FormComponent>::Action>>,
+            FormAction<<ModifyMetadata as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<ModifyMetadata as FormComponentBase>::Action>>,
             (),
         >,
         render_flag: &mut jellyhaj_widgets_core::RenderFlag,
@@ -93,8 +95,8 @@ pub enum MetadataActions {
 }
 
 impl From<Infallible> for MetadataActions {
-    fn from(_value: Infallible) -> Self {
-        unimplemented!()
+    fn from(value: Infallible) -> Self {
+        match value {}
     }
 }
 
@@ -121,17 +123,61 @@ pub struct Genre {
     button: DynamicButton<MetadataActions>,
 }
 
-#[form_widget("Edit Metadata", MetadataActions, Mapper)]
+struct CultureItem {
+    inner: Option<Culture>,
+}
+
+impl Valuable for CultureItem {
+    fn as_value(&self) -> valuable::Value<'_> {
+        self.inner.as_value()
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        self.inner.visit(visit);
+    }
+}
+
+impl Debug for CultureItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.inner, f)
+    }
+}
+
+impl DynamicSelectionItem for CultureItem {
+    fn name(&self) -> &str {
+        self.inner.as_ref().map_or("", |v| &v.display_name)
+    }
+}
+
+#[derive(Debug, Selection, Valuable, PartialEq, Eq, Clone, Copy)]
+enum Status {
+    #[descr("Continuing")]
+    Continuing,
+    #[descr("Ended")]
+    Ended,
+    #[descr("Not yet released")]
+    Unreleased,
+    #[descr("Unknown")]
+    Unknown,
+}
+
+#[form_widget("Edit Metadata", MetadataActions, Mapper, ContextRef<Config>)]
 #[derive(Debug, Valuable)]
 pub struct ModifyMetadata {
     #[form(descr = "Title")]
     title: TextField,
     #[form(descr = "Original title")]
     original_title: TextField,
+    #[form(descr = "Original language")]
+    original_language: DynamicSelection<CultureItem>,
     #[form(descr = "Sort title")]
     sort_title: TextField,
     #[form(descr = "Date added")]
     date_added: TextField,
+    #[form(descr = "Status")]
+    status: Status,
+    #[form(descr = "Overview")]
+    overview: TextBlock,
     #[form(flatten, show_if(!self.external_id.ids.is_empty()))]
     external_id: ExternalIds,
     #[form(descr = "Genres")]
@@ -151,10 +197,33 @@ static LOCAL_ZONE: LazyLock<TimeZone> = LazyLock::new(TimeZone::system);
 
 impl ModifyMetadata {
     #[must_use]
-    pub fn new(item: Box<MediaItem>, _editor: MetadataEditor) -> Self {
+    pub fn new(item: Box<MediaItem>, editor: MetadataEditor) -> Self {
+        let mut original_language = Vec::with_capacity(editor.cultures.len() + 1);
+        original_language.push(CultureItem { inner: None });
+        original_language.extend(
+            editor
+                .cultures
+                .into_iter()
+                .map(|c| CultureItem { inner: Some(c) }),
+        );
+        let mut original_language = DynamicSelection::new(original_language);
+        if let Some(lang) = &item.original_language
+            && !lang.is_empty()
+        {
+            original_language.select(|c| {
+                if let Some(c) = &c.inner {
+                    &c.two_letter_iso_language_name == lang
+                        || &c.three_letter_iso_language_name == lang
+                        || c.three_letter_iso_language_names.iter().any(|c| c == lang)
+                } else {
+                    false
+                }
+            });
+        }
         Self {
             title: TextField::new(item.name.clone()),
             original_title: TextField::new(item.original_title.clone().unwrap_or_default()),
+
             sort_title: TextField::new(item.sort_name.clone().unwrap_or_default()),
             date_added: TextField::with_checker(
                 item.date_created
@@ -163,6 +232,13 @@ impl ModifyMetadata {
                     .unwrap_or_default(),
                 |v| DateTime::from_str(v).is_ok(),
             ),
+            original_language,
+            status: match item.status.as_deref() {
+                Some("Continuing") => Status::Continuing,
+                Some("Ended") => Status::Ended,
+                Some("Unreleased") => Status::Unreleased,
+                _ => Status::Unknown,
+            },
             external_id: ExternalIds {
                 seperator: Seperator,
                 ids: item
@@ -188,6 +264,7 @@ impl ModifyMetadata {
                 .collect(),
             add_genre: Button::new(MetadataActions::AddGenre),
             new_genre_submit: None,
+            overview: TextBlock::new(item.overview.clone().unwrap_or_default()),
             media_item: item,
         }
     }

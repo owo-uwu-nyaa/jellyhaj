@@ -1,7 +1,10 @@
 use proc_macro2::TokenStream;
 pub use quote::ToTokens;
 use quote::{TokenStreamExt, format_ident, quote};
-use syn::{Expr, Ident, ItemStruct, LitStr, Path, Type, parse_quote};
+use syn::{
+    Expr, Ident, ItemStruct, LitStr, Path, Token, Type, TypeParamBound, parse_quote,
+    punctuated::Punctuated,
+};
 
 mod action;
 mod component;
@@ -14,6 +17,7 @@ mod type_assertions;
 struct Paths {
     exports: Path,
     form_component: Path,
+    form_component_base: Path,
     form_data: Path,
     form_item_base: Type,
     with_selection: Path,
@@ -31,6 +35,9 @@ impl Paths {
         Self {
             exports: parse_quote!(::jellyhaj_form_widget::macro_impl::exports),
             form_component: parse_quote!(::jellyhaj_form_widget::form::component::FormComponent),
+            form_component_base: parse_quote!(
+                ::jellyhaj_form_widget::form::component::FormComponentBase
+            ),
             form_data: parse_quote!(::jellyhaj_form_widget::form::FormData),
             form_item_base: parse_quote!(::jellyhaj_form_widget::FormItemBase<#action_result>),
             with_selection: parse_quote!(::jellyhaj_form_widget::form::helpers::WithSelection),
@@ -91,6 +98,7 @@ impl FormField {
 pub struct Component {
     fields: Vec<FormField>,
     action_result: Type,
+    cx_bounds: Punctuated<TypeParamBound, Token![+]>,
     data: Ident,
     selection: Ident,
     action: Ident,
@@ -107,6 +115,7 @@ impl ToTokens for Component {
         tokens.append_all(self.make_selection_default());
         tokens.append_all(self.make_selection_valuable());
         tokens.append_all(self.make_action());
+        self.make_impl_component_base(tokens);
         self.make_impl_component(tokens);
     }
 }
@@ -175,6 +184,7 @@ pub mod tests {
         let paths = Paths::new(&action_result);
         let selection = parse_quote!(ExampleSelection);
         let action = parse_quote!(ExampleAction);
+        let cx_bounds = parse_quote!('static);
         let fields = vec![
             {
                 let enum_id: Ident = parse_quote!(Simple1);
@@ -254,6 +264,7 @@ pub mod tests {
         Component {
             fields,
             action_result,
+            cx_bounds,
             data,
             selection,
             action,

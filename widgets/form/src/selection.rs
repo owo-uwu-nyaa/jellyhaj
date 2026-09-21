@@ -1,4 +1,9 @@
-use std::{cmp::min, convert::Infallible, fmt::Debug, ops::ControlFlow};
+use std::{
+    cmp::min,
+    convert::Infallible,
+    fmt::Debug,
+    ops::{ControlFlow, Deref},
+};
 
 use color_eyre::eyre::OptionExt;
 use jellyhaj_core::state::Navigation;
@@ -11,7 +16,7 @@ use ratatui::{
     style::Modifier,
     widgets::{
         Block, BorderType, Clear, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
-        Widget, WidgetRef,
+        Widget,
     },
 };
 use valuable::Valuable;
@@ -195,7 +200,7 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
                 false
             };
             Clear.render(full_area, buf);
-            let selection_block = Block::bordered().border_type(BorderType::Thick);
+            let selection_block = Block::bordered().border_type(BorderType::Rounded);
             let inner = selection_block.inner(full_area);
             for (i, c) in items.iter().copied().enumerate() {
                 let mut area = inner;
@@ -292,36 +297,65 @@ impl<R: 'static, S: Selection, AR: From<Infallible> + Debug> FormItem<R, AR> for
     }
 }
 
+pub trait DynamicSelectionItem: Valuable + Debug {
+    fn name(&self) -> &str;
+}
+
+impl<D: Deref<Target = str> + Valuable + Debug> DynamicSelectionItem for D {
+    fn name(&self) -> &str {
+        self
+    }
+}
+
 #[derive(Debug, Valuable)]
-pub struct DynamicSelection {
-    optons: Vec<String>,
+pub struct DynamicSelection<I: DynamicSelectionItem> {
+    optons: Vec<I>,
     cur: usize,
 }
 
-impl DynamicSelection {
+impl<I: DynamicSelectionItem> DynamicSelection<I> {
     #[must_use]
-    pub const fn new(optons: Vec<String>) -> Self {
+    pub const fn new(optons: Vec<I>) -> Self {
         Self { optons, cur: 0 }
     }
 
+    pub fn select(&mut self, mut f: impl FnMut(&I) -> bool) {
+        if let Some(i) = self
+            .optons
+            .iter()
+            .enumerate()
+            .find_map(|(i, v)| if f(v) { Some(i) } else { None })
+        {
+            self.cur = i;
+        }
+    }
+
     fn max_len(&self) -> u16 {
-        let max: usize = self.optons.iter().map(String::len).max().unwrap_or(0);
+        let max: usize = self
+            .optons
+            .iter()
+            .map(DynamicSelectionItem::name)
+            .map(str::len)
+            .max()
+            .unwrap_or(0);
         max.try_into().expect("option length to long")
     }
     fn len(&self) -> u16 {
         self.optons.len().try_into().expect("to many options")
     }
-    pub fn add_and_set_option(&mut self, new_option: String) {
+    pub fn add_and_set_option(&mut self, new_option: I) {
         self.cur = self.optons.len();
         self.optons.push(new_option);
     }
     #[must_use]
-    pub fn get(&self) -> &String {
+    pub fn get(&self) -> &I {
         &self.optons[self.cur]
     }
 }
 
-impl<AR: From<Infallible> + Debug> FormItemBase<AR> for DynamicSelection {
+impl<AR: From<Infallible> + Debug, I: DynamicSelectionItem> FormItemBase<AR>
+    for DynamicSelection<I>
+{
     type SelectionInner = Option<usize>;
 
     type Ret = Infallible;
@@ -368,7 +402,9 @@ impl<AR: From<Infallible> + Debug> FormItemBase<AR> for DynamicSelection {
     }
 }
 
-impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelection {
+impl<R: 'static, AR: From<Infallible> + Debug, I: DynamicSelectionItem> FormItem<R, AR>
+    for DynamicSelection<I>
+{
     fn apply_movement(
         &mut self,
         sel: &mut Self::SelectionInner,
@@ -437,7 +473,8 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
         self.optons
             .get(self.cur)
             .ok_or_eyre("selection out of bounds")?
-            .render_ref(main, buf);
+            .name()
+            .render(main, buf);
         outer.render(area, buf);
         buf[Position {
             x: area.x + area.width - 2,
@@ -486,13 +523,13 @@ impl<R: 'static, AR: From<Infallible> + Debug> FormItem<R, AR> for DynamicSelect
                 false
             };
             Clear.render(full_area, buf);
-            let selection_block = Block::bordered().border_type(BorderType::Thick);
+            let selection_block = Block::bordered().border_type(BorderType::Rounded);
             let inner = selection_block.inner(full_area);
             for (i, c) in items.iter().enumerate() {
                 let mut area = inner;
                 area.y += u16::try_from(i).expect("bounded size");
                 area.height = 1;
-                c.render_ref(area, buf);
+                c.name().render(area, buf);
                 if *sel_inner == (i + offset as usize) {
                     for i in 0..area.width {
                         buf[(area.x + i, area.y)].set_style(Modifier::REVERSED);

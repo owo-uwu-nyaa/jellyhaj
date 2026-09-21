@@ -16,10 +16,10 @@ use tui_scrollview::{ScrollView, ScrollViewState};
 use crate::{
     FormAction,
     form::{
-        component::FormComponent,
+        component::{FormComponent, FormComponentBase},
         helpers::{
             AcceptsMovementAction, AcceptsTextInput, ApplyAction, ApplyChar, ApplyText, CalcHeight,
-            ClickCurrent, ClickItem, Pass1, Pass2, SelectionDefault,
+            ClickCurrent, ClickItem, Pass1, Pass2, dispatch_active_action,
         },
     },
 };
@@ -29,11 +29,11 @@ pub trait FormResultMapper<S: FormData> {
     type Res: Debug;
     fn map(
         state: &mut Form<S>,
-        form_result: <S as FormComponent>::AR,
+        form_result: <S as FormComponentBase>::AR,
         cx: WidgetContext<
             '_,
-            FormAction<<S as FormComponent>::Action>,
-            impl Wrapper<FormAction<<S as FormComponent>::Action>>,
+            FormAction<<S as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<S as FormComponentBase>::Action>>,
             (),
         >,
         render_flag: &mut jellyhaj_widgets_core::RenderFlag,
@@ -54,7 +54,7 @@ impl<S: FormData> FormResultMapper<S> for IdFormResultMapper {
     }
 }
 
-pub trait FormData: FormComponent {
+pub trait FormData: FormComponentBase {
     type Mapper;
     const TITLE: &str;
 }
@@ -87,11 +87,7 @@ pub struct Form<Data: FormData> {
 }
 
 impl<Data: FormData> Form<Data> {
-    pub fn up<R: 'static>(
-        &mut self,
-        cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
-        render_flag: &mut RenderFlag,
-    ) -> Result<()> {
+    pub fn up(&mut self, render_flag: &mut RenderFlag) -> Result<()> {
         let start = Data::index(&self.data, &self.sel);
         let mut current = start;
         let index = loop {
@@ -104,23 +100,13 @@ impl<Data: FormData> Form<Data> {
                 panic!("all form other than the current are hidden")
             }
         };
-        self.data.with_index_mut(
-            0,
-            &mut self.sel,
-            cx.wrap_with(FormAction::Inner),
-            index,
-            SelectionDefault,
-        )?;
+        self.sel = self.data.make_selection_default(0, index);
         trace!(selector=?&self.sel, "form moved up");
         render_flag.set();
         Ok(())
     }
 
-    pub fn down<R: 'static>(
-        &mut self,
-        cx: WidgetContext<'_, FormAction<Data::Action>, impl Wrapper<FormAction<Data::Action>>, R>,
-        render_flag: &mut RenderFlag,
-    ) -> Result<()> {
+    pub fn down(&mut self, render_flag: &mut RenderFlag) -> Result<()> {
         let start = self.data.index(&self.sel);
         let mut current = start;
         let index = loop {
@@ -131,13 +117,7 @@ impl<Data: FormData> Form<Data> {
                 panic!("all form other than the current are hidden")
             }
         };
-        self.data.with_index_mut(
-            0,
-            &mut self.sel,
-            cx.wrap_with(FormAction::Inner),
-            index,
-            SelectionDefault,
-        )?;
+        self.sel = self.data.make_selection_default(0, index);
         trace!(selector=?&self.sel, "form moved down");
         render_flag.set();
         Ok(())
@@ -198,8 +178,8 @@ impl<Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>> JellyhajWi
     }
 }
 
-impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>> JellyhajWidget<R>
-    for Form<Data>
+impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper> + FormComponent<R>>
+    JellyhajWidget<R> for Form<Data>
 {
     fn init(&mut self, cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>) {}
 
@@ -231,15 +211,15 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                 .data
                 .with_selection(0, &self.sel, AcceptsMovementAction)
             {
-                self.dispatch_active_action(cx, action, render_flag)
+                dispatch_active_action(self, cx, action, render_flag)
             } else {
                 match action {
                     FormAction::Up => {
-                        self.up(cx, render_flag)?;
+                        self.up(render_flag)?;
                         Ok(None)
                     }
                     FormAction::Down => {
-                        self.down(cx, render_flag)?;
+                        self.down(render_flag)?;
                         Ok(None)
                     }
 
@@ -247,7 +227,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
                     FormAction::Delete
                     | FormAction::Enter
                     | FormAction::Left
-                    | FormAction::Right => self.dispatch_active_action(cx, action, render_flag),
+                    | FormAction::Right => dispatch_active_action(self, cx, action, render_flag),
                 }
             }
         };
@@ -361,7 +341,7 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
             height_buf: 0,
             data: &self.data,
         };
-        self.data.with_iter::<R, _>(0, &mut cur)?;
+        self.data.with_iter(0, &mut cur)?;
         let height = cur.height.strict_add(cur.height_buf);
         trace!(height, "calculated total required height");
         if main.height < height {

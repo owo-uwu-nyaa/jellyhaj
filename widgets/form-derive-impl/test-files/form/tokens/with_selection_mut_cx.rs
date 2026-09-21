@@ -1,11 +1,10 @@
 fn with_selection_mut_cx<
-    R: 'static,
     T: ::jellyhaj_form_widget::macro_impl::exports::Default,
     W: ::jellyhaj_form_widget::form::helpers::WithSelectionMutCX<R, Self::AR, T>,
 >(
     &mut self,
     base_index: ::jellyhaj_form_widget::macro_impl::exports::usize,
-    this: &mut Self::Selector,
+    this: &mut ExampleSelection,
     cx: ::jellyhaj_form_widget::macro_impl::exports::WidgetContext<
         '_,
         Self::Action,

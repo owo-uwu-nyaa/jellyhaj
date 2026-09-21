@@ -1,5 +1,4 @@
 fn with_action_mut<
-    R: 'static,
     T,
     W: ::jellyhaj_form_widget::form::helpers::WithActionMut<R, Self::AR, T>,
 >(

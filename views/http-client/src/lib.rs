@@ -13,7 +13,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponentBase},
     form_widget,
     label::DynamicLabel,
     text_field::TextField,
@@ -38,11 +38,11 @@ impl FormResultMapper<HttpClientData> for RequestMapper {
 
     fn map(
         state: &mut Form<HttpClientData>,
-        _form_result: <HttpClientData as FormComponent>::AR,
+        _form_result: <HttpClientData as FormComponentBase>::AR,
         _cx: WidgetContext<
             '_,
-            FormAction<<HttpClientData as FormComponent>::Action>,
-            impl Wrapper<FormAction<<HttpClientData as FormComponent>::Action>>,
+            FormAction<<HttpClientData as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<HttpClientData as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,

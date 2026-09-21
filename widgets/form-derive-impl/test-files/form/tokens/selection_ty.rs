@@ -11,10 +11,10 @@ pub enum ExampleSelection {
         >>::SelectionInner,
     ),
     Flatten1(
-        <Comp1 as ::jellyhaj_form_widget::form::component::FormComponent>::Selector,
+        <Comp1 as ::jellyhaj_form_widget::form::component::FormComponentBase>::Selector,
     ),
     Flatten2(
-        <crate::Comp2 as ::jellyhaj_form_widget::form::component::FormComponent>::Selector,
+        <crate::Comp2 as ::jellyhaj_form_widget::form::component::FormComponentBase>::Selector,
     ),
     Simple3(
         <Simple as ::jellyhaj_form_widget::FormItemBase<

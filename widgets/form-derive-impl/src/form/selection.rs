@@ -11,7 +11,7 @@ impl Component {
         let exports = &self.paths.exports;
         let selection = &self.selection;
         let item_base = &self.paths.form_item_base;
-        let component = &self.paths.form_component;
+        let component_base = &self.paths.form_component_base;
         let items = self.fields.iter().map(|item| {
             let name = &item.enum_id;
             let ty = &item.ty;
@@ -20,7 +20,7 @@ impl Component {
                     #name(<#ty as #item_base>::SelectionInner)
                 },
                 FieldKind::Flatten => quote! {
-                    #name(<#ty as #component>::Selector)
+                    #name(<#ty as #component_base>::Selector)
                 },
             }
         });

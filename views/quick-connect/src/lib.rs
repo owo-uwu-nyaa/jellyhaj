@@ -10,7 +10,7 @@ use jellyhaj_fetch_view::make_nav_fetch;
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormDataExt, FormResultMapper, component::FormComponentBase},
     form_widget,
     text_field::TextField,
 };
@@ -39,11 +39,11 @@ impl FormResultMapper<QuickConnect> for Mapper {
 
     fn map(
         state: &mut Form<QuickConnect>,
-        form_result: <QuickConnect as FormComponent>::AR,
+        form_result: <QuickConnect as FormComponentBase>::AR,
         _cx: WidgetContext<
             '_,
-            FormAction<<QuickConnect as FormComponent>::Action>,
-            impl Wrapper<FormAction<<QuickConnect as FormComponent>::Action>>,
+            FormAction<<QuickConnect as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<QuickConnect as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,

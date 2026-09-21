@@ -9,13 +9,13 @@ impl Component {
         let vis = &self.original.vis;
         let action = &self.action;
         let form_item_base = &self.paths.form_item_base;
-        let component = &self.paths.form_component;
+        let component_base = &self.paths.form_component_base;
         let items = self.fields.iter().map(|item| {
             let name = &item.enum_id;
             let ty = &item.ty;
             match &item.kind {
                 FieldKind::Item { descr: _ } => quote! {#name(<#ty as #form_item_base>::Action)},
-                FieldKind::Flatten => quote! {#name(<#ty as #component>::Action)},
+                FieldKind::Flatten => quote! {#name(<#ty as #component_base>::Action)},
             }
         });
         let exports = &self.paths.exports;

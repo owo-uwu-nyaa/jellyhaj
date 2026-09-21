@@ -33,6 +33,13 @@ impl TextBlock {
             title: "",
         }
     }
+
+    fn resplit(&mut self) {
+        self.split = textwrap::wrap(&self.text, usize::from(self.width))
+            .into_iter()
+            .map(Cow::into_owned)
+            .collect();
+    }
 }
 
 impl<AR: From<Infallible> + Debug> FormItemBase<AR> for TextBlock {
@@ -122,6 +129,7 @@ impl<R: ContextRef<Config> + 'static, AR: From<Infallible> + Debug> FormItem<R, 
         render_flag: &mut RenderFlag,
     ) -> Result<Option<ControlFlow<Navigation, Self::Ret>>> {
         self.text = action;
+        self.resplit();
         render_flag.set();
         Ok(None)
     }
@@ -168,17 +176,15 @@ impl<R: ContextRef<Config> + 'static, AR: From<Infallible> + Debug> FormItem<R, 
         active: bool,
         name: &'static str,
     ) -> Result<()> {
-        let mut block = Block::bordered().padding(Padding::uniform(1));
+        self.title = name;
+        let mut block = Block::bordered().padding(Padding::uniform(1)).title(name);
         if active {
             block = block.border_type(BorderType::Double);
         }
         let main = block.inner(area);
         if self.width != main.width {
             self.width = main.width;
-            self.split = textwrap::wrap(&self.text, usize::from(main.width))
-                .into_iter()
-                .map(Cow::into_owned)
-                .collect();
+            self.resplit();
         }
 
         if self.split.len() > main.height.into() {
@@ -190,14 +196,14 @@ impl<R: ContextRef<Config> + 'static, AR: From<Infallible> + Debug> FormItem<R, 
         } else {
             render_lines(main, main.height, &self.split, buf);
         }
-
+        block.render(area, buf);
         Ok(())
     }
 
     fn render_pass_popup(
         &mut self,
         cx: WidgetContext<'_, Self::Action, impl Wrapper<Self::Action>, R>,
-        mut area: Rect,
+        area: Rect,
         full_area: Rect,
         buf: &mut Buffer,
         name: &'static str,
@@ -205,14 +211,15 @@ impl<R: ContextRef<Config> + 'static, AR: From<Infallible> + Debug> FormItem<R, 
         cursor: &mut Option<jellyhaj_widgets_core::Cursor>,
     ) -> Result<()> {
         if let Some(sel) = sel {
-            let outer = area;
-            area.height -= 4;
-            area.width -= 4;
-            area.x += 2;
-            area.y += 2;
+            let block = Block::bordered()
+                .padding(Padding::uniform(1))
+                .title(name)
+                .border_type(BorderType::Thick);
+            let outer = block.inner(area);
             let max = self.split.len().saturating_sub(area.height.into());
             *sel = min(*sel, max);
             render_lines(area, area.height, &self.split[*sel..], buf);
+            block.render(area, buf);
             if max > 1 {
                 Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
                     outer,

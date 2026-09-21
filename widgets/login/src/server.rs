@@ -8,7 +8,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponentBase},
     form_widget,
     text_field::TextField,
 };
@@ -35,11 +35,11 @@ impl FormResultMapper<ServerData> for ServerResultMapper {
 
     fn map(
         state: &mut Form<ServerData>,
-        _form_result: <ServerData as FormComponent>::AR,
+        _form_result: <ServerData as FormComponentBase>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            FormAction<<ServerData as FormComponent>::Action>,
-            impl Wrapper<FormAction<<ServerData as FormComponent>::Action>>,
+            FormAction<<ServerData as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<ServerData as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,

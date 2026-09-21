@@ -6,52 +6,110 @@ use crate::form::{Component, FieldKind, Form, FormField, Paths, ShowIf};
 
 use syn::{
     Attribute, Error, Expr, Field, Fields, Ident, ItemStruct, LitStr, Result, Token, Type,
+    TypeParamBound,
     meta::ParseNestedMeta,
     parenthesized,
     parse::{Parse, ParseBuffer},
     parse_quote, parse2,
+    punctuated::Punctuated,
     spanned::Spanned,
 };
 
 struct FormComponentArgs {
     action_result: Type,
+    cx_bounds: Punctuated<TypeParamBound, Token![+]>,
+}
+
+fn parse_cx_bound(input: syn::parse::ParseStream) -> Result<TypeParamBound> {
+    Ok(TypeParamBound::Trait(input.parse()?))
 }
 
 impl Parse for FormComponentArgs {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        Ok(Self {
-            action_result: input
-                .parse()
-                .map_err(|e| Error::new(e.span(), "Expected action_result type"))?,
-        })
+        let action_result = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected action_result type"));
+
+        if input.peek(Token![,]) {
+            let _: Token![,] = input.parse().expect("just checked");
+            let cx_bounds = input
+                .parse_terminated(parse_cx_bound, Token![+])
+                .map_err(|e| Error::new(e.span(), "Expected additoinal context bounds"));
+            let (action_result, cx_bounds) = action_result.combine(cx_bounds)?;
+            Ok(Self {
+                action_result,
+                cx_bounds,
+            })
+        } else {
+            Ok(Self {
+                action_result: action_result?,
+                cx_bounds: Punctuated::new(),
+            })
+        }
     }
 }
 
 struct FormArgs {
     name: LitStr,
-    _sep: Token![,],
     component: FormComponentArgs,
-    _sep2: Token![,],
     result_mapper: Type,
 }
 
 impl Parse for FormArgs {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        Ok(Self {
-            name: input
-                .parse()
-                .map_err(|e| Error::new(e.span(), "Expected form name attribute parameter"))?,
-            _sep: input
-                .parse()
-                .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"))?,
-            component: input.parse()?,
-            _sep2: input
-                .parse()
-                .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"))?,
-            result_mapper: input
-                .parse()
-                .map_err(|e| Error::new(e.span(), "Expected result_mapper type"))?,
-        })
+        let name = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected form name attribute parameter"));
+        let sep: Result<Token![,]> = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"));
+        if sep.is_err() {
+            name.combine(sep)?;
+            unreachable!()
+        }
+        let action_result = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected action_result type"));
+        let sep: Result<Token![,]> = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected additional attribute parameter"));
+        if sep.is_err() {
+            name.combine(action_result).combine(sep)?;
+            unreachable!()
+        }
+        let result_mapper = input
+            .parse()
+            .map_err(|e| Error::new(e.span(), "Expected result_mapper type"));
+        if input.peek(Token![,]) {
+            let _: Token![,] = input.parse().expect("just checked");
+            let cx_bounds = input
+                .parse_terminated(parse_cx_bound, Token![+])
+                .map_err(|e| Error::new(e.span(), "Expected additoinal context bounds"));
+            let (((name, action_result), result_mapper), cx_bounds) = name
+                .combine(action_result)
+                .combine(result_mapper)
+                .combine(cx_bounds)?;
+            Ok(Self {
+                name,
+                component: FormComponentArgs {
+                    action_result,
+                    cx_bounds,
+                },
+                result_mapper,
+            })
+        } else {
+            let ((name, action_result), result_mapper) =
+                name.combine(action_result).combine(result_mapper)?;
+
+            Ok(Self {
+                name,
+                component: FormComponentArgs {
+                    action_result,
+                    cx_bounds: Punctuated::new(),
+                },
+                result_mapper,
+            })
+        }
     }
 }
 
@@ -167,7 +225,7 @@ fn parse_field(
         } else {
             errors.push(Error::new_spanned(
                 field,
-                "every attribute inside a form needs to be annoteted with one of `#[form(skip)]`, `#[form(descr = \"\")]` or `#[form(flatten)]`.",
+                "every attribute inside a form needs to be annotated with one of `#[form(skip)]`, `#[form(descr = \"\")]` or `#[form(flatten)]`.",
             ));
             None
         }
@@ -188,7 +246,7 @@ fn collect_errors(errors: Vec<Error>) -> Result<()> {
     }
 }
 
-fn parse_component(args: FormComponentArgs, mut original: ItemStruct) -> Result<Component> {
+fn parse_component(mut args: FormComponentArgs, mut original: ItemStruct) -> Result<Component> {
     if let Fields::Named(fields) = &mut original.fields {
         let data = original.ident.clone();
         let selection = format_ident!("{data}Selection");
@@ -208,9 +266,11 @@ fn parse_component(args: FormComponentArgs, mut original: ItemStruct) -> Result<
             .collect();
         collect_errors(errors)?;
         let paths = Paths::new(&args.action_result);
+        args.cx_bounds.push(parse_quote!('static));
         Ok(Component {
             fields,
             action_result: args.action_result,
+            cx_bounds: args.cx_bounds,
             data,
             selection,
             action,
@@ -248,6 +308,8 @@ trait ResExt<T1> {
     fn combine<T2>(self, other: Result<T2>) -> Result<(T1, T2)>;
 }
 impl<T1> ResExt<T1> for Result<T1> {
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
     fn combine<T2>(self, other: Result<T2>) -> Result<(T1, T2)> {
         match (self, other) {
             (Ok(v1), Ok(v2)) => Ok((v1, v2)),

@@ -10,9 +10,11 @@ pub enum ExampleAction {
             crate::ExampleActionResult,
         >>::Action,
     ),
-    Flatten1(<Comp1 as ::jellyhaj_form_widget::form::component::FormComponent>::Action),
+    Flatten1(
+        <Comp1 as ::jellyhaj_form_widget::form::component::FormComponentBase>::Action,
+    ),
     Flatten2(
-        <crate::Comp2 as ::jellyhaj_form_widget::form::component::FormComponent>::Action,
+        <crate::Comp2 as ::jellyhaj_form_widget::form::component::FormComponentBase>::Action,
     ),
     Simple3(
         <Simple as ::jellyhaj_form_widget::FormItemBase<

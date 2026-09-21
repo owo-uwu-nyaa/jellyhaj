@@ -12,14 +12,14 @@ pub mod exports {
         primitive::{bool, str, usize},
     };
 
-    use crate::{FormItemBase, form::component::FormComponent};
+    use crate::{FormItemBase, form::component::FormComponentBase};
     use std::{convert::Infallible, marker::PhantomData};
 
     pub struct TypeCheck<AR: Debug + From<Infallible>> {
         _ar: PhantomData<AR>,
     }
     impl<AR: Debug + From<Infallible>> TypeCheck<AR> {
-        pub const fn is_form_component<F: FormComponent<AR = AR>>() {}
+        pub const fn is_form_component<F: FormComponentBase<AR = AR>>() {}
         pub const fn is_form_item<I: FormItemBase<AR>>() {}
     }
 }

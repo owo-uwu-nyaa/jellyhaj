@@ -10,7 +10,7 @@ use jellyhaj_form_widget::{
     button::Button,
     form::{
         Form, FormCommandMapper, FormResultMapper,
-        component::{ComponentVec, FormComponent},
+        component::{ComponentVec, FormComponentBase},
     },
     form_component, form_widget,
     label::DynamicLabel,
@@ -34,11 +34,11 @@ impl FormResultMapper<GenreSelection> for GenreMapper {
 
     fn map(
         state: &mut Form<GenreSelection>,
-        form_result: <GenreSelection as FormComponent>::AR,
+        form_result: <GenreSelection as FormComponentBase>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            FormAction<<GenreSelection as FormComponent>::Action>,
-            impl Wrapper<FormAction<<GenreSelection as FormComponent>::Action>>,
+            FormAction<<GenreSelection as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<GenreSelection as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut jellyhaj_widgets_core::RenderFlag,
@@ -86,7 +86,7 @@ pub struct CurrentGenre {
 #[derive(Debug, Valuable)]
 pub struct GenreSelection {
     #[form(descr = "Select exoisting genre")]
-    existing: DynamicSelection,
+    existing: DynamicSelection<String>,
     #[form(descr = "Add selected")]
     add: Button<GenreDo>,
     #[form(descr = "New Genre")]
@@ -130,11 +130,11 @@ impl FormResultMapper<AddGenre> for AddMapper {
 
     fn map(
         state: &mut Form<AddGenre>,
-        form_result: <AddGenre as FormComponent>::AR,
+        form_result: <AddGenre as FormComponentBase>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            FormAction<<AddGenre as FormComponent>::Action>,
-            impl Wrapper<FormAction<<AddGenre as FormComponent>::Action>>,
+            FormAction<<AddGenre as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<AddGenre as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut jellyhaj_widgets_core::RenderFlag,

@@ -1,7 +1,4 @@
-fn with_iter<
-    R: 'static,
-    W: ::jellyhaj_form_widget::form::helpers::WithIterItems<R, Self::AR>,
->(
+fn with_iter<W: ::jellyhaj_form_widget::form::helpers::WithIterItems<R, Self::AR>>(
     &self,
     mut base_index: ::jellyhaj_form_widget::macro_impl::exports::usize,
     with: &mut W,

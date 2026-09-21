@@ -1,5 +1,4 @@
 fn with_iter_mut<
-    R: 'static,
     W: ::jellyhaj_form_widget::form::helpers::WithIterItemsMut<R, Self::AR>,
 >(
     &mut self,

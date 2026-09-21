@@ -10,7 +10,7 @@ use jellyhaj_core::{
 use jellyhaj_form_widget::{
     FormAction,
     button::Button,
-    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponent},
+    form::{Form, FormCommandMapper, FormResultMapper, component::FormComponentBase},
     form_widget,
     secret_field::SecretField,
     text_field::TextField,
@@ -38,11 +38,11 @@ impl FormResultMapper<PasswordData> for PasswordResultMapper {
 
     fn map(
         state: &mut Form<PasswordData>,
-        _: <PasswordData as FormComponent>::AR,
+        _: <PasswordData as FormComponentBase>::AR,
         _cx: jellyhaj_widgets_core::WidgetContext<
             '_,
-            FormAction<<PasswordData as FormComponent>::Action>,
-            impl Wrapper<FormAction<<PasswordData as FormComponent>::Action>>,
+            FormAction<<PasswordData as FormComponentBase>::Action>,
+            impl Wrapper<FormAction<<PasswordData as FormComponentBase>::Action>>,
             (),
         >,
         _render_flag: &mut RenderFlag,
