@@ -13,7 +13,7 @@ fn with_iter<W: ::jellyhaj_form_widget::form::helpers::WithIterItems<R, Self::AR
         with,
     )?;
     base_index
-        += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten1,
         );
     ::jellyhaj_form_widget::form::component::FormComponent::with_iter(
@@ -22,7 +22,7 @@ fn with_iter<W: ::jellyhaj_form_widget::form::helpers::WithIterItems<R, Self::AR
         with,
     )?;
     base_index
-        += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten2,
         );
     W::with(with, &self.simple3, "simple 3", base_index)?;

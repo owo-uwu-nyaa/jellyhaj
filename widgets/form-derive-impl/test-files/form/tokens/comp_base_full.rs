@@ -22,7 +22,7 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                 >(with, s, &self.simple2, "simple 2", (base_index + 1usize))
             }
             ExampleSelection::Flatten1(s) => {
-                ::jellyhaj_form_widget::form::component::FormComponent::with_selection(
+                ::jellyhaj_form_widget::form::component::FormComponentBase::with_selection(
                     &self.flatten1,
                     (base_index + 2usize),
                     s,
@@ -30,10 +30,10 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                 )
             }
             ExampleSelection::Flatten2(s) => {
-                ::jellyhaj_form_widget::form::component::FormComponent::with_selection(
+                ::jellyhaj_form_widget::form::component::FormComponentBase::with_selection(
                     &self.flatten2,
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         ) + 2usize),
                     s,
@@ -49,10 +49,10 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                     &self.simple3,
                     "simple 3",
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         )
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten2,
                         ) + 2usize),
                 )
@@ -79,7 +79,7 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                 >(with, s, &mut self.simple2, "simple 2", (base_index + 1usize))
             }
             ExampleSelection::Flatten1(s) => {
-                ::jellyhaj_form_widget::form::component::FormComponent::with_selection_mut(
+                ::jellyhaj_form_widget::form::component::FormComponentBase::with_selection_mut(
                     &mut self.flatten1,
                     (base_index + 2usize),
                     s,
@@ -87,10 +87,10 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                 )
             }
             ExampleSelection::Flatten2(s) => {
-                ::jellyhaj_form_widget::form::component::FormComponent::with_selection_mut(
+                ::jellyhaj_form_widget::form::component::FormComponentBase::with_selection_mut(
                     &mut self.flatten2,
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         ) + 2usize),
                     s,
@@ -106,10 +106,10 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
                     &mut self.simple3,
                     "simple 3",
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         )
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten2,
                         ) + 2usize),
                 )
@@ -126,22 +126,22 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
             _ => {}
         }
         index -= 2usize;
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten1,
         );
         if index < cur {
-            return ::jellyhaj_form_widget::form::component::FormComponent::show_if(
+            return ::jellyhaj_form_widget::form::component::FormComponentBase::show_if(
                 &self.flatten1,
                 index,
             );
         }
         index -= cur;
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten2,
         );
         if index < cur {
             return self._show_if_flatten2()
-                && ::jellyhaj_form_widget::form::component::FormComponent::show_if(
+                && ::jellyhaj_form_widget::form::component::FormComponentBase::show_if(
                     &self.flatten2,
                     index,
                 );
@@ -162,35 +162,35 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
             ExampleSelection::Simple2(_) => 1usize,
             ExampleSelection::Flatten1(sel) => {
                 (2usize
-                    + ::jellyhaj_form_widget::form::component::FormComponent::index(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::index(
                         &self.flatten1,
                         sel,
                     ))
             }
             ExampleSelection::Flatten2(sel) => {
-                (::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                (::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                     &self.flatten1,
                 ) + 2usize
-                    + ::jellyhaj_form_widget::form::component::FormComponent::index(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::index(
                         &self.flatten2,
                         sel,
                     ))
             }
             ExampleSelection::Simple3(_) => {
-                ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                     &self.flatten1,
                 )
-                    + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                         &self.flatten2,
                     ) + 2usize
             }
         }
     }
     fn total_size(&self) -> ::jellyhaj_form_widget::macro_impl::exports::usize {
-        ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten1,
         )
-            + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+            + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                 &self.flatten2,
             ) + 3usize
     }
@@ -213,13 +213,13 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
             _ => {}
         }
         base_index += 2usize;
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten1,
         );
         if index < base_index + cur {
             return ExampleSelection::Flatten1(
-                &self.flatten1,
                 ::jellyhaj_form_widget::form::component::FormComponentBase::make_selection_default(
+                    &self.flatten1,
                     base_index,
                     index,
                 ),
@@ -227,13 +227,13 @@ impl ::jellyhaj_form_widget::form::component::FormComponentBase for Example {
         } else {
             base_index += cur;
         }
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten2,
         );
         if index < base_index + cur {
             return ExampleSelection::Flatten2(
-                &self.flatten2,
                 ::jellyhaj_form_widget::form::component::FormComponentBase::make_selection_default(
+                    &self.flatten2,
                     base_index,
                     index,
                 ),

@@ -17,13 +17,13 @@ fn make_selection_default(
         _ => {}
     }
     base_index += 2usize;
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten1,
     );
     if index < base_index + cur {
         return ExampleSelection::Flatten1(
-            &self.flatten1,
             ::jellyhaj_form_widget::form::component::FormComponentBase::make_selection_default(
+                &self.flatten1,
                 base_index,
                 index,
             ),
@@ -31,13 +31,13 @@ fn make_selection_default(
     } else {
         base_index += cur;
     }
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten2,
     );
     if index < base_index + cur {
         return ExampleSelection::Flatten2(
-            &self.flatten2,
             ::jellyhaj_form_widget::form::component::FormComponentBase::make_selection_default(
+                &self.flatten2,
                 base_index,
                 index,
             ),

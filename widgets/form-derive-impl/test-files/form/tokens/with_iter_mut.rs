@@ -46,7 +46,7 @@ fn with_iter_mut<
             show,
         )?;
         base_index
-            += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+            += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                 &self.flatten1,
             );
     }
@@ -60,7 +60,7 @@ fn with_iter_mut<
             show,
         )?;
         base_index
-            += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+            += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                 &self.flatten2,
             );
     }

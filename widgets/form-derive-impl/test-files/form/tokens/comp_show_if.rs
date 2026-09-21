@@ -8,22 +8,22 @@ fn show_if(
         _ => {}
     }
     index -= 2usize;
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten1,
     );
     if index < cur {
-        return ::jellyhaj_form_widget::form::component::FormComponent::show_if(
+        return ::jellyhaj_form_widget::form::component::FormComponentBase::show_if(
             &self.flatten1,
             index,
         );
     }
     index -= cur;
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten2,
     );
     if index < cur {
         return self._show_if_flatten2()
-            && ::jellyhaj_form_widget::form::component::FormComponent::show_if(
+            && ::jellyhaj_form_widget::form::component::FormComponentBase::show_if(
                 &self.flatten2,
                 index,
             );

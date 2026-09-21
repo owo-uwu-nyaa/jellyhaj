@@ -39,7 +39,7 @@ fn with_index_mut<W: ::jellyhaj_form_widget::form::helpers::WithIndexMut<R, Self
         _ => {}
     }
     base_index += 2usize;
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten1,
     );
     if index < base_index + cur {
@@ -57,7 +57,7 @@ fn with_index_mut<W: ::jellyhaj_form_widget::form::helpers::WithIndexMut<R, Self
     } else {
         base_index += cur;
     }
-    let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+    let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
         &self.flatten2,
     );
     if index < base_index + cur {

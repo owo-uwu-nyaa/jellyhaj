@@ -54,7 +54,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                 ::jellyhaj_form_widget::form::component::FormComponent::with_selection_mut_cx(
                     &mut self.flatten2,
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         ) + 2usize),
                     s,
@@ -72,10 +72,10 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                     &mut self.simple3,
                     "simple 3",
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         )
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten2,
                         ) + 2usize),
                 )
@@ -125,7 +125,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
             _ => {}
         }
         base_index += 2usize;
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten1,
         );
         if index < base_index + cur {
@@ -143,7 +143,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
         } else {
             base_index += cur;
         }
-        let cur = ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+        let cur = ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
             &self.flatten2,
         );
         if index < base_index + cur {
@@ -193,7 +193,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
             with,
         )?;
         base_index
-            += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+            += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                 &self.flatten1,
             );
         ::jellyhaj_form_widget::form::component::FormComponent::with_iter(
@@ -202,7 +202,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
             with,
         )?;
         base_index
-            += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+            += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                 &self.flatten2,
             );
         W::with(with, &self.simple3, "simple 3", base_index)?;
@@ -257,7 +257,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                 show,
             )?;
             base_index
-                += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                     &self.flatten1,
                 );
         }
@@ -271,7 +271,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                 show,
             )?;
             base_index
-                += ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                += ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                     &self.flatten2,
                 );
         }
@@ -338,7 +338,7 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                 ::jellyhaj_form_widget::form::component::FormComponent::with_action_mut(
                     &mut self.flatten2,
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         ) + 2usize),
                     a,
@@ -353,10 +353,10 @@ impl<R: 'static> ::jellyhaj_form_widget::form::component::FormComponent<R> for E
                     cx.wrap_with(ExampleAction::Simple3),
                     &mut self.simple3,
                     (base_index
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten1,
                         )
-                        + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                        + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                             &self.flatten2,
                         ) + 2usize),
                 )

@@ -47,7 +47,7 @@ fn with_action_mut<
             ::jellyhaj_form_widget::form::component::FormComponent::with_action_mut(
                 &mut self.flatten2,
                 (base_index
-                    + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                         &self.flatten1,
                     ) + 2usize),
                 a,
@@ -62,10 +62,10 @@ fn with_action_mut<
                 cx.wrap_with(ExampleAction::Simple3),
                 &mut self.simple3,
                 (base_index
-                    + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                         &self.flatten1,
                     )
-                    + ::jellyhaj_form_widget::form::component::FormComponent::total_size(
+                    + ::jellyhaj_form_widget::form::component::FormComponentBase::total_size(
                         &self.flatten2,
                     ) + 2usize),
             )
