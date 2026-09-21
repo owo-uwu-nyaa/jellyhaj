@@ -30,66 +30,10 @@ in
       description = "package with jellyhaj";
     };
     debugConfigChecker = mkEnableOption "enable debug printing for the config checker derivations";
-    config = {
-      mpv_profile = mkOption {
-        type = types.enum [
-          "fast"
-          "high-quality"
-          "default"
-        ];
-        default = "default";
-        description = "mpv profile to inherit from";
-      };
-      hwdec = mkOption {
-        type = types.str;
-        default = "auto-safe";
-        description = "hardware decoding";
-      };
-      mpv_log_level = mkOption {
-        type = types.enum [
-          "no"
-          "fatal"
-          "error"
-          "warn"
-          "info"
-          "v"
-          "debug"
-          "trace"
-        ];
-        default = "info";
-        description = "mpv log level, separate from general log level";
-      };
-      login_file = mkOption {
-        type = types.path;
-        default = "${config.xdg.configHome}/jellyhaj/login.toml";
-        description = "login file";
-      };
-      keybinds_file = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-      };
-      effects_file = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-      };
-      mpv_config_file = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-      };
-      entry_image_width = mkOption {
-        type = lib.types.ints.u16;
-        default = 32;
-      };
-      concurrent_jellyfin_connections = mkOption {
-        type = lib.types.ints.u8;
-        default = 2;
-      };
-      fetch_timeout = mkOption {
-        type = lib.types.ints.u16;
-        default = 15;
-      };
-      store_access_token = mkEnableOption "store the access token in the cache";
-      dev_store_jellyfin_events = mkEnableOption "store all events received from jellyfin for later use (useful for development)";
+    config = mkOption {
+      type = types.attrsOf types.anything;
+      default = { };
+      description = "jellyhaj configuration";
     };
     keybinds = mkOption {
       type = types.nullOr (types.attrsOf types.anything);

@@ -38,10 +38,10 @@ struct ParseConfig {
     pub login_file: Option<PathBuf>,
     pub keybinds_file: Option<PathBuf>,
     pub effects_file: Option<PathBuf>,
-    pub hwdec: String,
+    pub hwdec: Option<String>,
     #[serde(default)]
     pub mpv_profiles: Vec<String>,
-    pub mpv_log_level: String,
+    pub mpv_log_level: Option<String>,
     pub mpv_config_file: Option<PathBuf>,
     pub entry_image_width: Option<u16>,
     pub concurrent_jellyfin_connections: Option<u8>,
@@ -146,9 +146,9 @@ pub fn init_config(config_file: Option<PathBuf>, use_builtin: bool) -> Result<Co
 
     Ok(Config {
         login_file,
-        hwdec: config.hwdec,
+        hwdec: config.hwdec.unwrap_or_else(|| "auto-safe".to_owned()),
         keybinds,
-        mpv_log_level: config.mpv_log_level,
+        mpv_log_level: config.mpv_log_level.unwrap_or_else(|| "info".to_owned()),
         mpv_profiles: config.mpv_profiles,
         help_prefixes,
         mpv_config_file: config.mpv_config_file,
