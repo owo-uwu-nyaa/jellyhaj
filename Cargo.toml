@@ -213,6 +213,9 @@ valuable = {features = ["derive"], version = "0.1.1"}
 whoami = {default-features = false, version = "2.0.2"}
 zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
 jiff = {version = "0.2.35", features = ["serde"]}
+pretty_assertions = "1.4.1"
+prettydiff = "0.9.0"
+prettyplease = "0.3.0"
 
 [workspace.lints.clippy]
 collection_is_never_read = "allow"

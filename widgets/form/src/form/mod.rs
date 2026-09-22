@@ -9,9 +9,11 @@ use jellyhaj_widgets_core::{
     Size, WidgetContext, Wrapper,
     valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value},
 };
-use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
+use ratatui::widgets::{
+    Block, Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
+};
 use tracing::{instrument, trace};
-use tui_scrollview::{ScrollView, ScrollViewState};
+use tui_scrollview::{ScrollView, ScrollViewState, ScrollbarVisibility};
 
 use crate::{
     FormAction,
@@ -345,7 +347,8 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         let height = cur.height.strict_add(cur.height_buf);
         trace!(height, "calculated total required height");
         if main.height < height {
-            let mut scroll_view = ScrollView::new((main.width, height).into());
+            let mut scroll_view = ScrollView::new((main.width, height).into())
+                .scrollbars_visibility(ScrollbarVisibility::Never);
             let area = scroll_view.area();
             self.offset = crate::offset::calc_offset(
                 height,
@@ -386,6 +389,14 @@ impl<R: 'static, Mapper: FormResultMapper<Data>, Data: FormData<Mapper = Mapper>
         self.data
             .with_selection_mut_cx(0, &mut self.sel, cx.wrap_with(FormAction::Inner), cur)?;
         outer.render(area, buf);
+        if main.height < height {
+            Scrollbar::new(ScrollbarOrientation::VerticalRight).render(
+                area,
+                buf,
+                &mut ScrollbarState::new((height - main.height).into())
+                    .position(self.offset.into()),
+            );
+        }
         Ok(())
     }
 }

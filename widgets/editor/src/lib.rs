@@ -396,7 +396,7 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
             .0;
         let start_off = min(
             start_off,
-            u16::try_from(split_index + self.split[0..line].iter().map(|l| l.len()).sum::<usize>())
+            u16::try_from(split_index + self.split[0..line].iter().map(Vec::len).sum::<usize>())
                 .unwrap_or(u16::MAX),
         );
         let end_off = main.height - 1 - start_off;

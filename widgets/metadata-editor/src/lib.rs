@@ -14,12 +14,13 @@ use jellyhaj_core::{
 };
 use jellyhaj_form_widget::{
     FormAction, Selection,
-    button::{Button, DynamicButton},
+    button::{Button, SymbolButton},
     form::{
         Form, FormCommandMapper, FormResultMapper,
         component::{ComponentVec, FormComponentBase},
     },
     form_component, form_widget,
+    label::DynamicLabel,
     selection::{DynamicSelection, DynamicSelectionItem},
     seperator::Seperator,
     text_block::TextBlock,
@@ -73,11 +74,14 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
                     .data
                     .genres
                     .iter()
-                    .map(|genre| genre.button.name.clone())
+                    .map(|genre| genre.button.inner.val.clone())
                     .collect(),
             }))),
             MetadataActions::RemoveGenre { id } => {
-                state.data.genres.retain(|genre| genre.button.name != id);
+                state
+                    .data
+                    .genres
+                    .retain(|genre| genre.button.inner.val != id);
                 render_flag.set();
                 Ok(None)
             }
@@ -119,8 +123,8 @@ pub struct ExternalIds {
 #[form_component(MetadataActions)]
 #[derive(Debug, Valuable)]
 pub struct Genre {
-    #[form(descr = "Remove genre")]
-    button: DynamicButton<MetadataActions>,
+    #[form(descr = "")]
+    button: SymbolButton<MetadataActions, DynamicLabel>,
 }
 
 struct CultureItem {
@@ -254,11 +258,12 @@ impl ModifyMetadata {
                 .genre_items
                 .iter()
                 .map(|genre| Genre {
-                    button: DynamicButton::new(
-                        genre.name.clone(),
+                    button: SymbolButton::new(
                         MetadataActions::RemoveGenre {
                             id: genre.name.clone(),
                         },
+                        '-',
+                        DynamicLabel::new(genre.name.clone()),
                     ),
                 })
                 .collect(),
@@ -323,9 +328,12 @@ impl<R: ContextRef<Config> + 'static> ActionMapper<R, InnerWidget> for ModifyMet
     {
         match action {
             SubformResult::AddGenre(new_genre) => {
-                let button = DynamicButton::new(
-                    new_genre.clone(),
-                    MetadataActions::RemoveGenre { id: new_genre },
+                let button = SymbolButton::new(
+                    MetadataActions::RemoveGenre {
+                        id: new_genre.clone(),
+                    },
+                    '-',
+                    DynamicLabel::new(new_genre),
                 );
                 this.inner.inner.inner.data.genres.push(Genre { button });
                 render_flag.set();
