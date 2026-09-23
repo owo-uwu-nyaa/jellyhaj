@@ -10,8 +10,7 @@ use jellyfin::JellyfinClient;
 use mpv_async::{
     Mpv,
     events::MpvEvent,
-    mpv_node_list,
-    nodes::{MpvFormat, ToMpvNode},
+    nodes::{MpvFormat, ToMpvNode, mpv_node_list},
 };
 use pin_project_lite::pin_project;
 use tracing::{info, instrument, trace, warn};

@@ -418,13 +418,14 @@ impl ToMpvNode<'static> for f64 {
  * # Usage
  *
  * ```
- * # use mpv_async::mpv_node_list;
+ * # use mpv_async::nodes::mpv_node_list;
  * // construct empty list in variable `name`
  * mpv_node_list!(name; []);
  * // with actual values
  * mpv_node_list!(name; [true, 5i64, c"test"]);
  * ```
  *  */
+#[doc(hidden)]
 #[macro_export]
 macro_rules! mpv_node_list {
     ($var:ident; []) => {
@@ -434,6 +435,8 @@ macro_rules! mpv_node_list {
         $crate::macros::mpv_node_list_internal!($var; $crate::nodes ; $($v)*)
     };
 }
+#[doc(inline)]
+pub use crate::mpv_node_list;
 
 #[repr(transparent)]
 pub struct MpvNodeList<'r> {
@@ -515,7 +518,7 @@ impl<'r> From<&'r CStr> for CStrPtr<'r> {
  *
  * # Usage
  * ```
- * # use mpv_async::mpv_node_map;
+ * # use mpv_async::nodes::mpv_node_map;
  * // construct empty map in variable `name`
  * mpv_node_map!(name; {});
  * // with actual values
@@ -531,7 +534,7 @@ impl<'r> From<&'r CStr> for CStrPtr<'r> {
  * and [constant promoted values](https://doc.rust-lang.org/reference/destructors.html#r-destructors.scope.const-promotion).
  * Temporaries created in call expressions are one example where lifetime extension is not applied.
  * ```
- * # use mpv_async::{mpv_node_map, nodes::{MpvByteArray, ToMpvNode}};
+ * # use mpv_async::nodes::{mpv_node_map,MpvByteArray, ToMpvNode};
  * let bytes = [1u8,2,3,4,5];
  * // lifetime extension
  * mpv_node_map!(name; {&c"byte_array".to_owned(): &MpvByteArray::new(&bytes)});
@@ -539,18 +542,24 @@ impl<'r> From<&'r CStr> for CStrPtr<'r> {
  * mpv_node_map!(name; {&c"byte_array".to_owned(): &MpvByteArray::new(&[1u8,2,3,4,5])});
  * ```
  * ```compile_fail
- * # use mpv_async::{mpv_node_map, nodes::{MpvByteArray, ToMpvNode}};
+ * # use mpv_async::nodes::{mpv_node_map,MpvByteArray, ToMpvNode};
  * //in contrast to arrays, Vec is not constant promoted
  * mpv_node_map!(name; {c"byte_array": &MpvByteArray::new(&vec![1u8,2,3,4,5])});
  * let _ = name.node();
  * ```
  *  */
+#[doc(hidden)]
 #[macro_export]
 macro_rules! mpv_node_map {
+    ($var: ident; {}) => {
+        let $var = $crate::nodes::MpvNodeMap::new(&[],&[]);
+    };
     ($var: ident; {$($kv:tt)*}) => {
         $crate::macros::mpv_node_map_internal!($var; $crate::nodes ; $($kv)*)
     };
 }
+#[doc(inline)]
+pub use crate::mpv_node_map;
 
 #[repr(transparent)]
 pub struct MpvNodeMap<'r> {

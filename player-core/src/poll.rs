@@ -10,8 +10,10 @@ use futures_util::Stream;
 use jellyfin::items::MediaItem;
 use jellyfin::{JellyfinClient, items::ItemType};
 use jellyhaj_core::state::NextScreen;
-use mpv_async::nodes::MpvOwnedNode;
-use mpv_async::{Mpv, mpv_node_list, mpv_node_map};
+use mpv_async::{
+    Mpv,
+    nodes::{MpvOwnedNode, mpv_node_list, mpv_node_map},
+};
 use regex::Regex;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{

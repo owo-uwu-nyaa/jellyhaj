@@ -14,7 +14,10 @@ use jellyfin::{
     items::{ItemType, MediaItem},
 };
 use jellyhaj_core::state::NextScreen;
-use mpv_async::{Mpv, mpv_node_list, mpv_node_map};
+use mpv_async::{
+    Mpv,
+    nodes::{mpv_node_list, mpv_node_map},
+};
 use spawn::Spawner;
 use tokio::{
     sync::{
