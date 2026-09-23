@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    systems.url = "github:nix-systems/default";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -15,7 +14,6 @@
       self,
       nixpkgs,
       rust-overlay,
-      systems,
       ...
     }:
     let
@@ -24,7 +22,7 @@
         f:
         let
           forSystem = system: builtins.mapAttrs (name: val: { ${system} = val; }) (f system);
-          sets = map forSystem (import systems);
+          sets = map forSystem lib.systems.flakeExposed;
         in
         builtins.foldl' lib.attrsets.recursiveUpdate { } sets;
     in

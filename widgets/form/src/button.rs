@@ -612,7 +612,7 @@ impl<R: 'static, C: ActionCreator, AR: From<C::T> + Debug, I: FormItem<R, AR> + 
         let mut main = area;
         main.width -= 4;
         self.inner
-            .render_pass_main(cx, main, buf, active & !self.selected, name)
+            .render_pass_main(cx, main, buf, active && !self.selected, name)
     }
 
     fn render_pass_popup(

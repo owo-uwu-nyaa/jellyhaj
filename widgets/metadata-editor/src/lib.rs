@@ -38,8 +38,12 @@ use valuable::Valuable;
 
 pub struct Mapper;
 
-fn clone_opt(v: &String) -> Option<String> {
-    if v.is_empty() { None } else { Some(v.clone()) }
+fn clone_opt(v: &str) -> Option<String> {
+    if v.is_empty() {
+        None
+    } else {
+        Some(v.to_owned())
+    }
 }
 
 impl FormResultMapper<ModifyMetadata> for Mapper {
@@ -87,7 +91,9 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
                             .get()
                             .inner
                             .as_ref()
-                            .map_or_default(|v| v.three_letter_iso_language_name.clone()),
+                            .map_or_else(Default::default, |v| {
+                                v.three_letter_iso_language_name.clone()
+                            }),
                         date_created,
                         status,
                         overview: clone_opt(&state.data.overview.text),
