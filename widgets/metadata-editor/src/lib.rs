@@ -38,6 +38,10 @@ use valuable::Valuable;
 
 pub struct Mapper;
 
+fn clone_opt(v: &String) -> Option<String> {
+    if v.is_empty() { None } else { Some(v.clone()) }
+}
+
 impl FormResultMapper<ModifyMetadata> for Mapper {
     type Res = Navigation;
 
@@ -54,12 +58,45 @@ impl FormResultMapper<ModifyMetadata> for Mapper {
     ) -> Result<Option<Self::Res>> {
         match form_result {
             MetadataActions::Update => {
+                let date_created = if state.data.date_added.text.is_empty() {
+                    None
+                } else {
+                    let Ok(time) = DateTime::from_str(&state.data.date_added.text) else {
+                        return Ok(None);
+                    };
+                    let Ok(time) = time.to_zoned(LOCAL_ZONE.clone()) else {
+                        return Ok(None);
+                    };
+                    Some(time.timestamp())
+                };
+                let status = match state.data.status {
+                    Status::Continuing => "Continuing",
+                    Status::Ended => "Ended",
+                    Status::Unreleased => "Unreleased",
+                    Status::Unknown => "",
+                };
                 Ok(Some(Navigation::Replace(NextScreen::DoModifyMetadata {
                     id: state.data.media_item.id.clone(),
                     new_metadata: Box::new(MetadataUpdate {
                         name: state.data.title.text.clone(),
                         original_title: state.data.original_title.text.clone(),
                         sort_name: state.data.sort_title.text.clone(),
+                        original_language: state
+                            .data
+                            .original_language
+                            .get()
+                            .inner
+                            .as_ref()
+                            .map_or_default(|v| v.three_letter_iso_language_name.clone()),
+                        date_created,
+                        status,
+                        overview: clone_opt(&state.data.overview.text),
+                        genres: state
+                            .data
+                            .genres
+                            .iter()
+                            .map(|g| g.button.inner.val.clone())
+                            .collect(),
                     }),
                 })))
             }
@@ -190,6 +227,8 @@ pub struct ModifyMetadata {
     genres: ComponentVec<Genre>,
     #[form(descr = "Add genre")]
     add_genre: Button<MetadataActions>,
+    #[form(descr = "Update item")]
+    update: Button<MetadataActions>,
     #[form(skip)]
     #[valuable(skip)]
     new_genre_submit: Option<Arc<dyn ErasedSubmitter<String>>>,
@@ -269,6 +308,7 @@ impl ModifyMetadata {
                 .collect(),
             add_genre: Button::new(MetadataActions::AddGenre),
             new_genre_submit: None,
+            update: Button::new(MetadataActions::Update),
             overview: TextBlock::new(item.overview.clone().unwrap_or_default()),
             media_item: item,
         }

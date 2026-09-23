@@ -481,6 +481,12 @@ pub struct MetadataUpdate {
     pub name: String,
     pub original_title: String,
     pub sort_name: String,
+    pub original_language: String,
+    #[valuable(skip)]
+    pub date_created: Option<Timestamp>,
+    pub status: &'static str,
+    pub overview: Option<String>,
+    pub genres: Vec<String>,
 }
 
 impl JellyfinClient {
