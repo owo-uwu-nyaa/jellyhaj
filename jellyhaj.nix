@@ -17,7 +17,11 @@
 let
   fileset = lib.fileset.unions [
     (lib.fileset.fileFilter (
-      file: file.hasExt "rs" || file.name == "Cargo.toml" || file.name == "Cargo.lock"
+      file:
+      file.hasExt "rs"
+      || file.name == "Cargo.toml"
+      || file.name == "Cargo.lock"
+      || file.name == "Readme.md"
     ) ./.)
     ./.sqlx
     ./config/config.toml
