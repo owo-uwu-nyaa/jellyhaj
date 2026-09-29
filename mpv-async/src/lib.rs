@@ -284,11 +284,12 @@ fn add_callback(handle: NonNull<mpv_handle>) -> Initialized {
         should_wake: AtomicBool::new(false),
         waker: UnsafeCell::new(waker_set.clone()),
     });
+    let callback_ptr: *const CallbackContext = &raw const *callback_storage;
     unsafe {
         mpv_set_wakeup_callback(
             handle.as_ptr(),
             Some(wakeup_callback),
-            Box::as_ptr(&callback_storage).cast_mut().cast(),
+            callback_ptr.cast_mut().cast(),
         );
     };
     Initialized {
