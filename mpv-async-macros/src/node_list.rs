@@ -1,6 +1,8 @@
 use proc_macro2::{Literal, TokenStream};
-use quote::quote;
-use syn::{Expr, Ident, Path, Result, Token, parse::Parse, punctuated::Punctuated};
+use quote::{quote, quote_spanned};
+use syn::{
+    Expr, Ident, Path, Result, Token, parse::Parse, punctuated::Punctuated, spanned::Spanned,
+};
 
 pub struct NodeListArgs {
     var: Ident,
@@ -27,6 +29,8 @@ pub fn node_list_impl(input: NodeListArgs) -> TokenStream {
     let var = &input.var;
     if input.exprs.is_empty() {
         quote! {let #var = #p::MpvNodeList::new(&[]);}
+    } else if input.exprs.len() > (i32::MAX as usize) {
+        quote_spanned! {input.exprs.span()=>compile_error!("Argument list length is greater than i32::MAX.")}
     } else {
         let exprs = input.exprs.into_iter();
         let is: Vec<_> = (0..exprs.len())

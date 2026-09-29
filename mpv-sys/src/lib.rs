@@ -5,7 +5,7 @@
     clippy::unreadable_literal
 )]
 #![cfg_attr(feature = "bindgen", allow(clippy::doc_markdown, clippy::use_self))]
-
+#![doc = include_str!("../Readme.md")]
 /*!
  * Mechanisms provided by this API
  * -------------------------------
@@ -193,6 +193,11 @@
  *  - reassign enum numerical values to remove gaps
  *  - disabling all events by default
  */
+
+use std::{
+    ffi::c_ulong,
+    fmt::{Display as DisplayT, Write},
+};
 
 #[cfg(not(feature = "bindgen"))]
 include!("client.rs");
@@ -485,4 +490,73 @@ pub mod stream_cb {
     #[cfg(feature = "bindgen")]
     include!(concat!(env!("OUT_DIR"), "/stream_cb.rs"));
     use crate::mpv_handle;
+}
+
+/// Mpv client api version
+///
+/// libmpv provides defines for this, those are obviously not usable in rust.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientApiVersion {
+    pub major: u16,
+    pub minor: u16,
+}
+
+impl ClientApiVersion {
+    /// Convert combined value returned from mpv to the version components
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub const fn new(v: c_ulong) -> Self {
+        let minor_mask: c_ulong = 0xffff;
+        let major_mask: c_ulong = 0xffff_0000;
+        let minor = v & minor_mask;
+        let major = v & major_mask;
+        let major = major >> 16;
+        Self {
+            major: major as u16,
+            minor: minor as u16,
+        }
+    }
+    /// Converted client api version of the headers used to generate these bindings
+    pub const HEADER: Self =
+        const { Self::new(HEADER_MPV_CLIENT_API_VERSION) };
+    /// Converted client api version of the linked library
+    #[must_use]
+    pub fn linked() -> Self {
+        Self::new(unsafe { mpv_client_api_version() })
+    }
+
+    /// Check that header and linked library api versions fit together
+    #[must_use]
+    pub fn check_api_versions() -> bool {
+        let linked = Self::linked();
+        Self::HEADER.major == linked.major && Self::HEADER.minor <= linked.minor
+    }
+    /// Check that header and linked library api versions fit together.
+    /// Panics with a useful messafe if any mismatch is detected
+    pub fn assert_api_versions() {
+        let linked = Self::linked();
+        assert_eq!(
+            Self::HEADER.major,
+            linked.major,
+            "Mismatch between client api major versions."
+        );
+        assert!(
+            Self::HEADER.minor <= linked.minor,
+            "Linked libmpv is too old."
+        );
+    }
+}
+
+impl DisplayT for ClientApiVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        DisplayT::fmt(&self.major, f)?;
+        f.write_char('.')?;
+        DisplayT::fmt(&self.minor, f)
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn check_api_versions() {
+    ClientApiVersion::assert_api_versions();
 }

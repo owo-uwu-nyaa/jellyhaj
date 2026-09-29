@@ -1,17 +1,16 @@
 use core::slice;
 use std::{
-    ffi::{CStr, c_char, c_int, c_void},
+    ffi::{CStr, c_char, c_int},
     fmt::Debug,
     marker::PhantomData,
     ops::Index,
     ptr::NonNull,
 };
 
-use crate::{Result, get_err_reply};
+use crate::{MpvError, Result, get_err_reply};
 use mpv_sys::{
     mpv_end_file_reason, mpv_error, mpv_event, mpv_event_client_message, mpv_event_end_file,
-    mpv_event_hook, mpv_event_id, mpv_event_log_message, mpv_event_property, mpv_event_start_file,
-    mpv_format, mpv_handle, mpv_hook_continue, mpv_log_level,
+    mpv_event_hook, mpv_event_id, mpv_event_log_message, mpv_event_property, mpv_event_start_file, mpv_handle, mpv_hook_continue, mpv_log_level,
 };
 
 #[cfg(feature = "macros")]
@@ -21,6 +20,7 @@ pub use mpv_async_macros as macros;
 use crate::nodes::{MpvNode, MpvNodeRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum MpvLogLevel {
     Fatal,
     Error,
@@ -87,6 +87,7 @@ impl From<mpv_log_level> for MpvLogLevel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum MpvEventId {
     Shutdown,
     LogMessage,
@@ -144,7 +145,7 @@ pub enum MpvEvent<'s> {
     },
     GetPropertyReply {
         userdata: u64,
-        data: MpvProperty<'s>,
+        data: &'s MpvProperty,
     },
     SetPropertyReply {
         userdata: u64,
@@ -168,7 +169,7 @@ pub enum MpvEvent<'s> {
     PlaybackRestart,
     PropertyChange {
         userdata: u64,
-        data: MpvProperty<'s>,
+        data: &'s MpvProperty,
     },
     QueueOverflow,
     Hook {
@@ -181,8 +182,9 @@ pub enum MpvEvent<'s> {
 
 #[non_exhaustive]
 #[derive(Debug)]
+#[cfg_attr(feature = "valuable", derive(valuable::Valuable))]
 pub enum EndFileReason {
-    Error(mpv_error),
+    Error(MpvError),
     EOF,
     Stop,
     Quit,
@@ -190,30 +192,34 @@ pub enum EndFileReason {
     Unknown,
 }
 
-pub struct MpvProperty<'s> {
-    pub name: &'s CStr,
-    pub value: *const c_void,
-    pub format: mpv_format,
+/**
+ * Mpv property as returned by some events
+ * Safe wrapper around [`mpv_event_property`]
+ * Is guaranteed to have the same layout as [`mpv_event_property`], which makes casting references valid.
+ *  */
+#[repr(transparent)]
+pub struct MpvProperty {
+    inner: mpv_event_property,
 }
 
-impl<'s> MpvProperty<'s> {
+impl MpvProperty {
+    pub fn differentiate(&self) -> MpvNodeRef<'_> {
+        unsafe { MpvNodeRef::from_property(&self.inner) }
+    }
     #[must_use]
-    const unsafe fn new(val: &mpv_event_property) -> Self {
-        Self {
-            name: unsafe { CStr::from_ptr(val.name) },
-            value: val.data,
-            format: val.format,
-        }
+    pub const fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.inner.name) }
     }
-    pub fn differentiate(&self) -> MpvNodeRef<'s> {
-        unsafe { MpvNodeRef::from_property_ptr(self.format, self.value) }
+    #[must_use]
+    pub const fn inner(&self) -> &mpv_event_property {
+        &self.inner
     }
 }
 
-impl Debug for MpvProperty<'_> {
+impl Debug for MpvProperty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MpvProperty")
-            .field("name", &self.name)
+            .field("name", &self.name())
             .field("value", &self.differentiate())
             .finish()
     }
@@ -288,7 +294,7 @@ impl MpvEvent<'_> {
         from: &mpv_event,
         handle: NonNull<mpv_handle>,
     ) -> Result<Option<MpvEvent<'_>>> {
-        Ok(Some(match from.event_id {
+        let res = match from.event_id {
             mpv_event_id::MPV_EVENT_SHUTDOWN => MpvEvent::Shutdown,
             mpv_event_id::MPV_EVENT_LOG_MESSAGE => {
                 let log_message =
@@ -302,9 +308,7 @@ impl MpvEvent<'_> {
             }
             mpv_event_id::MPV_EVENT_GET_PROPERTY_REPLY => {
                 get_err_reply(from.error, from.reply_userdata)?;
-                let data = unsafe {
-                    MpvProperty::new(from.data.cast::<mpv_event_property>().as_ref_unchecked())
-                };
+                let data = unsafe { from.data.cast::<MpvProperty>().as_ref_unchecked() };
                 MpvEvent::GetPropertyReply {
                     userdata: from.reply_userdata,
                     data,
@@ -337,7 +341,7 @@ impl MpvEvent<'_> {
                     mpv_end_file_reason::MPV_END_FILE_REASON_STOP => EndFileReason::Stop,
                     mpv_end_file_reason::MPV_END_FILE_REASON_QUIT => EndFileReason::Quit,
                     mpv_end_file_reason::MPV_END_FILE_REASON_ERROR => {
-                        EndFileReason::Error(mpv_error(end_file.error))
+                        EndFileReason::Error(mpv_error(end_file.error).into())
                     }
                     mpv_end_file_reason::MPV_END_FILE_REASON_REDIRECT => EndFileReason::Redirect {
                         insert_id: end_file.playlist_insert_id,
@@ -372,9 +376,7 @@ impl MpvEvent<'_> {
             mpv_event_id::MPV_EVENT_PLAYBACK_RESTART => MpvEvent::PlaybackRestart,
             mpv_event_id::MPV_EVENT_PROPERTY_CHANGE => {
                 get_err_reply(from.error, from.reply_userdata)?;
-                let data = unsafe {
-                    MpvProperty::new(from.data.cast::<mpv_event_property>().as_ref_unchecked())
-                };
+                let data = unsafe { from.data.cast::<MpvProperty>().as_ref_unchecked() };
                 MpvEvent::PropertyChange {
                     userdata: from.reply_userdata,
                     data,
@@ -395,6 +397,14 @@ impl MpvEvent<'_> {
             }
             mpv_event_id::MPV_EVENT_NONE => return Ok(None),
             _ => MpvEvent::Unknown,
-        }))
+        };
+        #[cfg(feature = "tracing")]
+        tracing::trace!(
+            target: "runtime::resource::state_update",
+            events = 1usize,
+            events.op = "add",
+        );
+
+        Ok(Some(res))
     }
 }

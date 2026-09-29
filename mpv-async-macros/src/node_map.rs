@@ -1,6 +1,8 @@
 use proc_macro2::{Literal, TokenStream};
-use quote::quote;
-use syn::{Expr, Ident, Path, Result, Token, parse::Parse, punctuated::Punctuated};
+use quote::{ToTokens, quote, quote_spanned};
+use syn::{
+    Expr, Ident, Path, Result, Token, parse::Parse, punctuated::Punctuated, spanned::Spanned,
+};
 
 pub struct NodeMapArgs {
     var: Ident,
@@ -12,15 +14,23 @@ pub struct NodeMapArgs {
 
 pub struct MapEntry {
     name: Expr,
-    _sep: Token![:],
+    sep: Token![:],
     val: Expr,
+}
+
+impl ToTokens for MapEntry {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.name.to_tokens(tokens);
+        self.sep.to_tokens(tokens);
+        self.val.to_tokens(tokens);
+    }
 }
 
 impl Parse for MapEntry {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         Ok(Self {
             name: input.parse()?,
-            _sep: input.parse()?,
+            sep: input.parse()?,
             val: input.parse()?,
         })
     }
@@ -43,6 +53,8 @@ pub fn node_map_impl(input: NodeMapArgs) -> TokenStream {
     let var = &input.var;
     if input.exprs.is_empty() {
         quote! {let #var = #p::MpvNodeMap::new(&[], &[]);}
+    } else if input.exprs.len() > (i32::MAX as usize) {
+        quote_spanned! {input.exprs.span()=>compile_error!("Argument list length is greater than i32::MAX.")}
     } else {
         let (ks, vs) =
             <(Vec<Expr>, Vec<Expr>)>::from_iter(input.exprs.into_iter().map(|e| (e.name, e.val)));

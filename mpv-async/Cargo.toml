@@ -16,7 +16,7 @@ valuable = { workspace = true, optional = true }
 workspace = true
 
 [features]
-default = ["macros"]
+default = ["macros", "stream", "tracing"]
 bindgen = ["mpv-sys/bindgen"]
 macros = ["dep:mpv-async-macros"]
 tracing = ["dep:tracing"]

@@ -94,7 +94,7 @@ impl Stream for MpvStream {
                     trace!(?data, "received property");
                     match userdata {
                         1 => {
-                            assert_eq!(data.name, c"time-pos");
+                            assert_eq!(data.name(), c"time-pos");
                             if let Some(data) = data.differentiate().float() {
                                 break Some(Ok(Event::PropertyChanged(
                                     ObservedProperty::Position(data),
@@ -102,49 +102,49 @@ impl Stream for MpvStream {
                             }
                         }
                         2 => {
-                            assert_eq!(data.name, c"idle-active");
+                            assert_eq!(data.name(), c"idle-active");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Idle(
                                 data.differentiate().bool().expect("wrong type"),
                             ))));
                         }
                         3 => {
-                            assert_eq!(data.name, c"pause");
+                            assert_eq!(data.name(), c"pause");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Pause(
                                 data.differentiate().bool().expect("wrong type"),
                             ))));
                         }
                         4 => {
-                            assert_eq!(data.name, c"fullscreen");
+                            assert_eq!(data.name(), c"fullscreen");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Fullscreen(
                                 data.differentiate().bool().expect("wrong type"),
                             ))));
                         }
                         5 => {
-                            assert_eq!(data.name, c"window-minimized");
+                            assert_eq!(data.name(), c"window-minimized");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Minimized(
                                 data.differentiate().bool().expect("wrong type"),
                             ))));
                         }
                         6 => {
-                            assert_eq!(data.name, c"playlist-pos");
+                            assert_eq!(data.name(), c"playlist-pos");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::PlaylistPos(
                                 data.differentiate().int().expect("wrong type"),
                             ))));
                         }
                         7 => {
-                            assert_eq!(data.name, c"speed");
+                            assert_eq!(data.name(), c"speed");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Speed(
                                 data.differentiate().float().expect("wrong type"),
                             ))));
                         }
                         8 => {
-                            assert_eq!(data.name, c"volume");
+                            assert_eq!(data.name(), c"volume");
                             break Some(Ok(Event::PropertyChanged(ObservedProperty::Volume(
                                 data.differentiate().int().expect("wrong type"),
                             ))));
                         }
                         9 => {
-                            assert_eq!(data.name, c"duration");
+                            assert_eq!(data.name(), c"duration");
                             if let Some(data) = data.differentiate().float() {
                                 break Some(Ok(Event::PropertyChanged(
                                     ObservedProperty::Duration(data),
@@ -152,7 +152,7 @@ impl Stream for MpvStream {
                             }
                         }
                         _ => {
-                            warn!("unknown property observation: {:?}", data.name);
+                            warn!("unknown property observation: {:?}", data.name());
                         }
                     }
                 }
@@ -181,6 +181,9 @@ impl MpvStream {
         minimized: bool,
     ) -> Result<Self> {
         let mpv = Mpv::new()?;
+        mpv.request_log_messages(
+            &CString::new(log_level).context("converting log level to cstr")?,
+        )?;
         mpv.set_property(c"title", c"jellyhaj-player")?;
         mpv.set_property(c"fullscreen", true)?;
         mpv.set_property(c"window-minimized", minimized)?;
@@ -220,9 +223,6 @@ impl MpvStream {
             &mpv_async::nodes::MpvNodeList::new(&profiles).node(),
         )?;
         let mpv = mpv.initialize()?;
-        mpv.request_log_messages(
-            &CString::new(log_level).context("converting log level to cstr")?,
-        )?;
         //mpv.enable_event(mpv_event_id::PropertyChange)?;
         //mpv.enable_event(mpv_event_id::LogMessage)?;
         //mpv.enable_event(mpv_event_id::QueueOverflow)?;
