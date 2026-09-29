@@ -517,8 +517,7 @@ impl ClientApiVersion {
         }
     }
     /// Converted client api version of the headers used to generate these bindings
-    pub const HEADER: Self =
-        const { Self::new(HEADER_MPV_CLIENT_API_VERSION) };
+    pub const HEADER: Self = const { Self::new(HEADER_MPV_CLIENT_API_VERSION) };
     /// Converted client api version of the linked library
     #[must_use]
     pub fn linked() -> Self {

@@ -10,7 +10,8 @@ use std::{
 use crate::{MpvError, Result, get_err_reply};
 use mpv_sys::{
     mpv_end_file_reason, mpv_error, mpv_event, mpv_event_client_message, mpv_event_end_file,
-    mpv_event_hook, mpv_event_id, mpv_event_log_message, mpv_event_property, mpv_event_start_file, mpv_handle, mpv_hook_continue, mpv_log_level,
+    mpv_event_hook, mpv_event_id, mpv_event_log_message, mpv_event_property, mpv_event_start_file,
+    mpv_handle, mpv_hook_continue, mpv_log_level,
 };
 
 #[cfg(feature = "macros")]
