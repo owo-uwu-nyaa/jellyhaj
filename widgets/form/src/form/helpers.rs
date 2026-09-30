@@ -36,7 +36,7 @@ pub(crate) fn dispatch_active_action<R: 'static, Data: FormData + FormComponent<
 /**
  * Get information about currently selected item.
  * Result should default to false
-*/
+ */
 pub trait WithSelection<AR: Debug> {
     fn with<I: FormItemBase<AR>>(
         self,
