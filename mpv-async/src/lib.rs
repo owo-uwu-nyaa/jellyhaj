@@ -17,17 +17,18 @@ use std::{
     mem::{self, ManuallyDrop},
     ptr::{self, NonNull, null},
     sync::atomic::{AtomicBool, Ordering::SeqCst},
-    task::{Context, Poll, Waker},
+    task::{Context, Poll, Waker, ready},
     time::Instant,
 };
 
 use arcshift::ArcShift;
 use mpv_sys::{
     ClientApiVersion, mpv_client_name, mpv_command_node, mpv_command_node_async, mpv_create,
-    mpv_create_client, mpv_create_weak_client, mpv_del_property, mpv_error, mpv_get_property,
-    mpv_get_property_async, mpv_handle, mpv_hook_add, mpv_load_config_file, mpv_node,
-    mpv_observe_property, mpv_request_log_messages, mpv_set_property, mpv_set_property_async,
-    mpv_set_wakeup_callback, mpv_terminate_destroy, mpv_unobserve_property, mpv_wait_event,
+    mpv_create_client, mpv_create_weak_client, mpv_del_property, mpv_error, mpv_event,
+    mpv_event_id, mpv_get_property, mpv_get_property_async, mpv_handle, mpv_hook_add,
+    mpv_load_config_file, mpv_node, mpv_observe_property, mpv_request_log_messages,
+    mpv_set_property, mpv_set_property_async, mpv_set_wakeup_callback, mpv_terminate_destroy,
+    mpv_unobserve_property, mpv_wait_event,
 };
 
 #[cfg(feature = "macros")]
@@ -467,7 +468,7 @@ impl Mpv {
         #[cfg(feature = "tracing")]
         let _entered = self.spans.resource_span.enter();
         loop {
-            if let Some(res) = unsafe { unsafe_wait_event(self.handle, -1.0) }? {
+            if let Some(res) = unsafe { MpvEvent::new(unsafe_wait_event(self, -1.0), self) }? {
                 break Ok(res);
             }
         }
@@ -483,15 +484,14 @@ impl Mpv {
             let Some(time) = until.checked_duration_since(Instant::now()) else {
                 break Ok(None);
             };
-            if let Some(res) = unsafe { unsafe_wait_event(self.handle, time.as_secs_f64()) }? {
+            if let Some(res) =
+                unsafe { MpvEvent::new(unsafe_wait_event(self, time.as_secs_f64()), self) }?
+            {
                 break Ok(Some(res));
             }
         }
     }
-    unsafe fn unsafe_poll_wait_event<'s>(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<MpvEvent<'s>>> {
+    unsafe fn unsafe_poll_wait_event<'s>(&mut self, cx: &mut Context<'_>) -> Poll<&'s mpv_event> {
         #[cfg(feature = "tracing")]
         let _entered = self.spans.resource_span.enter();
         #[cfg(feature = "tracing")]
@@ -499,20 +499,17 @@ impl Mpv {
         #[cfg(feature = "tracing")]
         let _entered = self.spans.poll.enter();
         'pending: {
-            let res = match unsafe { unsafe_wait_event(self.handle, 0.0) } {
-                Err(e) => Err(e),
-                Ok(None) => {
-                    break 'pending;
-                }
-                Ok(Some(v)) => Ok(v),
-            };
+            let event = unsafe { unsafe_wait_event(self, 0.0) };
+            if event.event_id == mpv_event_id::MPV_EVENT_NONE {
+                break 'pending;
+            }
             #[cfg(feature = "tracing")]
             tracing::trace!(
                 target: "runtime::resource::poll_op",
                 op_name = "poll_wait_event",
                 is_ready = true,
             );
-            return Poll::Ready(res);
+            return Poll::Ready(event);
         }
         if self.state.waker_set.rcu_maybe(|prev| {
             let waker = cx.waker();
@@ -532,44 +529,50 @@ impl Mpv {
             );
         }
         self.state.callback_storage.should_wake.store(true, SeqCst);
-        let res = match unsafe { unsafe_wait_event(self.handle, 0.0) } {
-            Err(e) => Err(e),
-            Ok(None) => {
-                #[cfg(feature = "tracing")]
-                tracing::trace!(
-                    target: "runtime::resource::poll_op",
-                    op_name = "poll_wait_event",
-                    is_ready = false,
-                );
-                #[cfg(feature = "tracing")]
-                tracing::trace!(
-                    target: "runtime::resource::state_update",
-                    pending_poll = 1usize,
-                    pending_poll.op = "add",
-                );
-                return Poll::Pending;
-            }
-            Ok(Some(v)) => Ok(v),
-        };
+        let event = unsafe { unsafe_wait_event(self, 0.0) };
+        if event.event_id == mpv_event_id::MPV_EVENT_NONE {
+            #[cfg(feature = "tracing")]
+            tracing::trace!(
+                target: "runtime::resource::poll_op",
+                op_name = "poll_wait_event",
+                is_ready = false,
+            );
+            #[cfg(feature = "tracing")]
+            tracing::trace!(
+                target: "runtime::resource::state_update",
+                pending_poll = 1usize,
+                pending_poll.op = "add",
+            );
+            return Poll::Pending;
+        }
         #[cfg(feature = "tracing")]
         tracing::trace!(
             target: "runtime::resource::poll_op",
             op_name = "poll_wait_event",
             is_ready = true,
         );
-        Poll::Ready(res)
+        Poll::Ready(event)
     }
 
     /// Poll for next event
     ///
     /// Will register the current task for wakeup. Only the last caller will be notified.
     pub fn poll_wait_event<'s>(&'s mut self, cx: &mut Context<'_>) -> Poll<Result<MpvEvent<'s>>> {
-        unsafe { self.unsafe_poll_wait_event(cx) }
+        unsafe {
+            match self.unsafe_poll_wait_event(cx) {
+                Poll::Ready(e) => Poll::Ready(
+                    MpvEvent::new(e, self)
+                        .transpose()
+                        .expect("would be pending"),
+                ),
+                Poll::Pending => Poll::Pending,
+            }
+        }
     }
 
     /// Get next event(async version)
     pub const fn wait_event_async(&mut self) -> WaitEvent<'_> {
-        WaitEvent { client: self }
+        WaitEvent { client: Some(self) }
     }
 
     /// Create a stram over mpv events mapped by `mapper`.
@@ -586,12 +589,8 @@ impl Mpv {
     }
 }
 
-unsafe fn unsafe_wait_event<'s>(
-    handle: NonNull<mpv_handle>,
-    timeout: f64,
-) -> Result<Option<MpvEvent<'s>>> {
-    let event = unsafe { mpv_wait_event(handle.as_ptr(), timeout).as_ref_unchecked() };
-    unsafe { MpvEvent::new(event, handle) }
+unsafe fn unsafe_wait_event<'s>(mpv: &Mpv, timeout: f64) -> &'s mpv_event {
+    unsafe { mpv_wait_event(mpv.handle.as_ptr(), timeout).as_ref_unchecked() }
 }
 
 impl<S: State> Drop for Mpv<S> {
@@ -602,14 +601,28 @@ impl<S: State> Drop for Mpv<S> {
 
 /// Future for getting the next event
 pub struct WaitEvent<'s> {
-    client: &'s mut Mpv,
+    client: Option<&'s mut Mpv>,
 }
 
 impl<'s> Future for WaitEvent<'s> {
     type Output = Result<MpvEvent<'s>>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        unsafe { self.get_mut().client.unsafe_poll_wait_event(cx) }
+        let this = self.get_mut();
+        unsafe {
+            let event = ready!(
+                this.client
+                    .as_mut()
+                    .expect("Future already finsihed")
+                    .unsafe_poll_wait_event(cx)
+            );
+            let mpv = this.client.take().expect("just checked");
+            Poll::Ready(
+                MpvEvent::new(event, mpv)
+                    .transpose()
+                    .expect("would be pending"),
+            )
+        }
     }
 }
 

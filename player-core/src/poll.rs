@@ -272,6 +272,13 @@ impl Future for PollState {
                     .set_property(c"volume", volume)
                     .context("setting volume")
                     .trace_error(this.widget_sender),
+                Some(Command::GetProperty { name, sender }) => {
+                    let _ = sender.send(
+                        this.mpv
+                            .get_property(&name)
+                            .with_context(|| format!("getting property {name:?}")),
+                    );
+                }
                 Some(Command::GetEventReceiver(sender)) => {
                     sender
                         .send(EventReceiver {

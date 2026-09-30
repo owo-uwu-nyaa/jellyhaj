@@ -1,4 +1,4 @@
-use std::{borrow::Cow, convert::Infallible, sync::Arc};
+use std::{borrow::Cow, convert::Infallible, fmt::Debug, sync::Arc};
 
 use color_eyre::Result;
 use color_eyre::eyre::Report;
@@ -79,6 +79,7 @@ pub enum NextScreen {
     Stats,
     Logs,
     Inspect,
+    InspectPlayer,
     FetchModifyMetadata(Box<MediaItem>),
     ModifyMetadata(Box<MediaItem>, MetadataEditor),
     DoModifyMetadata {
@@ -146,6 +147,7 @@ pub enum NextScreen {
         server_id: String,
     },
     InspectValue(serde_json::Value),
+    InspectValuable(Box<dyn InspectValuable>),
     HttpClient,
     HttpClientFetch {
         url: String,
@@ -153,6 +155,9 @@ pub enum NextScreen {
     Exit,
     Logout,
 }
+
+pub trait InspectValuable: Valuable + Debug + Send {}
+impl<V: Valuable + Debug + Send> InspectValuable for V {}
 
 impl From<Result<Self>> for NextScreen {
     fn from(value: Result<Self>) -> Self {

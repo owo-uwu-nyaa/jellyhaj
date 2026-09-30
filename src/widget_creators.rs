@@ -26,6 +26,7 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
         }
         NextScreen::FetchPlay(load_play) => jellyhaj_player_view::render_fetch_play(cx, load_play),
         NextScreen::Play { items, index } => jellyhaj_player_view::render_play(cx, items, index),
+        NextScreen::InspectPlayer => jellyhaj_player_view::make_fetch_properties(cx),
         NextScreen::Error(report) => jellyhaj_error_view::render_error(cx, &report),
         NextScreen::ItemDetails(media_item) => {
             jellyhaj_item_details_view::render_item_details(cx, media_item)
@@ -54,6 +55,9 @@ pub fn make_screen(screen: NextScreen, cx: TuiContext) -> Erased {
             jellyhaj_quick_connect_view::make_quick_connect_auth(cx, code)
         }
         NextScreen::InspectValue(value) => jellyhaj_inspect_view::render_inspect_value(cx, &value),
+        NextScreen::InspectValuable(value) => {
+            jellyhaj_inspect_view::render_inspect_valuable(cx, &value)
+        }
         NextScreen::HttpClient => jellyhaj_http_client_view::render_http_client(cx),
         NextScreen::HttpClientFetch { url } => {
             jellyhaj_http_client_view::render_http_client_fetch(cx, url)
@@ -104,6 +108,9 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         NextScreen::Logs => jellyhaj_log_view::render_log(cx),
         NextScreen::Inspect => jellyhaj_inspect_view::render_inspect(cx),
         NextScreen::InspectValue(v) => jellyhaj_inspect_view::render_inspect_value(cx, &v),
+        NextScreen::InspectValuable(value) => {
+            jellyhaj_inspect_view::render_inspect_valuable(cx, &value)
+        }
         NextScreen::QuickConnect => jellyhaj_error_view::render_error(
             cx,
             &eyre!("Authenticating another client through quick connect requires beeing logged in"),
@@ -181,6 +188,7 @@ pub fn make_screen_login(screen: NextScreen, cx: LoginContext) -> Erased {
         | NextScreen::UserView { .. }
         | NextScreen::FetchPlay(_)
         | NextScreen::Play { .. }
+        | NextScreen::InspectPlayer
         | NextScreen::ItemDetails(_)
         | NextScreen::ItemListDetails(_, _)
         | NextScreen::FetchItemListDetails(_)

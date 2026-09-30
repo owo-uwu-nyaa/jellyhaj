@@ -61,6 +61,9 @@ impl Valuable for ArrayValuable {
 
 unsafe fn visit_array(this: &mpv_node_list, visit: &mut dyn Visit) {
     let size: usize = this.num.try_into().expect("array size negative?");
+    if size == 0 {
+        return;
+    }
     let slice = unsafe { slice::from_raw_parts(this.values.cast::<MpvNode>(), size) };
     for v in slice {
         visit.visit_value(v.as_value());

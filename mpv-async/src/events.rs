@@ -2,16 +2,14 @@ use core::slice;
 use std::{
     ffi::{CStr, c_char, c_int},
     fmt::Debug,
-    marker::PhantomData,
-    ops::Index,
-    ptr::NonNull,
+    ops::{Deref, Index},
 };
 
-use crate::{MpvError, Result, get_err_reply};
+use crate::{Mpv, MpvError, Result, get_err_reply};
 use mpv_sys::{
     mpv_end_file_reason, mpv_error, mpv_event, mpv_event_client_message, mpv_event_end_file,
     mpv_event_hook, mpv_event_id, mpv_event_log_message, mpv_event_property, mpv_event_start_file,
-    mpv_handle, mpv_hook_continue, mpv_log_level,
+    mpv_hook_continue, mpv_log_level,
 };
 
 #[cfg(feature = "macros")]
@@ -274,8 +272,7 @@ impl Index<usize> for ClientMessage<'_> {
  *  */
 pub struct HookHandle<'s> {
     id: u64,
-    handle: NonNull<mpv_handle>,
-    s: PhantomData<&'s mpv_handle>,
+    mpv: &'s Mpv,
 }
 
 impl Debug for HookHandle<'_> {
@@ -286,15 +283,23 @@ impl Debug for HookHandle<'_> {
 
 impl Drop for HookHandle<'_> {
     fn drop(&mut self) {
-        unsafe { mpv_hook_continue(self.handle.as_ptr(), self.id) };
+        unsafe { mpv_hook_continue(self.mpv.handle.as_ptr(), self.id) };
+    }
+}
+
+impl Deref for HookHandle<'_> {
+    type Target = Mpv;
+
+    fn deref(&self) -> &Self::Target {
+        self.mpv
     }
 }
 
 impl MpvEvent<'_> {
-    pub(crate) unsafe fn new(
-        from: &mpv_event,
-        handle: NonNull<mpv_handle>,
-    ) -> Result<Option<MpvEvent<'_>>> {
+    pub(crate) unsafe fn new<'s>(
+        from: &'s mpv_event,
+        mpv: &'s Mpv,
+    ) -> Result<Option<MpvEvent<'s>>> {
         let res = match from.event_id {
             mpv_event_id::MPV_EVENT_SHUTDOWN => MpvEvent::Shutdown,
             mpv_event_id::MPV_EVENT_LOG_MESSAGE => {
@@ -389,11 +394,7 @@ impl MpvEvent<'_> {
                 MpvEvent::Hook {
                     name: unsafe { CStr::from_ptr(hook.name) },
                     userdata: from.reply_userdata,
-                    handle: HookHandle {
-                        id: hook.id,
-                        handle,
-                        s: PhantomData,
-                    },
+                    handle: HookHandle { id: hook.id, mpv },
                 }
             }
             mpv_event_id::MPV_EVENT_NONE => return Ok(None),

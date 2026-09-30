@@ -14,6 +14,7 @@ use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_widgets_core::{
     ContextRef, GetFromContext,
     outer::{Named, OuterWidget},
+    valuable::Valuable,
 };
 use spawn::Spawner;
 
@@ -60,6 +61,19 @@ pub fn render_inspect_value(
     let top = Config::get_ref(&cx).keybinds.inspect.clone();
     let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
         InspectWidget::json_value(value),
+        top,
+        Mapper,
+    ));
+    make_new_erased(cx, widget)
+}
+
+pub fn render_inspect_valuable(
+    cx: impl ContextRef<Config> + ContextRef<Spawner> + ContextRef<StateStack> + 'static,
+    value: &dyn Valuable,
+) -> Erased {
+    let top = Config::get_ref(&cx).keybinds.inspect.clone();
+    let widget = OuterWidget::<Name, _>::new(KeybindWidget::new(
+        InspectWidget::valuable(value),
         top,
         Mapper,
     ));

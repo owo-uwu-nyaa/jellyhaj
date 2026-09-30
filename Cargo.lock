@@ -2673,7 +2673,9 @@ dependencies = [
  "jellyhaj-keybinds-widget",
  "jellyhaj-player-widget",
  "jellyhaj-widgets-core",
+ "mpv-async",
  "player-core",
+ "tokio",
  "tracing",
 ]
 

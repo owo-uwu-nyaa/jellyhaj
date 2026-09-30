@@ -20,6 +20,9 @@ impl<T, F: FnMut(Result<MpvEvent<'_>>) -> T> futures_core::Stream for EventStrea
             return Poll::Ready(None);
         }
         let res = std::task::ready!(unsafe { this.client.unsafe_poll_wait_event(cx) });
+        let res = unsafe { MpvEvent::new(res, this.client) }
+            .transpose()
+            .expect("would be pending");
         if matches!(&res, Ok(MpvEvent::Shutdown)) {
             this.exit = true;
         }

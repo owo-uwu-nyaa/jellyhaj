@@ -1,4 +1,5 @@
 use std::{
+    ffi::CString,
     fmt::{Debug, Display},
     num::ParseIntError,
     ops::Deref,
@@ -10,6 +11,7 @@ use std::{
 };
 
 use jellyfin::items::MediaItem;
+use mpv_async::nodes::MpvOwnedNode;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
@@ -86,6 +88,10 @@ pub enum Command {
     },
     Stop,
     GetEventReceiver(oneshot::Sender<EventReceiver>),
+    GetProperty {
+        name: CString,
+        sender: oneshot::Sender<color_eyre::Result<MpvOwnedNode>>,
+    },
 }
 
 type Playlist = Arc<Vec<Arc<PlaylistItem>>>;

@@ -101,6 +101,7 @@ pub enum MpvCommand {
     Backward,
     Next,
     Prev,
+    Inspect,
     #[command(flatten)]
     Global(GlobalCommand),
 }

@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{collections::BTreeMap, ffi::CString, fmt::Debug, ops::ControlFlow};
 
 use jellyfin::{
     JellyfinClient, JellyfinVec,
@@ -15,12 +15,16 @@ use jellyhaj_core::{
 };
 use jellyhaj_keybinds_widget::KeybindWidget;
 use jellyhaj_player_widget::{PlayerAction, PlayerWidget};
-use jellyhaj_widgets_core::outer::{Named, OuterWidget};
-use player_core::Command;
+use jellyhaj_widgets_core::{
+    outer::{Named, OuterWidget},
+    valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value, Visit},
+};
+use mpv_async::nodes::MpvOwnedNode;
+use player_core::{Command, PlayerHandle};
 
 use color_eyre::{
     Result,
-    eyre::{Context, eyre},
+    eyre::{Context, OptionExt, eyre},
 };
 use tracing::warn;
 
@@ -38,6 +42,7 @@ impl CommandMapper<MpvCommand> for Mapper {
             MpvCommand::Backward => ControlFlow::Continue(PlayerAction::Backward),
             MpvCommand::Next => ControlFlow::Continue(PlayerAction::Next),
             MpvCommand::Prev => ControlFlow::Continue(PlayerAction::Prev),
+            MpvCommand::Inspect => ControlFlow::Break(Navigation::Push(NextScreen::InspectPlayer)),
         }
     }
 }
@@ -216,4 +221,77 @@ async fn fetch_series(cx: &JellyfinClient, series_id: &str) -> Result<Vec<MediaI
     })
     .await?;
     Ok(res)
+}
+
+struct Properties {
+    inner: BTreeMap<String, MpvOwnedNode>,
+}
+
+impl Debug for Properties {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("Properties");
+        for (key, val) in &self.inner {
+            d.field(key, val);
+        }
+        d.finish()
+    }
+}
+
+impl Valuable for Properties {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn Visit) {
+        for (key, val) in &self.inner {
+            visit.visit_named_fields(&NamedValues::new(
+                &[NamedField::new(key)],
+                &[val.as_value()],
+            ));
+        }
+    }
+}
+
+impl Structable for Properties {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_dynamic("Properties", Fields::Named(&[]))
+    }
+}
+
+async fn fetch_properties(handle: PlayerHandle) -> Result<NextScreen> {
+    async fn fetch_property(name: CString, handle: &PlayerHandle) -> Result<MpvOwnedNode> {
+        let (sender, recv) = tokio::sync::oneshot::channel();
+        handle.send(Command::GetProperty { name, sender });
+        recv.await.context("player has been closed")?
+    }
+    let properties = fetch_property(c"property-list".to_owned(), &handle).await?;
+    let mut properties_full = BTreeMap::new();
+    for name in properties
+        .differentiate()
+        .array()
+        .ok_or_eyre("property list is not a list")?
+    {
+        let name = name
+            .differentiate()
+            .string()
+            .ok_or_eyre("property name is not a string")?;
+        let Ok(val) = fetch_property(name.to_owned(), &handle).await else {
+            warn!("unavailable property {name:?}");
+            continue;
+        };
+        let name = name
+            .to_str()
+            .context("mpv property is not utf-8")?
+            .to_string();
+        properties_full.insert(name, val);
+    }
+
+    Ok(NextScreen::InspectValuable(Box::new(Properties {
+        inner: properties_full,
+    })))
+}
+
+pub fn make_fetch_properties(cx: TuiContext) -> Erased {
+    let fut = fetch_properties(cx.mpv_handle.clone());
+    jellyhaj_fetch_view::make_fetch(cx, "Collecting player properties", fut)
 }

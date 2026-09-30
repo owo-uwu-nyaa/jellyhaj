@@ -12,6 +12,7 @@ use mpv_sys::{
     mpv_byte_array, mpv_event_property, mpv_format, mpv_free, mpv_node, mpv_node__bindgen_ty_1,
     mpv_node_list,
 };
+use valuable::Valuable;
 
 #[doc(hidden)]
 pub mod macro_support {
@@ -971,6 +972,22 @@ impl Deref for MpvOwnedNode {
     type Target = MpvNode;
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl Valuable for MpvOwnedNode {
+    fn as_value(&self) -> valuable::Value<'_> {
+        self.inner.as_value()
+    }
+
+    fn visit(&self, visit: &mut dyn valuable::Visit) {
+        self.inner.visit(visit);
+    }
+}
+
+impl Debug for MpvOwnedNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.inner, f)
     }
 }
 

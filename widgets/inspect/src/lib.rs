@@ -542,7 +542,7 @@ fn from_number(num: &serde_json::Number) -> LeafValue {
     }
 }
 
-fn inspect_json_value_inner(
+fn inspect_json_value(
     mut name: String,
     value: &serde_json::Value,
     id_gen: &mut usize,
@@ -588,7 +588,7 @@ fn inspect_json_value_inner(
                 .enumerate()
                 .map(|(index, val)| {
                     let prefix = format!("[{index}]: ");
-                    inspect_json_value_inner(prefix, val, id_gen)
+                    inspect_json_value(prefix, val, id_gen)
                 })
                 .collect();
 
@@ -603,7 +603,7 @@ fn inspect_json_value_inner(
                 .iter()
                 .map(|(name, val)| {
                     let prefix = format!("{name:?} : ");
-                    inspect_json_value_inner(prefix, val, id_gen)
+                    inspect_json_value(prefix, val, id_gen)
                 })
                 .collect();
             (
@@ -612,14 +612,6 @@ fn inspect_json_value_inner(
             )
         }
     }
-}
-
-fn inspect_json_value(value: &serde_json::Value) -> (Vec<IdTreeItem>, Vec<(Id, ValueTree)>) {
-    let mut id = 0;
-    let (v1, v2) = inspect_json_value_inner(String::new(), value, &mut id);
-    let mut v2 = vec![v2];
-    sort_value_tree(&mut v2);
-    (vec![v1], v2)
 }
 
 pub struct InspectWidget {
@@ -641,11 +633,26 @@ impl InspectWidget {
     }
     #[must_use]
     pub fn json_value(val: &serde_json::Value) -> Self {
-        let (items, mut values) = inspect_json_value(val);
-        sort_value_tree(&mut values);
+        let mut id = 0;
+        let (v1, v2) = inspect_json_value(String::new(), val, &mut id);
+        let mut v2 = vec![v2];
+        sort_value_tree(&mut v2);
         Self {
-            items,
-            values,
+            items: vec![v1],
+            values: v2,
+            state: TreeState::default(),
+            from_widget_state: false,
+        }
+    }
+    #[must_use]
+    pub fn valuable(val: &dyn Valuable) -> Self {
+        let mut id = 0;
+        let (v1, v2) = inspect_valuable(String::new(), &mut id, val.as_value());
+        let mut v2 = vec![v2];
+        sort_value_tree(&mut v2);
+        Self {
+            items: vec![v1],
+            values: v2,
             state: TreeState::default(),
             from_widget_state: false,
         }

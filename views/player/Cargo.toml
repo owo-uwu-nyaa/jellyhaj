@@ -10,6 +10,8 @@ color-eyre.workspace = true
 futures-util.workspace = true
 tracing.workspace = true
 jellyhaj-context = { path = "../../context" }
+mpv-async = { path = "../../mpv-async", features = ["valuable"] }
+tokio = { workspace = true, features = ["sync"] }
 
 [package]
 name = "jellyhaj-player-view"

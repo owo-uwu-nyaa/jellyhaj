@@ -275,10 +275,9 @@ impl ModifyMetadata {
 
             sort_title: TextField::new(item.sort_name.clone().unwrap_or_default()),
             date_added: TextField::with_checker(
-                item.date_created
-                    .as_ref()
-                    .map(|d| d.to_zoned(LOCAL_ZONE.clone()).strftime("%F %T").to_string())
-                    .unwrap_or_default(),
+                item.date_created.as_ref().map_or_default(|d| {
+                    d.to_zoned(LOCAL_ZONE.clone()).strftime("%F %T").to_string()
+                }),
                 |v| DateTime::from_str(v).is_ok(),
             ),
             original_language,
