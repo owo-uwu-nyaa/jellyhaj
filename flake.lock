@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791057158,
-        "narHash": "sha256-86JlSQnesJAWnS7Kx4ig2crX3bxzKVW/0Cap/HHq2QY=",
+        "lastModified": 1791064075,
+        "narHash": "sha256-fF8ixm5yKRLx3UQ+lAoFY/Te8qkU5G0rvzxz1f00lh4=",
         "owner": "RobinMarchart",
         "repo": "nix-rust-build",
-        "rev": "ed2adb9debf95c7c758bea02d7e8bcdfd4ee0f38",
+        "rev": "4d659bda5902e21c715b54381f8ea2d8aa0cea1a",
         "type": "github"
       },
       "original": {
