@@ -129,6 +129,9 @@ pub struct Mpv<S: State = Initialized> {
     spans: Spans,
 }
 
+unsafe impl<S: State> Send for Mpv<S> {}
+unsafe impl<S: State> Sync for Mpv<S> {}
+
 #[cfg(feature = "tracing")]
 #[derive(Clone)]
 struct Spans {

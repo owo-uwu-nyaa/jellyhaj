@@ -297,6 +297,14 @@ impl Future for PollState {
                         })
                         .trace_send_error();
                 }
+                Some(Command::CloneHandle { sender, name }) => {
+                    match this.mpv.clone_client_weak(name.as_ref().map(AsRef::as_ref)) {
+                        Ok(handle) => sender.send(handle).trace_send_error(),
+                        Err(e) => Err(e)
+                            .context("cloning mpv handle")
+                            .trace_error(this.widget_sender),
+                    }
+                }
             }
         }
         span.exit();

@@ -1,5 +1,6 @@
 use std::{
-    ffi::CString,
+    borrow::Cow,
+    ffi::{CStr, CString},
     fmt::{Debug, Display},
     num::ParseIntError,
     ops::Deref,
@@ -11,7 +12,7 @@ use std::{
 };
 
 use jellyfin::items::MediaItem;
-use mpv_async::nodes::MpvOwnedNode;
+use mpv_async::{Mpv, nodes::MpvOwnedNode};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::DropGuard;
 use valuable::{Fields, NamedField, NamedValues, StructDef, Structable, Valuable, Value};
@@ -91,6 +92,10 @@ pub enum Command {
     GetProperty {
         name: CString,
         sender: oneshot::Sender<color_eyre::Result<MpvOwnedNode>>,
+    },
+    CloneHandle {
+        sender: oneshot::Sender<Mpv>,
+        name: Option<Cow<'static, CStr>>,
     },
 }
 
