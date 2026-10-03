@@ -329,7 +329,7 @@ impl<T> JellyfinVec<T> {
 
 pin_project_lite::pin_project! {
     #[must_use]
-    /// Stream of results from JellyfinVec yielding APIs
+    /// Stream of results from [`JellyfinVec`] yielding APIs
     pub struct JellyfinVecStream<T, E, F, I>
     where
         F: FnMut(u32) -> I,

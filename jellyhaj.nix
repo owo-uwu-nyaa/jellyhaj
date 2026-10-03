@@ -11,6 +11,7 @@
   rust-build,
   versionCheckHook,
   installShellFiles,
+  writeShellScript,
   withMpris ? stdenv.hostPlatform.isLinux, # enable media player dbus interface
   withJournald ? stdenv.hostPlatform.isLinux,
 }:
@@ -35,6 +36,27 @@ let
     root = ./.;
     inherit fileset;
   };
+  mkFiltered =
+    path:
+    builtins.path {
+      path = src;
+      filter =
+        let
+          parents-gen =
+            path:
+            if path == "." then
+              [ ]
+            else
+              let
+                path' = dirOf path;
+              in
+              (parents-gen path') ++ [ "${src}/${path}" ];
+          parents = parents-gen path;
+          base = "${src}/${path}";
+        in
+        path: type: (builtins.any (p: p == path) parents) || (lib.hasPrefix base path);
+    };
+  sqlx-fake-cargo = writeShellScript "sqlx-fake-cargo" ''echo '{"workspace_root": "${mkFiltered ".sqlx"}"}' '';
   jellyhaj =
     (rust-build.withCrateOverrides {
       mpv-sys = {
@@ -64,6 +86,22 @@ let
         ];
         nativeBuildInputs = [ pkg-config ];
       };
+      xtask = {
+        postPatch = "ln -s ${mkFiltered "src/args.rs"}/src ..";
+      };
+      config = {
+        postPatch = "ln -s ${mkFiltered "migrations"}/migrations ..";
+        CARGO = sqlx-fake-cargo;
+      };
+      jellyhaj-event-listener = {
+        CARGO = sqlx-fake-cargo;
+      };
+      jellyhaj-image = {
+        CARGO = sqlx-fake-cargo;
+      };
+      jellyhaj-login-view = {
+        CARGO = sqlx-fake-cargo;
+      };
       jellyhaj-bin = {
         nativeBuildInputs = [ installShellFiles ];
         postInstall = ''
@@ -82,7 +120,6 @@ let
           description = "Terminal client for Jellyfin reimplementing parts of the web ui";
           license = lib.licenses.mit;
           sourceProvenance = [ lib.sourceTypes.fromSource ];
-          mainProgram = "jellyhaj";
           homepage = "https://github.com/owo-uwu-nyaa/jellyhaj";
         };
       };
