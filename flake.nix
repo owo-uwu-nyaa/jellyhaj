@@ -41,7 +41,7 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          rust-build = nix-rust-build.packages.${system}.rust-build;
+          rust-build = nix-rust-build.rust-build-from-pkgs pkgs;
           jellyhaj = pkgs.callPackage ./jellyhaj.nix { inherit rust-build; };
           writer = pkgs.callPackage ./checkFile { inherit jellyhaj; };
           inherit (writer) writeConfig writeKeybinds writeEffects;
