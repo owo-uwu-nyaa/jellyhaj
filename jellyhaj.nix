@@ -104,7 +104,7 @@ let
       };
       jellyhaj-bin = {
         nativeBuildInputs = [ installShellFiles ];
-        postInstall = ''
+        postBuild = ''
           echo installing desktop file
           install -Dm644 $src/jellyhaj.desktop $out/share/applications/jellyhaj.desktop       
           echo Generating jellyhaj completions
