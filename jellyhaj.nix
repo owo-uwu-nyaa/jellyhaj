@@ -91,16 +91,16 @@ let
       };
       config = {
         postPatch = "ln -s ${mkFiltered "migrations"}/migrations ..";
-        CARGO = sqlx-fake-cargo;
+        env.CARGO = sqlx-fake-cargo;
       };
       jellyhaj-event-listener = {
-        CARGO = sqlx-fake-cargo;
+        env.CARGO = sqlx-fake-cargo;
       };
       jellyhaj-image = {
-        CARGO = sqlx-fake-cargo;
+        env.CARGO = sqlx-fake-cargo;
       };
       jellyhaj-login-view = {
-        CARGO = sqlx-fake-cargo;
+        env.CARGO = sqlx-fake-cargo;
       };
       jellyhaj-bin = {
         nativeBuildInputs = [ installShellFiles ];

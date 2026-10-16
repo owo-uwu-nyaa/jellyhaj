@@ -95,7 +95,7 @@ mod mpv_state {
 }
 
 /// Marker for the current state of mpv
-pub trait State: mpv_state::StateSealed {}
+pub trait State: mpv_state::StateSealed + Send {}
 /// Mpv is initializing
 ///
 /// At this stage you can set options some of which can not be changed while the player is running.

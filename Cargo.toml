@@ -157,14 +157,14 @@ members = [
 ansi-to-tui = "8.0.0"
 arcshift = "0.4.2"
 aws-lc-rs = {default-features = false, version = "1.13.3"}
-base64 = "0.22.1"
+base64 = "0.23.1"
 bindgen = "0.73.1"
 bytes = "1.9.0"
 clap = {features = ["cargo", "derive"], version = "4.5.23"}
 clap_complete = "4.6.11"
 clap_complete_nushell = "4.6.2"
 color-eyre = "0.6.5"
-convert_case = "0.10.0"
+convert_case = "0.12.0"
 crossterm = {features = ["event-stream"], version = "0.29.0"}
 dirs = "7.0.0"
 either = "1.15.0"
@@ -211,7 +211,7 @@ tui-logger = {features = ["tracing-support"], version = "0.18.0"}
 tui-tree-widget = "0.24.0"
 valuable = {features = ["derive"], version = "0.1.1"}
 whoami = {default-features = false, version = "2.0.2"}
-zbus = {default-features = false, features = ["tokio"], version = "5.11.0"}
+zbus = {default-features = false, features = ["tokio"], version = "6.0.0"}
 jiff = {version = "0.2.35", features = ["serde"]}
 pretty_assertions = "1.4.1"
 prettydiff = "0.9.0"
