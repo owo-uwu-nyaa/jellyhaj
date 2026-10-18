@@ -12,10 +12,10 @@ use player_core::PlayerHandle;
 use tokio::sync::{broadcast::error::RecvError, mpsc::UnboundedSender};
 use tracing::{info, warn};
 use zbus::{
+    Variant,
     fdo::Properties,
     names::InterfaceName,
     object_server::{Interface, SignalEmitter},
-    zvariant::Value,
 };
 
 trait TraceError {
@@ -41,13 +41,13 @@ const MPRIS: &str = "/org/mpris/MediaPlayer2";
 async fn property_changed<I: Interface>(
     emitter: &SignalEmitter<'_>,
     name: &'static str,
-    val: impl Into<Value<'_>>,
+    val: impl Into<Variant<'_>>,
 ) {
     async fn inner(
         emitter: &SignalEmitter<'_>,
         inter_name: InterfaceName<'static>,
         name: &'static str,
-        val: Value<'_>,
+        val: Variant<'_>,
     ) {
         let mut changed = HashMap::with_capacity(1);
         changed.insert(name, val);
@@ -74,14 +74,14 @@ pub async fn run_mpris_service(
     let mp2 = MediaPlayer2::new(handle.clone(), state.clone(), widget_sender);
     let p = Player::new(handle.clone(), jellyfin.clone(), state.clone());
     let t = TrackList::new(handle.clone(), jellyfin.clone(), state.clone());
-    let conn = zbus::connection::Builder::session()?
+    let conn = zbus::connection::Builder::session()
         .name(format!(
             "org.mpris.MediaPlayer2.jellyhaj.i{}",
             std::process::id()
-        ))?
-        .serve_at(MPRIS, mp2)?
-        .serve_at(MPRIS, p)?
-        .serve_at(MPRIS, t)?
+        ))
+        .serve_at(MPRIS, mp2)
+        .serve_at(MPRIS, p)
+        .serve_at(MPRIS, t)
         .build()
         .await?;
     let emitter = SignalEmitter::new(&conn, MPRIS).context("getting signal emitter")?;

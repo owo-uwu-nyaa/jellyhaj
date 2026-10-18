@@ -2,10 +2,10 @@ use jellyfin::JellyfinClient;
 use player_core::{Command, PlayerHandle, state::SharedPlayerState};
 use tracing::error;
 use zbus::{
+    ObjectPath,
     fdo::{Error, Result},
     interface,
     object_server::SignalEmitter,
-    zvariant::ObjectPath,
 };
 
 use crate::types::{LoopStatus, Metadata, PlaybackStatus, parse_track_id};

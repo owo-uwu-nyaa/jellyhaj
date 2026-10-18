@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use jellyfin::{JellyfinClient, connect::JsonResponseHelper};
 use player_core::{Command, PlayerHandle, PlaylistItem, state::SharedPlayerState};
 use zbus::{
+    ObjectPath, OwnedObjectPath,
     fdo::{Error, Result},
     interface,
     object_server::SignalEmitter,
-    zvariant::{ObjectPath, OwnedObjectPath},
 };
 
 use crate::types::{Metadata, parse_track_id, track_id_as_object};

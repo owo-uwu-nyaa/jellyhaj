@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::HashMap, result::Result as StdResult};
 use tracing::error;
 use zbus::{
+    ObjectPath, OwnedObjectPath, Variant,
     fdo::{Error, Result},
-    zvariant::{ObjectPath, OwnedObjectPath, Type, Value, as_value},
+    zvariant::{Type, as_value},
 };
 
 pub fn track_id_as_object(id: Option<PlaylistItemId>) -> OwnedObjectPath {
@@ -61,7 +62,7 @@ pub fn parse_track_id(object: &ObjectPath<'_>) -> Result<Option<PlaylistItemId>>
     }
 }
 
-#[derive(Deserialize, Serialize, Type, Value, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Serialize, Type, Variant, PartialEq, Eq, Debug)]
 #[zvariant(signature = "s")]
 pub enum PlaybackStatus {
     Playing,
@@ -69,7 +70,7 @@ pub enum PlaybackStatus {
     Stopped,
 }
 
-#[derive(Deserialize, Serialize, Type, Value, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Serialize, Type, Variant, PartialEq, Eq, Debug)]
 #[zvariant(signature = "s")]
 pub enum LoopStatus {
     None,
@@ -102,18 +103,21 @@ pub struct Metadata {
     title: Option<String>,
 }
 
-impl From<Metadata> for Value<'static> {
+impl From<Metadata> for Variant<'static> {
     fn from(s: Metadata) -> Self {
         let mut fields = HashMap::new();
-        fields.insert("mpris:trackid", Value::from(track_id_as_object(s.trackid)));
+        fields.insert(
+            "mpris:trackid",
+            Variant::from(track_id_as_object(s.trackid)),
+        );
         if let Some(v) = s.length {
-            fields.insert("mpris:length", Value::from(v));
+            fields.insert("mpris:length", Variant::from(v));
         }
         if let Some(v) = s.image {
-            fields.insert("mpris:artUrl", Value::from(v));
+            fields.insert("mpris:artUrl", Variant::from(v));
         }
         if let Some(v) = s.title {
-            fields.insert("xesam:title", Value::from(v));
+            fields.insert("xesam:title", Variant::from(v));
         }
         fields.into()
     }
