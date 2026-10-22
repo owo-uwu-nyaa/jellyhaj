@@ -86,7 +86,7 @@ impl ConnectionConfig {
     pub async fn http1_base_connection(&self) -> Result<MaybeTls> {
         let stream = get_stream(&self.host, self.port).await?;
         let stream = if self.tls {
-            MaybeTls::Tcp {
+            MaybeTls::Tls {
                 stream: self.http1_config.connect(self.host.clone(), stream).await?,
             }
         } else {
@@ -449,7 +449,7 @@ pin_project! {
             #[pin]
             stream: TcpStream,
         },
-        Tcp {
+        Tls {
             #[pin]
             stream: TlsStream<TcpStream>,
         },
@@ -463,7 +463,7 @@ impl AsyncRead for MaybeTls {
     ) -> std::task::Poll<std::io::Result<()>> {
         match self.project() {
             MaybeTlsProj::Plain { stream } => stream.poll_read(cx, buf),
-            MaybeTlsProj::Tcp { stream } => stream.poll_read(cx, buf),
+            MaybeTlsProj::Tls { stream } => stream.poll_read(cx, buf),
         }
     }
 }
@@ -476,7 +476,7 @@ impl AsyncWrite for MaybeTls {
     ) -> std::task::Poll<std::result::Result<usize, std::io::Error>> {
         match self.project() {
             MaybeTlsProj::Plain { stream } => stream.poll_write(cx, buf),
-            MaybeTlsProj::Tcp { stream } => stream.poll_write(cx, buf),
+            MaybeTlsProj::Tls { stream } => stream.poll_write(cx, buf),
         }
     }
 
@@ -486,7 +486,7 @@ impl AsyncWrite for MaybeTls {
     ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
         match self.project() {
             MaybeTlsProj::Plain { stream } => stream.poll_flush(cx),
-            MaybeTlsProj::Tcp { stream } => stream.poll_flush(cx),
+            MaybeTlsProj::Tls { stream } => stream.poll_flush(cx),
         }
     }
 
@@ -496,7 +496,7 @@ impl AsyncWrite for MaybeTls {
     ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
         match self.project() {
             MaybeTlsProj::Plain { stream } => stream.poll_shutdown(cx),
-            MaybeTlsProj::Tcp { stream } => stream.poll_shutdown(cx),
+            MaybeTlsProj::Tls { stream } => stream.poll_shutdown(cx),
         }
     }
 
@@ -507,14 +507,14 @@ impl AsyncWrite for MaybeTls {
     ) -> std::task::Poll<std::result::Result<usize, std::io::Error>> {
         match self.project() {
             MaybeTlsProj::Plain { stream } => stream.poll_write_vectored(cx, bufs),
-            MaybeTlsProj::Tcp { stream } => stream.poll_write_vectored(cx, bufs),
+            MaybeTlsProj::Tls { stream } => stream.poll_write_vectored(cx, bufs),
         }
     }
 
     fn is_write_vectored(&self) -> bool {
         match self {
             Self::Plain { stream } => stream.is_write_vectored(),
-            Self::Tcp { stream } => stream.is_write_vectored(),
+            Self::Tls { stream } => stream.is_write_vectored(),
         }
     }
 }
