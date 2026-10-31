@@ -180,7 +180,7 @@ image = {default-features = false, features = ["png", "webp"], version = "0.25.5
 itertools = "0.15.0"
 log = "0.4.26"
 nix = "0.31.2"
-parking_lot = "0.12.3"
+parking_lot = "0.13.0"
 pin-project-lite = "0.2.16"
 pkg-config = "0.3.31"
 proc-macro2 = "1.0.94"
