@@ -7,17 +7,12 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nix-rust-build = {
-      url = "github:RobinMarchart/nix-rust-build";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
     {
       self,
       nixpkgs,
-      nix-rust-build,
       rust-overlay,
       ...
     }:
@@ -41,8 +36,7 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          rust-build = nix-rust-build.rust-build-from-pkgs pkgs;
-          jellyhaj = pkgs.callPackage ./jellyhaj.nix { inherit rust-build; };
+          jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
           writer = pkgs.callPackage ./checkFile { inherit jellyhaj; };
           inherit (writer) writeConfig writeKeybinds writeEffects;
           test-server = pkgs.callPackage ./jellyhaj-test-server { };
@@ -111,10 +105,9 @@
           overlays = {
             inherit jellyhaj;
             default = jellyhaj;
-            rust-build = nix-rust-build.overlays.default;
           };
           hmModules = {
-            default = import ./hm-module.nix nix-rust-build.rust-build-from-pkgs;
+            default = import ./hm-module.nix;
           };
         }
       )

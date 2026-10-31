@@ -1,4 +1,3 @@
-rust-build-from-pkgs:
 {
   config,
   lib,
@@ -15,7 +14,7 @@ let
     filterAttrs
     ;
   cfg = config.programs.jellyhaj;
-  jellyhaj = pkgs.callPackage ./jellyhaj.nix { rust-build = rust-build-from-pkgs pkgs; };
+  jellyhaj = pkgs.callPackage ./jellyhaj.nix { };
   writer = pkgs.callPackage ./checkFile {
     jellyhaj = cfg.package;
     debug = cfg.debugConfigChecker;

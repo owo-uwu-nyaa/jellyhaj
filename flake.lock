@@ -1,25 +1,5 @@
 {
   "nodes": {
-    "nix-rust-build": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1792183281,
-        "narHash": "sha256-pU03GgUK4BsItXgmyZqpC4k8/H8pvcCueCd7izUKVHg=",
-        "owner": "RobinMarchart",
-        "repo": "nix-rust-build",
-        "rev": "2f8c8c0960308d7fe2d8dc2d7d83ca975f71b998",
-        "type": "github"
-      },
-      "original": {
-        "owner": "RobinMarchart",
-        "repo": "nix-rust-build",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1793315900,
@@ -38,7 +18,6 @@
     },
     "root": {
       "inputs": {
-        "nix-rust-build": "nix-rust-build",
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay"
       }
