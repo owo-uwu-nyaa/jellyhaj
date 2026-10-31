@@ -69,12 +69,6 @@ rustPlatform.buildRustPackage {
   nativeInstallCheckInputs = [ versionCheckHook ];
   versionCheckProgramArg = "--version";
   doInstallCheck = true;
-  checkFlags = [
-    #some tests need internet access
-    "--skip=tests::properties"
-    "--skip=tests::node_map"
-    "--skip=tests::events"
-  ];
   cargoTestFlags = [ "--workspace" ];
   cargoBuildFlags = lib.optional withTools "--workspace";
   buildFeatures = (lib.optional withMpris "mpris") ++ (lib.optional withJournald "journald");

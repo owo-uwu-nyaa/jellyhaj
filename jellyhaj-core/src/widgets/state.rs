@@ -185,6 +185,19 @@ impl StateStack {
             visitor(&current.value);
         }
     }
+    #[instrument(skip_all, level = "debug")]
+    pub fn trace_stack(&self) {
+        let mut stack = Vec::new();
+        self.visit(|state| {
+            let name = match state {
+                StateValue::Suspended(suspended_inner) => suspended_inner.name,
+                StateValue::Empty => return,
+                StateValue::WithoutTui(_) => "external",
+            };
+            stack.push(name);
+        });
+        debug!(?stack, "current widget stack");
+    }
 }
 
 impl Default for StateStack {
@@ -228,7 +241,9 @@ impl Future for RenderLoop<'_> {
                 'pop_state: {
                     let _: Infallible = match this.loop_state.as_mut().project() {
                         RenderLoopStateProj::WithoutTui { fut } => {
-                            if let Err(e) = ready!(fut.poll_unpin(cx)) {
+                            let val = ready!(fut.poll_unpin(cx));
+                            let _ = this.term.clear();
+                            if let Err(e) = val {
                                 break 'new_state make_render((this.widget_creator)(
                                     NextScreen::Error(e),
                                 ));
@@ -250,6 +265,7 @@ impl Future for RenderLoop<'_> {
                                     }
                                     Navigation::Push(next_screen) => {
                                         this.state.push(widget, this.widget_creator.clone());
+                                        this.state.trace_stack();
                                         break 'new_state make_render((this.widget_creator)(
                                             next_screen,
                                         ));
@@ -262,12 +278,15 @@ impl Future for RenderLoop<'_> {
                                     }
                                     Navigation::Exit => return Poll::Ready(()),
                                     Navigation::PushWithoutTui(pin) => {
+                                        this.state.push(widget, this.widget_creator.clone());
+                                        this.state.trace_stack();
                                         break 'new_state make_without_tui(pin);
                                     }
                                 }
                             } else if let Some(next) = ready!(this.external.poll_recv(cx)) {
                                 let widget = widget.take().expect("polled after return?");
                                 this.state.push(widget, this.widget_creator.clone());
+                                this.state.trace_stack();
                                 break 'new_state make_render((this.widget_creator)(next));
                             }
                             if !*this.external_closed_detected {
@@ -303,6 +322,7 @@ impl Future for RenderLoop<'_> {
                         }
                     };
                 }
+                this.state.trace_stack();
                 break 'new_state match this.state.pop() {
                     StateValue::Suspended(suspended) => {
                         debug!("resuming suspended widget: {}", suspended.name);

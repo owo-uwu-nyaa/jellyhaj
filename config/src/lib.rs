@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use color_eyre::eyre::{Context, OptionExt, Result};
 use serde::Deserialize;
@@ -29,7 +29,7 @@ pub struct Config {
     pub effects: EffectStore,
     pub store_access_token: bool,
     pub dev_store_jellyfin_events: bool,
-    pub editor: Arc<[OsString]>,
+    pub editor: Arc<[String]>,
     pub force_image_fallback: bool,
 }
 
@@ -50,7 +50,7 @@ struct ParseConfig {
     #[serde(default)]
     pub dev_store_jellyfin_events: bool,
     #[serde(default)]
-    pub editor: Vec<OsString>,
+    pub editor: Vec<String>,
     #[serde(default)]
     pub force_image_fallback: bool,
 }

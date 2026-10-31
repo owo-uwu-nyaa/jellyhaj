@@ -291,12 +291,20 @@ impl<R: 'static> JellyhajWidget<R> for Editor {
             }
             EditorAction::Up => {
                 self.line = self.line.saturating_sub(1);
+                self.col = min(
+                    self.col,
+                    self.lines[self.line as usize].chars().map(|_| 1u16).sum(),
+                );
                 Ok(None)
             }
             EditorAction::Down => {
                 let l = self.line.saturating_add(1);
                 let m = u16::try_from(self.lines.len().strict_sub(1)).expect("to large");
                 self.line = min(l, m);
+                self.col = min(
+                    self.col,
+                    self.lines[self.line as usize].chars().map(|_| 1u16).sum(),
+                );
                 Ok(None)
             }
             EditorAction::Left => {
