@@ -61,7 +61,10 @@ pub mod support {
                     *pos -= 1;
                 }
             }
-            FormAction::Enter | FormAction::Quit | FormAction::Up | FormAction::Down => todo!(),
+            FormAction::Enter => {
+                // do nothing
+            }
+            FormAction::Quit | FormAction::Up | FormAction::Down => unreachable!(),
         }
     }
     #[instrument(level = "trace", ret)]
